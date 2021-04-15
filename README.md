@@ -1,3 +1,36 @@
+# DEG - Dynamic Exploration Graphs for fast approximate nearest neighbor search and navigation in large image datasets
+Header-only C++ DEG implementation with python bindings. Paper's code for the HNSW 200M SIFT experiment
+
+**TODO**
+- nice git structure 
+    https://github.com/martinus/map_benchmark/tree/master/external
+
+- replace hash map implementation (martinus/robin-hood-hashing)
+    https://martin.ankerl.com/2019/04/01/hashmap-benchmarks-01-overview/
+    https://github.com/ktprime/emhash
+
+    Fixed Size Vectors instead of hash maps for smaller graph degrees. Sorted by distance.
+    https://blog.quasardb.net/using-c-containers-efficiently
+    https://github.com/facebook/folly/blob/master/folly/docs/FBVector.md
+
+    Or HashSets for Longs (Dist,Id) with a custom hash method
+
+- replace bit set implementation
+    https://github.com/RoaringBitmap/RoaringBitmap
+
+
+
+
+**Introduction:**
+No data visualisation or exploration code. 
+
+
+
+
+
+
+
+
 # Hnswlib - fast approximate nearest neighbor search
 Header-only C++ HNSW implementation with python bindings. Paper's code for the HNSW 200M SIFT experiment
 

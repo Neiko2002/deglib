@@ -1,4 +1,4 @@
-#include "../hnswlib/hnswlib.h"
+#include "hnswlib.h"
 #include <thread>
 class StopW
 {

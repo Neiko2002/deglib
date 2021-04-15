@@ -2,7 +2,7 @@
 #include <fstream>
 #include <queue>
 #include <chrono>
-#include "hnswlib/hnswlib.h"
+#include "hnswlib.h"
 
 
 #include <unordered_set>
@@ -362,4 +362,14 @@ void sift_test1B() {
     return;
 
 
+}
+
+
+
+int main() {
+    std::cout << "Testing ..." << std::endl;
+    sift_test1B();
+    std::cout << "Test ok" << std::endl;
+
+    return 0;
 }

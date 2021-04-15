@@ -1,17 +1,18 @@
+
 // This is a test file for testing the interface
 //  >>> virtual std::vector<std::pair<dist_t, labeltype>>
 //  >>>    searchKnnCloserFirst(const void* query_data, size_t k) const;
 // of class AlgorithmInterface
 
-#include "../hnswlib/hnswlib.h"
+
+#include "hnswlib.h"
 
 #include <assert.h>
 
 #include <vector>
 #include <iostream>
 
-namespace
-{
+
 
 using idx_t = hnswlib::labeltype;
 
@@ -73,7 +74,6 @@ void test() {
     delete alg_hnsw;
 }
 
-} // namespace
 
 int main() {
     std::cout << "Testing ..." << std::endl;

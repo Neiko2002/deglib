@@ -8,14 +8,14 @@ namespace hnswlib {
     template<typename dist_t>
     class BruteforceSearch : public AlgorithmInterface<dist_t> {
     public:
-        BruteforceSearch(SpaceInterface <dist_t> *s) {
+        BruteforceSearch(SpaceInterface<dist_t> *s) {
 
         }
         BruteforceSearch(SpaceInterface<dist_t> *s, const std::string &location) {
             loadIndex(location, s);
         }
 
-        BruteforceSearch(SpaceInterface <dist_t> *s, size_t maxElements) {
+        BruteforceSearch(SpaceInterface<dist_t> *s, size_t maxElements) {
             maxelements_ = maxElements;
             data_size_ = s->get_data_size();
             fstdistfunc_ = s->get_dist_func();
