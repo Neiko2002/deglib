@@ -11,9 +11,9 @@ set(PROJECT_DESCRIPTION " Dynamic Exploration Graphs for fast approximate neares
 set(PROJECT_VERSION "0.0.1")
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html
-#set(CMAKE_CXX_STANDARD 17)
-#set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # detecting CPU instruction support
 # https://github.com/lemire/FastPFor/blob/master/CMakeLists.txt

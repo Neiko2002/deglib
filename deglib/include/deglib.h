@@ -1,10 +1,17 @@
-#ifndef TSL_ROBIN_MAP_H
-#define TSL_ROBIN_MAP_H
+#ifndef DEG_DEGLIB_H
+#define DEG_DEGLIB_H
+
+#include "repository.h"
+#include "graph.h"
 
 namespace deglib
 {
 
+    int test_func() {
+        fmt::print("deglib test");
+        return 10;
+    }
 
-}  // end namespace tsl
+}  // end namespace deglib
 
 #endif
