@@ -52,8 +52,7 @@ void get_gt(float *mass, float *massQ, size_t vecsize, size_t qsize, L2Space &l2
     }
 }
 
-void
-get_gt(unsigned int *massQA, float *massQ, float *mass, size_t vecsize, size_t qsize, L2Space &l2space, size_t vecdim,
+void get_gt(unsigned int *massQA, float *massQ, float *mass, size_t vecsize, size_t qsize, L2Space &l2space, size_t vecdim,
        vector<std::priority_queue<std::pair<float, labeltype >>> &answers, size_t k) {
 
     //answers.swap(vector<std::priority_queue< std::pair< float, labeltype >>>(qsize));
