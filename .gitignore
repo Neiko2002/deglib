@@ -7,3 +7,6 @@ python_bindings/tests/__pycache__/
 hnswlib.cpython*.so
 var/
 .vscode/
+cmake-variants.yaml
+build-*
+data/
