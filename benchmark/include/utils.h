@@ -40,49 +40,6 @@ array_view<T> view_array(T * a, std::size_t n)
 }
 
 
-
-/*****************************************************
- * I/O functions for fvecs and ivecs
- * Reference https://github.com/facebookresearch/faiss/blob/e86bf8cae1a0ecdaee1503121421ed262ecee98c/demos/demo_sift1M.cpp
- *****************************************************/
-
-float* fvecs_read(const char* fname, size_t* d_out, size_t* n_out) {
-    FILE* f = fopen(fname, "r");
-    if (!f) {
-        fprintf(stderr, "could not open %s\n", fname);
-        perror("");
-        abort();
-    }
-    int d;
-    fread(&d, 1, sizeof(int), f);
-    assert((d > 0 && d < 1000000) || !"unreasonable dimension");
-    fseek(f, 0, SEEK_SET);
-    struct stat st;
-    fstat(fileno(f), &st);
-    size_t sz = st.st_size;
-    assert(sz % ((d + 1) * 4) == 0 || !"weird file size");
-    size_t n = sz / ((d + 1) * 4);
-
-    *d_out = d;
-    *n_out = n;
-    float* x = new float[n * (d + 1)];
-    size_t nr = fread(x, sizeof(float), n * (d + 1), f);
-    assert(nr == n * (d + 1) || !"could not read whole file");
-
-    // shift array to remove row headers
-    for (size_t i = 0; i < n; i++)
-        memmove(x + i * d, x + 1 + i * (d + 1), d * sizeof(*x));
-
-    fclose(f);
-    return x;
-}
-
-// not very clean, but works as long as sizeof(int) == sizeof(float)
-int* ivecs_read(const char* fname, size_t* d_out, size_t* n_out) {
-    return (int*)fvecs_read(fname, d_out, n_out);
-}
-
-
 // --------------------------------------------- int functions -------------------------------------------
 static void get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *mass, size_t vecsize, size_t qsize, L2SpaceI &l2space,
                    size_t vecdim, vector<std::priority_queue<std::pair<int, labeltype>>> &answers, size_t k)
@@ -242,7 +199,6 @@ static void test_vs_recall(float *massQ, size_t vecsize, size_t qsize, Hierarchi
     {
         appr_alg.setEf(ef);
         StopW stopw = StopW();
-
         float recall = test_approx(massQ, vecsize, qsize, appr_alg, vecdim, answers, k);
         float time_us_per_query = stopw.getElapsedTimeMicro() / qsize;
 

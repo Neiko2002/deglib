@@ -4,18 +4,25 @@
 #include <fmt/ranges.h>
 #include <stdio.h>
 #include <tsl/robin_map.h>
+#include <tsl/robin_set.h>
+#include  <float.h>
+
 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 
-#include "stopwatch.h"
+#include <string>
+#include <iostream>
+#include <limits>
+
 #include "arrayview.h"
 #include "deglib.h"
+#include "stopwatch.h"
 
 // not very clean, but works as long as sizeof(int) == sizeof(float)
-int32_t* ivecs_read(const char* fname, size_t* d_out, size_t* n_out) {
-  return (int32_t*)deglib::fvecs_read(fname, d_out, n_out);
+uint32_t* ivecs_read(const char* fname, size_t &d_out, size_t &n_out) {
+  return (uint32_t*)deglib::fvecs_read(fname, d_out, n_out);
 }
 
 void load_sift_data_test() {
@@ -23,11 +30,11 @@ void load_sift_data_test() {
 
   size_t dims;
   size_t count;
-  float* contiguous_features = deglib::fvecs_read(path_basedata, &dims, &count);
+  float* contiguous_features = deglib::fvecs_read(path_basedata, dims, count);
   fmt::print("dims {} count {} \n", dims, count);
 
   // https://www.oreilly.com/library/view/understanding-and-using/9781449344535/ch04.html
-  float** features = (float **) malloc(count * sizeof(float *));
+  float** features = (float**)malloc(count * sizeof(float*));
   for (size_t i = 0; i < count; i++) {
     features[i] = contiguous_features + i * dims;
   }
@@ -52,34 +59,53 @@ void hashmap_test() {
   }
 }
 
+int main() {
+  fmt::print("Testing ...\n");
 
-void load_graph_test() {
+  StopW stopw = StopW();
   auto path_graph =
       "c:/Data/Feature/SIFT1M/"
       "k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_"
       "WorstEdge0_cpp.graph";
-
-  StopW stopw = StopW();
   auto graph = deglib::load_graph(path_graph);
   float time_in_ms = stopw.getElapsedTimeMicro() / 1000;
   fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
 
-  auto it = graph.begin();
-  fmt::print("node id {}\n", it.value());
-}
+  const auto path_repository = "c:/Data/Feature/SIFT1M/sift_base.fvecs";
+  auto repository = deglib::load_repository(path_repository);
+  fmt::print("{} Base Features with {} dimensions \n", repository.size(), repository.dims());
+
+  const auto path_query_repository = "c:/Data/Feature/SIFT1M/sift_query.fvecs";
+  auto query_repository = deglib::load_statc_repository(path_query_repository);
+  fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
+
+  const auto path_query_groundtruth = "c:/Data/Feature/SIFT1M/sift_groundtruth.ivecs";
+  size_t dims;
+  size_t count;
+  auto ground_truth = ivecs_read(path_query_groundtruth, dims, count);
+  fmt::print("{} ground truth {} dimensions \n", count, dims);
+
+  const auto l2space = deglib::L2Space(repository.dims());
 
 
+  // reproduceable entry point for the graph search
+  auto entry_node_ids = std::vector<uint32_t>();
+  entry_node_ids.reserve(1);
+  auto it = repository.begin();
+  if(it != repository.end())
+    entry_node_ids.push_back(it.key());
 
-int main() {
-  fmt::print("Testing ...\n");
+  // reproduceable query for the graph search
+  auto query = query_repository.getFeature(0);
+  int k = 10;
+  float eps = 0.1;
+  auto result_queue = deglib::yahooSearch(graph, repository, entry_node_ids, query, l2space, eps, k);
 
-
-  auto* path_repository = "c:/Data/Feature/SIFT1M/sift_base.fvecs";
-  auto repo = deglib::load_repository(path_repository);
-  fmt::print("repo dims {}\n", repo.dims);
-
-  fmt::print("test_func {}\n", deglib::test_func());
-
+  while(result_queue.size() > 0) {
+    auto entry = result_queue.top();
+    result_queue.pop();
+    fmt::print("entry id {} and distance {} \n", entry.getId(), entry.getDistance());
+  }
 
   fmt::print("Test OK\n");
   return 0;

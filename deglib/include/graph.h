@@ -1,5 +1,4 @@
-#ifndef DEG_GRAPH_H
-#define DEG_GRAPH_H
+#pragma once
 
 #include <assert.h>
 #include <tsl/robin_map.h>
@@ -11,10 +10,24 @@
 namespace deglib {
 
 
+class Graph {
+ public:
+  Graph(tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>> nodes) : nodes_{nodes} {}
+
+  const size_t size() const { return nodes_.size(); }
+
+  const tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>>& nodes() const { return nodes_; }
+
+  const tsl::robin_map<uint32_t, float>& edges(const uint32_t nodeid) const { return nodes_.at(nodeid); }
+
+ private:
+  tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>> nodes_;
+};
+
 /**
  * Load the graph
  **/
-tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>> load_graph(
+Graph load_graph(
     const char* path_graph) {
   std::error_code ec{};
   auto file_size = std::filesystem::file_size(path_graph, ec);
@@ -43,22 +56,21 @@ tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>> load_graph(
 
   // the file only contains ints and floats
   auto file_values = (uint32_t*)buffer.get();
-  uint32_t nodeCount = *(file_values++);
-  auto graph =
-      tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>>(nodeCount);
+  const uint32_t nodeCount = *(file_values++);
+  auto nodes = tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>>(nodeCount);
   for (size_t nodeIdx = 0; nodeIdx < nodeCount; nodeIdx++) {
-    uint32_t nodeId = *(file_values++);
-    uint32_t edgeCount = *(file_values++);
+    const uint32_t nodeId = *(file_values++);
+    const uint32_t edgeCount = *(file_values++);
 
     auto edges = tsl::robin_map<uint32_t, float>(edgeCount);
     for (size_t edgeIdx = 0; edgeIdx < edgeCount; edgeIdx++) {
-      uint32_t neighborId = *(file_values++);
-      float weight = *(float*)(file_values++);
+      const uint32_t neighborId = *(file_values++);
+      const float weight = *(float*)(file_values++);
 
       edges[neighborId] = weight;
     }
 
-    graph[nodeId] = edges;
+    nodes[nodeId] = edges;
   }
 
   /*
@@ -93,9 +105,7 @@ tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>> load_graph(
   */
 
   ifstream.close();
-  return graph;
+  return Graph(nodes);
 }
     
 }  // namespace deglib
-
-#endif
