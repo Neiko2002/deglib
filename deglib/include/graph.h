@@ -9,8 +9,11 @@
 #include <iostream>
 #include <vector>
 
+#include "repository.h"
+
 namespace deglib
 {
+
 struct Neighbor
 {
     uint32_t id;
@@ -32,13 +35,13 @@ class Graph
     const auto& edges(const uint32_t nodeid) const { return nodes_.find(nodeid)->second; }
 
   private:
-    tsl::robin_map<uint32_t, std::vector<std::pair<uint32_t, float>>> nodes_;
+    tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, Neighbor>> nodes_;
 };
 
 /**
  * Load the graph
  **/
-Graph load_graph(const char* path_graph)
+Graph load_graph(const char* path_graph, const deglib::FeatureRepository &repository)
 {
     std::error_code ec{};
     auto file_size = std::filesystem::file_size(path_graph, ec);
@@ -65,61 +68,29 @@ Graph load_graph(const char* path_graph)
         perror("");
         abort();
     }
+    ifstream.close();
 
     // the file only contains ints and floats
     auto file_values = (uint32_t*)buffer.get();
-    const uint32_t nodeCount = *(file_values++);
-    auto graph = Graph(nodeCount);
+    const uint32_t node_count = *(file_values++);
+    auto graph = Graph(node_count);
     auto&& nodes = graph.nodes();
-    for (size_t nodeIdx = 0; nodeIdx < nodeCount; nodeIdx++)
+    for (uint32_t node_idx = 0; node_idx < node_count; node_idx++)
     {
-        const uint32_t nodeId = *(file_values++);
-        const uint32_t edgeCount = *(file_values++);
+        const auto node_id = *(file_values++);
+        const auto edge_count = *(file_values++);
 
-        auto edges = tsl::robin_map<uint32_t, float>(edgeCount);
-        for (size_t edgeIdx = 0; edgeIdx < edgeCount; edgeIdx++)
+        auto edges = tsl::robin_map<uint32_t, Neighbor>(edge_count);
+        for (uint32_t edge_idx = 0; edge_idx < edge_count; edge_idx++)
         {
-            const uint32_t neighborId = *(file_values++);
-            const float weight = *(float*)(file_values++);
-
-            edges[neighborId] = weight;
+            const auto neighbor_id = *(file_values++);
+            const auto distance = *(float*)(file_values++);
+            edges[neighbor_id] = {neighbor_id, distance, repository.getFeature(neighbor_id)};
         }
 
-        nodes[nodeId].assign(edges.begin(), edges.end());
+        nodes[node_id] = std::move(edges);
     }
 
-    /*
-      // read the file step by step
-      uint32_t nodeCount;
-      ifstream.read(reinterpret_cast<char*>(&nodeCount), sizeof(uint32_t));
-      fmt::print("node count {} \n", nodeCount);
-
-      auto graph =
-          tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, float>>(nodeCount);
-
-      for (size_t nodeIdx = 0; nodeIdx < nodeCount; nodeIdx++) {
-        uint32_t nodeId;
-        ifstream.read(reinterpret_cast<char*>(&nodeId), sizeof(uint32_t));
-
-        uint32_t edgeCount;
-        ifstream.read(reinterpret_cast<char*>(&edgeCount), sizeof(uint32_t));
-
-        auto edges = tsl::robin_map<uint32_t, float>(edgeCount);
-        for (size_t edgeIdx = 0; edgeIdx < edgeCount; edgeIdx++) {
-          uint32_t neighborId;
-          ifstream.read(reinterpret_cast<char*>(&neighborId), sizeof(int));
-
-          float weight;
-          ifstream.read(reinterpret_cast<char*>(&weight), sizeof(float));
-
-          edges[neighborId] = weight;
-        }
-
-        graph[nodeId] = edges;
-      }
-    */
-
-    ifstream.close();
     return graph;
 }
 

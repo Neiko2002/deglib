@@ -61,7 +61,7 @@ int test_func()
 
 }  // end namespace deglib
 
-#include "distances.h"
-#include "graph.h"
-#include "repository.h"
 #include "search.h"
+#include "distances.h"
+#include "repository.h"
+#include "graph.h"

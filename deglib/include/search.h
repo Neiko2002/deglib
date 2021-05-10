@@ -7,6 +7,10 @@
 #include <queue>
 #include <unordered_set>
 
+#include "distances.h"
+#include "repository.h"
+#include "graph.h"
+
 namespace deglib
 {
 //#pragma pack(2)
@@ -66,9 +70,8 @@ typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::gr
  * eps: parameter for the search
  * k: the amount of similar nodes which should be returned
  */
-deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicFeatureRepository& repository,
-                              const std::vector<deglib::ObjectDistance>& entry_nodes, const float* query,
-                              const deglib::L2Space& l2space, const float eps, const int k)
+deglib::ResultSet yahooSearch(const deglib::Graph& graph, const std::vector<deglib::ObjectDistance>& entry_nodes, 
+                              const float* query, const deglib::L2Space& l2space, const float eps, const int k)
 {
     const auto dist_func = l2space.get_dist_func();
     const auto dist_func_param = l2space.get_dist_func_param();
@@ -76,15 +79,22 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicF
     // set of checked node ids
     auto checked_ids = tsl::robin_set<uint32_t>();
     checked_ids.reserve(k * 50);  // estimated size 3000 to 5000 with k = 100
-    for (auto& node : entry_nodes) checked_ids.insert(node.getId());
+    for (auto& node : entry_nodes) 
+        checked_ids.insert(node.getId());
 
     // items to traverse next, start with the initial entry nodes
-    auto next_nodes = deglib::UncheckedSet();
-    for (auto& node : entry_nodes) next_nodes.push(node);
+    auto internal_next_nodes = std::vector<ObjectDistance>();
+    internal_next_nodes.reserve(1000);
+    auto next_nodes = deglib::UncheckedSet(std::greater<ObjectDistance>(), internal_next_nodes);
+    for (auto& node : entry_nodes) 
+        next_nodes.push(node);
 
     // result set
-    auto results = deglib::ResultSet();
-    for (auto& node : entry_nodes) results.push(node);
+    auto internal_result = std::vector<ObjectDistance>();
+    internal_result.reserve(k+1);
+    auto results = deglib::ResultSet(std::less<ObjectDistance>(), internal_result);
+    for (auto& node : entry_nodes) 
+        results.push(node);
 
     // search radius
     auto r = std::numeric_limits<float>::max();
@@ -97,7 +107,8 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicF
         next_nodes.pop();
 
         // max distance reached
-        if (next_node.getDistance() > r * (1 + eps)) break;
+        if (next_node.getDistance() > r * (1 + eps)) 
+            break;
 
         // traverse never seen nodes
         auto&& edges = graph.edges(next_node.getId());
@@ -108,20 +119,18 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicF
             // check if this node was not searched before
             if (checked_ids.insert(neighbor_id).second)
             {
-                const auto neighbor_feature = repository.getFeature(neighbor_id);
+                const auto neighbor_feature = edge.second.feature_vector;
                 const auto neighbor_distance = dist_func(query, neighbor_feature, dist_func_param);
-                // dist_calcs++;
 
                 // check the neighborhood of this node later, if its good enough
                 if (neighbor_distance <= r * (1 + eps))
                 {
-                    const auto candidate = deglib::ObjectDistance(neighbor_id, neighbor_distance);
-                    next_nodes.push(candidate);
+                    next_nodes.emplace(neighbor_id, neighbor_distance);
 
                     // remember the node, if its better than the worst in the result list
                     if (neighbor_distance < r)
                     {
-                        results.push(candidate);
+                        results.emplace(neighbor_id, neighbor_distance);
 
                         // update the search radius
                         if (results.size() > k)
@@ -135,8 +144,6 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicF
         }
     }
 
-    // fmt::print("{} checked_ids, {} next_nodes, {} dist_calcs\n", checked_ids.size(), next_nodes.size(), dist_calcs);
-
     return results;
 }
 
@@ -148,7 +155,7 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicF
  * eps: parameter for the search
  * k: the amount of similar nodes which should be returned
  */
-deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicFeatureRepository& repository,
+deglib::ResultSet yahooSearch(const deglib::Graph& graph, deglib::DynamicFeatureRepository& repository,
                               const std::vector<uint32_t>& entry_node_ids, const float* query,
                               const deglib::L2Space& l2space, const float eps, const int k)
 {
@@ -164,7 +171,7 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::DynamicF
         entry_nodes.push_back(deglib::ObjectDistance(id, distance));
     }
 
-    return yahooSearch(graph, repository, entry_nodes, query, l2space, eps, k);
+    return yahooSearch(graph, entry_nodes, query, l2space, eps, k);
 }
 
 }  // namespace deglib

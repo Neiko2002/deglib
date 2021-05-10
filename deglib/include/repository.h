@@ -18,7 +18,8 @@ namespace deglib
  */
 class FeatureRepository
 {
-    virtual const float* getFeature(const uint32_t nodeid) const = 0;
+    public:
+        virtual const float* getFeature(const uint32_t nodeid) const = 0;
 };
 
 /**
@@ -48,7 +49,7 @@ class StaticFeatureRepository : public FeatureRepository
  * A repository of float feature vectors. This  the repository deals
  * with static data, a single contiguous array is preserved internally.
  */
-class DynamicFeatureRepository
+class DynamicFeatureRepository : public FeatureRepository
 {
   public:
     DynamicFeatureRepository(tsl::robin_map<uint32_t, const float*> features, const size_t dims)
@@ -148,7 +149,7 @@ DynamicFeatureRepository load_repository(const char* path_repository)
 
     // TODO use shared_ptr in the map
     auto feature_map = tsl::robin_map<uint32_t, const float*>(count);
-    for (size_t i = 0; i < count; i++)
+    for (uint32_t i = 0; i < count; i++)
     {
         feature_map[i] = contiguous_features + i * dims;
     }

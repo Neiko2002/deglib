@@ -98,7 +98,11 @@ int main()
     int efConstruction = 500;
     int M = 96;
 
+
+    fmt::print("Testing  ...\n");
+    
     auto data_path = std::filesystem::path(DATA_PATH);
+    fmt::print("Data dir  {} \n", data_path.string().c_str());
 
     const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
     const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();

@@ -27,7 +27,7 @@ static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* gr
     return answers;
 }
 
-static float test_approx(const deglib::Graph& graph, const deglib::DynamicFeatureRepository& repository,
+static float test_approx(const deglib::Graph& graph, deglib::DynamicFeatureRepository& repository,
                          const std::vector<uint32_t>& entry_node_ids,
                          const deglib::StaticFeatureRepository& query_repository,
                          const std::vector<tsl::robin_set<uint32_t>>& ground_truth, const deglib::L2Space& l2space,
@@ -37,8 +37,8 @@ static float test_approx(const deglib::Graph& graph, const deglib::DynamicFeatur
     size_t total = 0;
     for (int i = 0; i < query_repository.size(); i++)
     {
-        auto gt = ground_truth[i];
-        auto query = query_repository.getFeature(i);
+        const auto gt = ground_truth[i];
+        const auto query = query_repository.getFeature(i);
         auto result_queue = deglib::yahooSearch(graph, repository, entry_node_ids, query, l2space, eps, k);
 
         total += gt.size();
@@ -52,16 +52,18 @@ static float test_approx(const deglib::Graph& graph, const deglib::DynamicFeatur
     return 1.0f * correct / total;
 }
 
-static void test_vs_recall(const deglib::Graph& graph, const deglib::DynamicFeatureRepository& repository,
-                           deglib::StaticFeatureRepository& query_repository,
+static void test_vs_recall(const deglib::Graph& graph, deglib::DynamicFeatureRepository& repository,
+                           const deglib::StaticFeatureRepository& query_repository,
                            const std::vector<tsl::robin_set<uint32_t>>& ground_truth, const deglib::L2Space& l2space,
-                           const int k)
+                           const uint32_t k)
 {
     // reproduceable entry point for the graph search
-    auto entry_node_ids = std::vector<uint32_t>();
+    auto entry_node_ids = std::vector<uint32_t> {0};
+    /*auto entry_node_ids = std::vector<uint32_t>();
     entry_node_ids.reserve(1);
     const auto it = repository.cbegin();
-    if (it != repository.cend()) entry_node_ids.push_back(it->first);
+    if (it != repository.cend()) 
+        entry_node_ids.push_back(it->first);*/
 
     //
     std::vector<float> eps_parameter = {0.1, 0.12, 0.14};
@@ -82,21 +84,30 @@ static void test_vs_recall(const deglib::Graph& graph, const deglib::DynamicFeat
 
 int main()
 {
+    fmt::print("Testing  ...\n");
+
+    #if defined(USE_AVX)
+        fmt::print("use AVX2  ...\n");
+    #elif defined(USE_SSE)
+        fmt::print("use SSE  ...\n");
+    #else
+        fmt::print("use arch  ...\n");
+    #endif
+
     auto data_path = std::filesystem::path(DATA_PATH);
-
-    fmt::print("Testing ...\n");
-
-    StopW stopw = StopW();
-    auto path_graph =
-        (data_path / "k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_WorstEdge0_cpp.graph")
-            .string();
-    auto graph = deglib::load_graph(path_graph.c_str());
-    float time_in_ms = stopw.getElapsedTimeMicro() / 1000;
-    fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
+    fmt::print("Data dir  {} \n", data_path.string().c_str());
 
     const auto path_repository = (data_path / "SIFT1M/sift_base.fvecs").string();
     auto repository = deglib::load_repository(path_repository.c_str());
     fmt::print("{} Base Features with {} dimensions \n", repository.size(), repository.dims());
+
+    StopW stopw = StopW();
+    const auto path_graph =
+        (data_path / "k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_WorstEdge0_cpp.graph")
+            .string();
+    auto graph = deglib::load_graph(path_graph.c_str(), repository);
+    float time_in_ms = stopw.getElapsedTimeMicro() / 1000;
+    fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
 
     const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
     auto query_repository = deglib::load_statc_repository(path_query_repository.c_str());
@@ -111,10 +122,12 @@ int main()
     const auto l2space = deglib::L2Space(repository.dims());
 
     // reproduceable entry point for the graph search
-    auto entry_node_ids = std::vector<uint32_t>();
+    auto entry_node_ids = std::vector<uint32_t> {0};
+    /*auto entry_node_ids = std::vector<uint32_t>();
     entry_node_ids.reserve(1);
     auto it = repository.begin();
-    if (it != repository.end()) entry_node_ids.push_back(it->first);
+    if (it != repository.end()) 
+        entry_node_ids.push_back(it->first);*/
 
     // reproduceable query for the graph search
     {
@@ -132,11 +145,12 @@ int main()
     }
 
     // test ground truth
-    size_t k = 100;  // k at test time
+    uint32_t k = 100;  // k at test time
     fmt::print("Parsing gt:\n");
     auto answer = get_ground_truth(ground_truth, query_repository.size(), k);
     fmt::print("Loaded gt:\n");
-    for (int i = 0; i < 1; i++) test_vs_recall(graph, repository, query_repository, answer, l2space, k);
+    for (int i = 0; i < 1; i++) 
+        test_vs_recall(graph, repository, query_repository, answer, l2space, k);
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
 
     fmt::print("Test OK\n");

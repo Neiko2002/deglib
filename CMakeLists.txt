@@ -78,15 +78,9 @@ elseif(MSVC)
     target_compile_options(compile-options INTERFACE /arch:native)
   endif()
 
-  target_compile_options(compile-options INTERFACE $<$<CONFIG:Release>:/Ox>)
-
   # disable string optimizations and function level linking
   # https://stackoverflow.com/questions/5063334/what-is-the-difference-between-the-ox-and-o2-compiler-options
-  # string(REGEX REPLACE "/O2" "/Ox" CMAKE_CXX_FLAGS_RELEASE
-  # ${CMAKE_CXX_FLAGS_RELEASE})
-
-  # old settings set( CMAKE_CXX_FLAGS  "-Ofast -lrt -DNDEBUG -std=c++11
-  # -DHAVE_CXX0X -openmp -march=native -fpic -w -fopenmp -ftree-vectorize" )
+  target_compile_options(compile-options INTERFACE $<$<CONFIG:Release>:/Ox>)
 endif()
 
 message("C++ compiler flags: ${CMAKE_CXX_FLAGS}")
