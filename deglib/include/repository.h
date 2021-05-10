@@ -19,6 +19,8 @@ namespace deglib
 class FeatureRepository
 {
     public:
+        virtual size_t dims() const = 0;
+        virtual size_t size() const = 0;
         virtual const float* getFeature(const uint32_t nodeid) const = 0;
 };
 
@@ -34,9 +36,8 @@ class StaticFeatureRepository : public FeatureRepository
     {
     }
 
-    const size_t& dims() const { return dims_; }
-    const size_t& size() const { return count_; }
-
+    size_t dims() const override { return dims_; }
+    size_t size() const override { return count_; }
     const float* getFeature(const uint32_t nodeid) const override { return contiguous_features_ + nodeid * dims_; }
 
   private:
@@ -57,10 +58,9 @@ class DynamicFeatureRepository : public FeatureRepository
     {
     }
 
-    const size_t& dims() const { return dims_; }
-    const size_t size() const { return features_.size(); }
-
-    const float* getFeature(const uint32_t nodeid) const { return features_.find(nodeid)->second; }
+    size_t dims() const override { return dims_; }
+    size_t size() const override { return features_.size(); }
+    const float* getFeature(const uint32_t nodeid) const override { return features_.find(nodeid)->second; }
 
     auto begin() { return features_.begin(); }
 
@@ -117,7 +117,8 @@ float* fvecs_read(const char* fname, size_t& d_out, size_t& n_out)
     float* x = new float[n * (dims + 1)];
     ifstream.seekg(0);
     ifstream.read(reinterpret_cast<char*>(x), n * (dims + 1) * sizeof(float));
-    if (!ifstream) assert(ifstream.gcount() == n * (dims + 1) || !"could not read whole file");
+    if (!ifstream) 
+        assert(ifstream.gcount() == static_cast<int>(n * (dims + 1)) || !"could not read whole file");
 
     // shift array to remove row headers
     for (size_t i = 0; i < n; i++) memmove(x + i * dims, x + 1 + i * (dims + 1), dims * sizeof(float));
@@ -126,7 +127,7 @@ float* fvecs_read(const char* fname, size_t& d_out, size_t& n_out)
     return x;
 }
 
-StaticFeatureRepository load_statc_repository(const char* path_repository)
+StaticFeatureRepository load_static_repository(const char* path_repository)
 {
     size_t dims;
     size_t count;
