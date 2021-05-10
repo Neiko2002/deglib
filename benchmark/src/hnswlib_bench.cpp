@@ -50,7 +50,8 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
                            const std::vector<tsl::robin_set<size_t>>& ground_truth, const size_t query_dims,
                            const size_t k)
 {
-    std::vector<size_t> efs;  // = { 10,10,10,10,10 };
+    std::vector<size_t> efs = { 100, 140, 180 };
+    /*std::vector<size_t> efs;  // = { 10,10,10,10,10 };
     for (int i = k; i < 30; i++)
     {
         efs.push_back(i);
@@ -62,7 +63,7 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
     for (int i = std::max<size_t>(100, k); i < 500; i += 40)
     {
         efs.push_back(i);
-    }
+    }*/
     for (size_t ef : efs)
     {
         appr_alg.setEf(ef);

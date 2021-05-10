@@ -103,6 +103,7 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const std::vector<degl
     auto r = std::numeric_limits<float>::max();
 
     // iterate as long as good elements are in the next_nodes queue
+    auto good_neighbors = std::vector<deglib::Neighbor>(24);
     while (next_nodes.empty() == false)
     {
         // next node to check
@@ -113,37 +114,39 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const std::vector<degl
         if (next_node.getDistance() > r * (1 + eps)) 
             break;
 
-        // traverse never seen nodes
-        auto&& edges = graph.edges(next_node.getId());
-        for (auto& edge : edges)
-        {
-            const auto neighbor_id = edge.first;
-            _mm_prefetch((char *) edge.second.feature_vector, _MM_HINT_T0); 
+        good_neighbors.clear();
+        for (auto& edge : graph.edges(next_node.getId())) {
+            const auto &neighbor = edge.second;
+            if (checked_ids[neighbor.id] == false)  {
+                checked_ids[neighbor.id] = true;
+                good_neighbors.emplace_back(std::move(neighbor));
+            }
+        }
 
-            // check if this node was not searched before
-            //if (checked_ids.insert(neighbor_id).second) {
-            if (checked_ids[neighbor_id] == false)  {
-                checked_ids[neighbor_id] = true;
+        _mm_prefetch((char *) good_neighbors[0].feature_vector, _MM_HINT_T0); 
+        for (size_t i = 0; i < good_neighbors.size(); i++) { 
+            _mm_prefetch((char *) good_neighbors[i+1].feature_vector, _MM_HINT_T0); 
 
-                const auto neighbor_feature = edge.second.feature_vector;
-                const auto neighbor_distance = dist_func(query, neighbor_feature, dist_func_param);
+            const auto& neighbor = good_neighbors[i];       
+            const auto neighbor_id = neighbor.id;
+            const auto neighbor_feature = neighbor.feature_vector;
+            const auto neighbor_distance = dist_func(query, neighbor_feature, dist_func_param);
 
-                // check the neighborhood of this node later, if its good enough
-                if (neighbor_distance <= r * (1 + eps))
+            // check the neighborhood of this node later, if its good enough
+            if (neighbor_distance <= r * (1 + eps))
+            {
+                next_nodes.emplace(neighbor_id, neighbor_distance);
+
+                // remember the node, if its better than the worst in the result list
+                if (neighbor_distance < r)
                 {
-                    next_nodes.emplace(neighbor_id, neighbor_distance);
+                    results.emplace(neighbor_id, neighbor_distance);
 
-                    // remember the node, if its better than the worst in the result list
-                    if (neighbor_distance < r)
+                    // update the search radius
+                    if (results.size() > k)
                     {
-                        results.emplace(neighbor_id, neighbor_distance);
-
-                        // update the search radius
-                        if (results.size() > k)
-                        {
-                            results.pop();
-                            r = results.top().getDistance();
-                        }
+                        results.pop();
+                        r = results.top().getDistance();
                     }
                 }
             }
@@ -225,6 +228,7 @@ deglib::ResultSet yahooSearchStatic(const deglib::StaticGraph& graph, const std:
     auto r = std::numeric_limits<float>::max();
 
     // iterate as long as good elements are in the next_nodes queue
+    auto good_neighbors = std::vector<deglib::Neighbor>(24);
     while (next_nodes.empty() == false)
     {
         // next node to check
@@ -235,40 +239,38 @@ deglib::ResultSet yahooSearchStatic(const deglib::StaticGraph& graph, const std:
         if (next_node.getDistance() > r * (1 + eps)) 
             break;
 
-        //_mm_prefetch((char *) query, _MM_HINT_T0); 
+        good_neighbors.clear();
+        for (auto& neighbor : graph.edges(next_node.getId())) {
+            if (checked_ids[neighbor.id] == false)  {
+                checked_ids[neighbor.id] = true;
+                good_neighbors.emplace_back(std::move(neighbor));
+            }
+        }
 
-        // traverse never seen nodes
-        //for (auto& edge : graph.edges(next_node.getId())) {
-        const auto& edges = graph.edges(next_node.getId());
-        for (size_t i = 0; i < edges.size(); i++) { 
-            const auto& edge = edges[i];       
-            const auto neighbor_id = edge.id;
+        _mm_prefetch((char *) good_neighbors[0].feature_vector, _MM_HINT_T0); 
+        for (size_t i = 0; i < good_neighbors.size(); i++) { 
+            _mm_prefetch((char *) good_neighbors[i+1].feature_vector, _MM_HINT_T0); 
 
-            _mm_prefetch((char *) edges[i+1].feature_vector, _MM_HINT_T0); 
+            const auto& neighbor = good_neighbors[i];       
+            const auto neighbor_id = neighbor.id;
+            const auto neighbor_feature = neighbor.feature_vector;
+            const auto neighbor_distance = dist_func(query, neighbor_feature, dist_func_param);
+            
+            // check the neighborhood of this node later, if its good enough
+            if (neighbor_distance <= r * (1 + eps))
+            {
+                next_nodes.emplace(neighbor_id, neighbor_distance);
 
-            // check if this node was not searched before
-            if (checked_ids[neighbor_id] == false)  {
-                checked_ids[neighbor_id] = true;
-
-                const auto neighbor_feature = edge.feature_vector;
-                const auto neighbor_distance = dist_func(query, neighbor_feature, dist_func_param);
-
-                // check the neighborhood of this node later, if its good enough
-                if (neighbor_distance <= r * (1 + eps))
+                // remember the node, if its better than the worst in the result list
+                if (neighbor_distance < r)
                 {
-                    next_nodes.emplace(neighbor_id, neighbor_distance);
+                    results.emplace(neighbor_id, neighbor_distance);
 
-                    // remember the node, if its better than the worst in the result list
-                    if (neighbor_distance < r)
+                    // update the search radius
+                    if (results.size() > k)
                     {
-                        results.emplace(neighbor_id, neighbor_distance);
-
-                        // update the search radius
-                        if (results.size() > k)
-                        {
-                            results.pop();
-                            r = results.top().getDistance();
-                        }
+                        results.pop();
+                        r = results.top().getDistance();
                     }
                 }
             }

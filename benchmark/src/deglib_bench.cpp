@@ -203,15 +203,15 @@ int main()
     const auto path_graph =
         (data_path / "k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_WorstEdge0_cpp.graph")
             .string();
-    //auto static_graph = deglib::load_static_graph(path_graph.c_str(), repository);
-    //fmt::print("static graph node count {} \n", static_graph.size());
+    auto static_graph = deglib::load_static_graph(path_graph.c_str(), repository);
+    fmt::print("static graph node count {} \n", static_graph.size());
 
-    
+    /*
     StopW stopw = StopW();
     auto graph = deglib::load_graph(path_graph.c_str(), repository);
     float time_in_ms = stopw.getElapsedTimeMicro() / 1000;
     fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
-    
+    */
 
     const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
     auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
@@ -223,8 +223,8 @@ int main()
     auto ground_truth = ivecs_read(path_query_groundtruth.c_str(), dims, count);
     fmt::print("{} ground truth {} dimensions \n", count, dims);
 
-    test_graph(graph, repository, query_repository, ground_truth);
-    //test_static_graph(static_graph, repository, query_repository, ground_truth);
+    //test_graph(graph, repository, query_repository, ground_truth);
+    test_static_graph(static_graph, repository, query_repository, ground_truth);
 
     fmt::print("Test OK\n");
     return 0;
