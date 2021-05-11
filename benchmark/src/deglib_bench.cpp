@@ -7,7 +7,8 @@
 // not very clean, but works as long as sizeof(int) == sizeof(float)
 uint32_t* ivecs_read(const char* fname, size_t& d_out, size_t& n_out)
 {
-    return (uint32_t*)deglib::fvecs_read(fname, d_out, n_out);
+    // memory leak
+    return (uint32_t*)deglib::fvecs_read(fname, d_out, n_out).release();
 }
 
 static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* ground_truth,
