@@ -7,7 +7,8 @@
 // not very clean, but works as long as sizeof(int) == sizeof(float)
 uint32_t* ivecs_read(const char* fname, size_t& d_out, size_t& n_out)
 {
-    return (uint32_t*)deglib::fvecs_read(fname, d_out, n_out);
+    // memory leak
+    return (uint32_t*)deglib::fvecs_read(fname, d_out, n_out).release();
 }
 
 static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* ground_truth,
@@ -61,7 +62,7 @@ static void test_vs_recall(const deglib::Graph& graph, deglib::FeatureRepository
     auto entry_node_ids = std::vector<uint32_t> {0};
 
     // try different eps values for the search radius
-    std::vector<float> eps_parameter = {0.1, 0.12, 0.14};
+    std::vector<float> eps_parameter = {0.1, 0.12, 0.14, 0.16};
     for (float eps : eps_parameter)
     {
         StopW stopw = StopW();
@@ -149,7 +150,7 @@ static void test_vs_recall_static(const deglib::StaticGraph& graph, deglib::Feat
     auto entry_node_ids = std::vector<uint32_t> {0};
 
     // try different eps values for the search radius
-    std::vector<float> eps_parameter = {0.1, 0.12, 0.14};
+    std::vector<float> eps_parameter = {0.1, 0.12, 0.14, 0.16};
     for (float eps : eps_parameter)
     {
         StopW stopw = StopW();

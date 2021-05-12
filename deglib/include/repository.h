@@ -18,10 +18,11 @@ namespace deglib
  */
 class FeatureRepository
 {
-    public:
-        virtual size_t dims() const = 0;
-        virtual size_t size() const = 0;
-        virtual const float* getFeature(const uint32_t nodeid) const = 0;
+  public:
+    virtual size_t dims() const = 0;
+    virtual size_t size() const = 0;
+    virtual const float* getFeature(const uint32_t nodeid) const = 0;
+    virtual void clear() = 0;
 };
 
 /**
@@ -31,19 +32,20 @@ class FeatureRepository
 class StaticFeatureRepository : public FeatureRepository
 {
   public:
-    StaticFeatureRepository(const float* contiguous_features, const size_t dims, const size_t count)
-        : contiguous_features_{contiguous_features}, dims_{dims}, count_{count}
+    StaticFeatureRepository(std::unique_ptr<float[]> contiguous_features, const size_t dims, const size_t count)
+        : contiguous_features_{std::move(contiguous_features)}, dims_{dims}, count_{count}
     {
     }
 
     size_t dims() const override { return dims_; }
     size_t size() const override { return count_; }
-    const float* getFeature(const uint32_t nodeid) const override { return contiguous_features_ + nodeid * dims_; }
+    const float* getFeature(const uint32_t nodeid) const override { return &contiguous_features_[nodeid * dims_]; }
+    void clear() override { contiguous_features_.reset(); }
 
   private:
     const size_t dims_;
     const size_t count_;
-    const float* contiguous_features_;
+    std::unique_ptr<float[]> contiguous_features_;
 };
 
 /**
@@ -53,14 +55,20 @@ class StaticFeatureRepository : public FeatureRepository
 class DynamicFeatureRepository : public FeatureRepository
 {
   public:
-    DynamicFeatureRepository(tsl::robin_map<uint32_t, const float*> features, const size_t dims)
-        : features_{std::move(features)}, dims_{dims}
+    DynamicFeatureRepository(std::unique_ptr<float[]> contiguous_features,
+                             tsl::robin_map<uint32_t, const float*> features, const size_t dims)
+        : contiguous_features_{std::move(contiguous_features)}, features_{std::move(features)}, dims_{dims}
     {
     }
 
     size_t dims() const override { return dims_; }
     size_t size() const override { return features_.size(); }
     const float* getFeature(const uint32_t nodeid) const override { return features_.find(nodeid)->second; }
+    void clear() override
+    {
+        contiguous_features_.reset();
+        features_.clear();
+    }
 
     auto begin() { return features_.begin(); }
 
@@ -76,6 +84,7 @@ class DynamicFeatureRepository : public FeatureRepository
 
   private:
     const size_t dims_;
+    std::unique_ptr<float[]> contiguous_features_;
     tsl::robin_map<uint32_t, const float*> features_;
 };
 
@@ -85,7 +94,7 @@ class DynamicFeatureRepository : public FeatureRepository
  *https://github.com/facebookresearch/faiss/blob/e86bf8cae1a0ecdaee1503121421ed262ecee98c/demos/demo_sift1M.cpp
  *****************************************************/
 
-float* fvecs_read(const char* fname, size_t& d_out, size_t& n_out)
+auto fvecs_read(const char* fname, size_t& d_out, size_t& n_out)
 {
     std::error_code ec{};
     auto file_size = std::filesystem::file_size(fname, ec);
@@ -114,14 +123,14 @@ float* fvecs_read(const char* fname, size_t& d_out, size_t& n_out)
     n_out = n;
 
     // TODO use make_unique
-    float* x = new float[n * (dims + 1)];
+    auto x = std::make_unique<float[]>(n * (dims + 1));
+    // float* x = new float[n * (dims + 1)];
     ifstream.seekg(0);
-    ifstream.read(reinterpret_cast<char*>(x), n * (dims + 1) * sizeof(float));
-    if (!ifstream) 
-        assert(ifstream.gcount() == static_cast<int>(n * (dims + 1)) || !"could not read whole file");
+    ifstream.read(reinterpret_cast<char*>(x.get()), n * (dims + 1) * sizeof(float));
+    if (!ifstream) assert(ifstream.gcount() == static_cast<int>(n * (dims + 1)) || !"could not read whole file");
 
     // shift array to remove row headers
-    for (size_t i = 0; i < n; i++) memmove(x + i * dims, x + 1 + i * (dims + 1), dims * sizeof(float));
+    for (size_t i = 0; i < n; i++) memmove(&x[i * dims], &x[1 + i * (dims + 1)], dims * sizeof(float));
 
     ifstream.close();
     return x;
@@ -131,7 +140,7 @@ StaticFeatureRepository load_static_repository(const char* path_repository)
 {
     size_t dims;
     size_t count;
-    const auto contiguous_features = fvecs_read(path_repository, dims, count);
+    auto contiguous_features = fvecs_read(path_repository, dims, count);
 
     // https://www.oreilly.com/library/view/understanding-and-using/9781449344535/ch04.html
     // float** features = (float**)malloc(count * sizeof(float*));
@@ -139,22 +148,22 @@ StaticFeatureRepository load_static_repository(const char* path_repository)
     //  features[i] = contiguous_features + i * dims;
     //}
 
-    return StaticFeatureRepository(contiguous_features, dims, count);
+    return StaticFeatureRepository(std::move(contiguous_features), dims, count);
 }
 
 DynamicFeatureRepository load_repository(const char* path_repository)
 {
     size_t dims;
     size_t count;
-    const auto contiguous_features = fvecs_read(path_repository, dims, count);
+    auto contiguous_features = fvecs_read(path_repository, dims, count);
 
     // TODO use shared_ptr in the map
     auto feature_map = tsl::robin_map<uint32_t, const float*>(count);
     for (uint32_t i = 0; i < count; i++)
     {
-        feature_map[i] = contiguous_features + i * dims;
+        feature_map[i] = &contiguous_features[i * dims];
     }
-    return DynamicFeatureRepository(std::move(feature_map), dims);
+    return DynamicFeatureRepository(std::move(contiguous_features), std::move(feature_map), dims);
 }
 
 }  // namespace deglib

@@ -78,8 +78,7 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const std::vector<degl
 
     // set of checked node ids
     auto checked_ids = std::vector<bool>(graph.size());
-    for (auto& node : entry_nodes) 
-        checked_ids[node.getId()] = true;
+    for (auto& node : entry_nodes) checked_ids[node.getId()] = true;
     //auto checked_ids = tsl::robin_set<uint32_t>();
     //checked_ids.reserve(k * 50);  // estimated size 3000 to 5000 with k = 100
     //for (auto& node : entry_nodes) 
@@ -88,22 +87,20 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const std::vector<degl
     // items to traverse next, start with the initial entry nodes
     auto internal_next_nodes = std::vector<ObjectDistance>();
     internal_next_nodes.reserve(1000);
-    auto next_nodes = deglib::UncheckedSet(std::greater<ObjectDistance>(), internal_next_nodes);
-    for (auto& node : entry_nodes) 
-        next_nodes.push(node);
+    auto next_nodes = deglib::UncheckedSet(std::greater<ObjectDistance>(), std::move(internal_next_nodes));
+    for (auto& node : entry_nodes) next_nodes.push(node);
 
     // result set
     auto internal_result = std::vector<ObjectDistance>();
-    internal_result.reserve(k+1);
-    auto results = deglib::ResultSet(std::less<ObjectDistance>(), internal_result);
-    for (auto& node : entry_nodes) 
-        results.push(node);
+    internal_result.reserve(k + 1);
+    auto results = deglib::ResultSet(std::less<ObjectDistance>(), std::move(internal_result));
+    for (auto& node : entry_nodes) results.push(node);
 
     // search radius
     auto r = std::numeric_limits<float>::max();
 
     // iterate as long as good elements are in the next_nodes queue
-    auto good_neighbors = std::vector<deglib::Neighbor>(24);
+    auto good_neighbors = std::vector<deglib::Neighbor>(100); // this limits the max neighbor count to 100
     while (next_nodes.empty() == false)
     {
         // next node to check
@@ -123,14 +120,17 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const std::vector<degl
             }
         }
 
+        if (good_neighbors.empty())
+            continue;
+
         _mm_prefetch((char *) good_neighbors[0].feature_vector, _MM_HINT_T0); 
-        for (size_t i = 0; i < good_neighbors.size(); i++) { 
-            _mm_prefetch((char *) good_neighbors[i+1].feature_vector, _MM_HINT_T0); 
+         const auto good_neightbors_size = good_neighbors.size();
+            for (size_t i = 0; i < good_neightbors_size; i++) {
+            _mm_prefetch((char *) good_neighbors[std::min(i + 1, good_neightbors_size - 1)].feature_vector, _MM_HINT_T0); 
 
             const auto& neighbor = good_neighbors[i];       
             const auto neighbor_id = neighbor.id;
-            const auto neighbor_feature = neighbor.feature_vector;
-            const auto neighbor_distance = dist_func(query, neighbor_feature, dist_func_param);
+            const auto neighbor_distance = dist_func(query, neighbor.feature_vector, dist_func_param);
 
             // check the neighborhood of this node later, if its good enough
             if (neighbor_distance <= r * (1 + eps))
@@ -207,28 +207,25 @@ deglib::ResultSet yahooSearchStatic(const deglib::StaticGraph& graph, const std:
 
     // set of checked node ids
     auto checked_ids = std::vector<bool>(graph.size());
-    for (auto& node : entry_nodes) 
-        checked_ids[node.getId()] = true;
+    for (auto& node : entry_nodes) checked_ids[node.getId()] = true;
 
     // items to traverse next, start with the initial entry nodes
     auto internal_next_nodes = std::vector<ObjectDistance>();
     internal_next_nodes.reserve(1000);
-    auto next_nodes = deglib::UncheckedSet(std::greater<ObjectDistance>(), internal_next_nodes);
-    for (auto& node : entry_nodes) 
-        next_nodes.push(node);
+    auto next_nodes = deglib::UncheckedSet(std::greater<ObjectDistance>(), std::move(internal_next_nodes));
+    for (auto& node : entry_nodes) next_nodes.push(node);
 
     // result set
     auto internal_result = std::vector<ObjectDistance>();
-    internal_result.reserve(k+1);
-    auto results = deglib::ResultSet(std::less<ObjectDistance>(), internal_result);
-    for (auto& node : entry_nodes) 
-        results.push(node);
+    internal_result.reserve(k + 1);
+    auto results = deglib::ResultSet(std::less<ObjectDistance>(), std::move(internal_result));
+    for (auto& node : entry_nodes) results.push(node);
 
     // search radius
     auto r = std::numeric_limits<float>::max();
 
     // iterate as long as good elements are in the next_nodes queue
-    auto good_neighbors = std::vector<deglib::Neighbor>(24);
+    auto good_neighbors = std::vector<deglib::Neighbor>(100);       // this limits the max neighbor count to 100
     while (next_nodes.empty() == false)
     {
         // next node to check
@@ -241,20 +238,23 @@ deglib::ResultSet yahooSearchStatic(const deglib::StaticGraph& graph, const std:
 
         good_neighbors.clear();
         for (auto& neighbor : graph.edges(next_node.getId())) {
-            if (checked_ids[neighbor.id] == false)  {
+            if (checked_ids[neighbor.id] == false) {
                 checked_ids[neighbor.id] = true;
                 good_neighbors.emplace_back(std::move(neighbor));
             }
         }
 
+        if (good_neighbors.empty())
+            continue;
+
         _mm_prefetch((char *) good_neighbors[0].feature_vector, _MM_HINT_T0); 
-        for (size_t i = 0; i < good_neighbors.size(); i++) { 
-            _mm_prefetch((char *) good_neighbors[i+1].feature_vector, _MM_HINT_T0); 
+        const auto good_neightbors_size = good_neighbors.size();
+        for (size_t i = 0; i < good_neightbors_size; i++) {
+            _mm_prefetch((char *) good_neighbors[std::min(i + 1, good_neightbors_size - 1)].feature_vector, _MM_HINT_T0); 
 
             const auto& neighbor = good_neighbors[i];       
             const auto neighbor_id = neighbor.id;
-            const auto neighbor_feature = neighbor.feature_vector;
-            const auto neighbor_distance = dist_func(query, neighbor_feature, dist_func_param);
+            const auto neighbor_distance = dist_func(query, neighbor.feature_vector, dist_func_param);
             
             // check the neighborhood of this node later, if its good enough
             if (neighbor_distance <= r * (1 + eps))

@@ -19,8 +19,6 @@ struct Neighbor
     uint32_t id;
     float distance;
     const float* feature_vector;
-
-    //Neighbor(uint32_t neighbor_id, float neighbor_distance, float* neighbor_feature_vector) : id(neighbor_id), distance(neighbor_distance), feature_vector(neighbor_feature_vector) {}
 };
 
 class Graph
@@ -43,7 +41,7 @@ class Graph
 /**
  * Load the graph
  **/
-Graph load_graph(const char* path_graph, const deglib::FeatureRepository &repository)
+Graph load_graph(const char* path_graph, const deglib::FeatureRepository& repository)
 {
     std::error_code ec{};
     auto file_size = std::filesystem::file_size(path_graph, ec);
@@ -87,7 +85,8 @@ Graph load_graph(const char* path_graph, const deglib::FeatureRepository &reposi
         {
             const auto neighbor_id = *(file_values++);
             const auto distance = *(float*)(file_values++);
-            edges[neighbor_id] = {neighbor_id, distance, repository.getFeature(neighbor_id)};
+            const auto neighbor = Neighbor{neighbor_id, distance, repository.getFeature(neighbor_id)};
+            //edges.insert_or_assign(neighbor_id, std::move(neighbor));
         }
 
         nodes[node_id] = std::move(edges);
@@ -98,19 +97,23 @@ Graph load_graph(const char* path_graph, const deglib::FeatureRepository &reposi
 
 
 
-struct Node
-{
-    uint32_t id;
-    float distance;
-    const float* feature_vector;
-};
+// ------------------------------------------------------------------------------------------------
+// -                              Static graph implementation                                     -
+// - The number of nodes and the number of edges per node are known in advance before building    -
+// - the graph. This can be used for static datasets or read-only graphs.                         -
+// ------------------------------------------------------------------------------------------------
 
+/**
+ * All nodes have the same amount of edges
+ */ 
 class StaticGraph
 {
   public:
-    StaticGraph(uint32_t nodes_count) : nodes_{nodes_count} {}
+    StaticGraph(const size_t edges_per_node, const size_t nodes_count) : edges_per_node_(edges_per_node), nodes_{nodes_count} {}
 
-    size_t size() const { return nodes_.size(); }
+    const auto size() const { return nodes_.size(); }
+
+    const auto edge_per_node() const { return edges_per_node_; };
 
     const auto& nodes() const { return nodes_; }
 
@@ -119,6 +122,7 @@ class StaticGraph
     const auto& edges(const uint32_t nodeid) const { return nodes_[nodeid]; }
 
   private:
+    const size_t edges_per_node_;
     std::vector<std::vector<Neighbor>> nodes_;
 };
 
@@ -156,11 +160,11 @@ StaticGraph load_static_graph(const char* path_graph, const deglib::FeatureRepos
 
     // the file only contains ints and floats
     auto file_values = (uint32_t*)buffer.get();
-    const uint32_t node_count = *(file_values++);
-    auto graph = StaticGraph(node_count);
+    const auto node_count = *(file_values++);
+    const auto edges_per_node = *(file_values + 2);
+    auto graph = StaticGraph(edges_per_node, node_count);
     auto&& nodes = graph.nodes();
-    for (uint32_t node_idx = 0; node_idx < node_count; node_idx++)
-    {
+    for (uint32_t node_idx = 0; node_idx < node_count; node_idx++) {
         const auto node_id = *(file_values++);
         const auto edge_count = *(file_values++);
 
@@ -171,10 +175,9 @@ StaticGraph load_static_graph(const char* path_graph, const deglib::FeatureRepos
             // sort edges by distance
             const auto neighbor_id = *(file_values++);
             const auto distance = *(float*)(file_values++);
-            auto neighbor = Neighbor{neighbor_id, distance, repository.getFeature(neighbor_id)};
-            edges.emplace_back(neighbor);
+            const auto neighbor = Neighbor{neighbor_id, distance, repository.getFeature(neighbor_id)};
+            edges.emplace_back(std::move(neighbor));
         }
-
     }
 
     return graph;
