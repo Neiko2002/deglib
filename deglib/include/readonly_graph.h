@@ -39,20 +39,43 @@ class ReadOnlyGraph : public SearchGraph {
 
   // list of nodes (node: feature vector, indizies of neighbor nodes, external label)
   std::unique_ptr<char[]> nodes_;
+  char* nodes_memory_;
 
   // map from the label of a node to the internal node index
   tsl::robin_map<uint32_t, uint32_t> label_to_index_;
 
   // distance calculation function between feature vectors of two graph nodes
-  deglib::L2Space distance_space_;
+  const deglib::L2Space distance_space_;
+
+  static const uint32_t alignment = 32; // alignment of node information in bytes
+
+  static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size) {
+    if(alignment == 0)
+      return  uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4 + 4;
+    else {
+      const uint32_t byte_size = uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4 + 4;
+      return ((byte_size + alignment - 1) / alignment) * alignment;
+    }
+  }
+
+  static char* compute_aligned_pointer(std::unique_ptr<char[]>& s) {
+    if(alignment == 0)
+      return s.get();
+    else {
+      auto unaliged_address = (uint64_t) s.get();
+      auto aligned_address = ((unaliged_address + alignment - 1) / alignment) * alignment;
+      auto address_alignment = aligned_address - unaliged_address;
+      return s.get() + address_alignment;
+    }
+  }
 
  public:
   ReadOnlyGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const uint16_t feature_byte_size, deglib::L2Space distance_space)
       : edges_per_node_(edges_per_node), max_node_count_(max_node_count), feature_byte_size_(feature_byte_size), 
-        byte_size_per_node_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4 + 4), 
+        byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, feature_byte_size)), 
         neighbor_indizies_offset_(uint32_t(feature_byte_size)), distance_space_(distance_space),
         external_label_offset_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4),
-        nodes_(std::make_unique<char[]>(byte_size_per_node_ * max_node_count)), label_to_index_(max_node_count) {
+        nodes_(std::make_unique<char[]>(byte_size_per_node_ * max_node_count + alignment)), nodes_memory_(compute_aligned_pointer(nodes_)), label_to_index_(max_node_count) {
   }
 
   /**
@@ -106,11 +129,7 @@ class ReadOnlyGraph : public SearchGraph {
   }
   
   inline auto getNode(const uint32_t internal_idx) const {
-    return nodes_.get() + internal_idx * byte_size_per_node_;
-  }
-
-  inline auto getNode(const int32_t external_label) const {
-    return getNode(getInternalIndex(external_label));
+    return nodes_memory_ + internal_idx * byte_size_per_node_;
   }
 
   inline auto getFeatureVector(const char* node) const {
@@ -118,7 +137,7 @@ class ReadOnlyGraph : public SearchGraph {
   }
 
   inline auto getFeatureVector(const uint32_t internal_idx) const {
-    return nodes_.get() + internal_idx * byte_size_per_node_;
+    return getNode(internal_idx);
   }
 
   inline auto getNeighborIndizies(const char* node) const {
@@ -126,7 +145,7 @@ class ReadOnlyGraph : public SearchGraph {
   }
 
   inline auto getNeighborIndizies(const uint32_t internal_idx) const {
-    return reinterpret_cast<uint32_t*>(nodes_.get() + internal_idx * byte_size_per_node_ + neighbor_indizies_offset_);
+    return reinterpret_cast<uint32_t*>(getNode(internal_idx) + neighbor_indizies_offset_);
   }
 
   inline auto getExternalLabel(const char* node) const {
@@ -134,7 +153,7 @@ class ReadOnlyGraph : public SearchGraph {
   }
 
   inline auto getExternalLabel(const uint32_t internal_idx) const {
-    return *reinterpret_cast<const int32_t*>(nodes_.get() + internal_idx * byte_size_per_node_ + external_label_offset_);
+    return *reinterpret_cast<const int32_t*>(getNode(internal_idx) + external_label_offset_);
   }
 
   /**
@@ -144,7 +163,7 @@ class ReadOnlyGraph : public SearchGraph {
     const auto new_internal_index = static_cast<uint32_t>(label_to_index_.size());
     label_to_index_.emplace(external_label, new_internal_index);
 
-    const auto node_memory = nodes_.get() + new_internal_index * byte_size_per_node_;
+    const auto node_memory = getNode(new_internal_index);
     std::memcpy(node_memory, feature_vector, feature_byte_size_);
     std::memcpy(node_memory + neighbor_indizies_offset_, neighbor_indizies, uint32_t(edges_per_node_) * 4);
     std::memcpy(node_memory + external_label_offset_, &external_label, 4);
@@ -169,6 +188,38 @@ class ReadOnlyGraph : public SearchGraph {
     
     return yahooSearch(entry_nodes, query, eps, k);
   }
+
+        static float L2SqrSIMD16ExtAligned(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            float *pVect1 = (float *) pVect1v;
+            float *pVect2 = (float *) pVect2v;
+            size_t qty = *((size_t *) qty_ptr);
+            float PORTABLE_ALIGN32 TmpRes[8];
+            size_t qty16 = qty >> 4;
+
+            const float *pEnd1 = pVect1 + (qty16 << 4);
+
+            __m256 diff, v1, v2;
+            __m256 sum = _mm256_set1_ps(0);
+
+            while (pVect1 < pEnd1) {
+                v1 = _mm256_load_ps(pVect1);
+                pVect1 += 8;
+                v2 = _mm256_load_ps(pVect2);
+                pVect2 += 8;
+                diff = _mm256_sub_ps(v1, v2);
+                sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
+
+                v1 = _mm256_load_ps(pVect1);
+                pVect1 += 8;
+                v2 = _mm256_load_ps(pVect2);
+                pVect2 += 8;
+                diff = _mm256_sub_ps(v1, v2);
+                sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
+            }
+
+            _mm256_store_ps(TmpRes, sum);
+            return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7];
+        }
 
   /**
    * The result set contains internal indizies. 
@@ -229,8 +280,9 @@ class ReadOnlyGraph : public SearchGraph {
         _mm_prefetch(this->getFeatureVector(good_neighbors[std::min(i + 1, good_neighbor_size - 1)]), _MM_HINT_T0); 
 
         const auto neighbor_index = good_neighbors[i];
-        const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
-        const auto neighbor_distance = dist_func(query, neighbor_feature_vector, dist_func_param);
+        const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);        
+        //const auto neighbor_distance = dist_func(query, neighbor_feature_vector, dist_func_param);
+        const auto neighbor_distance = L2SqrSIMD16ExtAligned(query, neighbor_feature_vector, dist_func_param);
 
         // check the neighborhood of this node later, if its good enough
         if (neighbor_distance <= r * (1 + eps)) {

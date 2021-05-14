@@ -98,7 +98,13 @@ class ObjectDistance
 
 //#pragma pack()
 
-
+/**
+ * priority queue with access to the internal data.
+ * therefore access to the unsorted data is possible.
+ * 
+ * https://stackoverflow.com/questions/4484767/how-to-iterate-over-a-priority-queue
+ * https://www.linuxtopia.org/online_books/programming_books/c++_practical_programming/c++_practical_programming_189.html
+ */
 template<class T, class Compare>
 class PQV : public std::vector<T> {
   Compare comp;

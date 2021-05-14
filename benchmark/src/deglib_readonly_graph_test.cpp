@@ -112,6 +112,14 @@ static auto load_graph(std::filesystem::path data_path)
 int main() {
     fmt::print("Testing ...\n");
 
+    #if defined(USE_AVX)
+        fmt::print("use AVX2  ...\n");
+    #elif defined(USE_SSE)
+        fmt::print("use SSE  ...\n");
+    #else
+        fmt::print("use arch  ...\n");
+    #endif
+
     auto data_path = std::filesystem::path(DATA_PATH);
     fmt::print("Data dir  {} \n", data_path.string().c_str());
     const auto graph = load_graph(data_path);
