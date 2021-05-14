@@ -122,9 +122,7 @@ auto fvecs_read(const char* fname, size_t& d_out, size_t& n_out)
     d_out = dims;
     n_out = n;
 
-    // TODO use make_unique
     auto x = std::make_unique<float[]>(n * (dims + 1));
-    // float* x = new float[n * (dims + 1)];
     ifstream.seekg(0);
     ifstream.read(reinterpret_cast<char*>(x.get()), n * (dims + 1) * sizeof(float));
     if (!ifstream) assert(ifstream.gcount() == static_cast<int>(n * (dims + 1)) || !"could not read whole file");

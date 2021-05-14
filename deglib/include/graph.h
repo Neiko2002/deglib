@@ -8,11 +8,16 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <queue>
 
 #include "repository.h"
+#include "deglib.h"
 
 namespace deglib
 {
+
+
+
 
 struct Neighbor
 {
@@ -84,9 +89,9 @@ Graph load_graph(const char* path_graph, const deglib::FeatureRepository& reposi
         for (uint32_t edge_idx = 0; edge_idx < edge_count; edge_idx++)
         {
             const auto neighbor_id = *(file_values++);
-            const auto distance = *(float*)(file_values++);
+            const auto distance = *reinterpret_cast<float*>(file_values++);
             const auto neighbor = Neighbor{neighbor_id, distance, repository.getFeature(neighbor_id)};
-            //edges.insert_or_assign(neighbor_id, std::move(neighbor));
+            edges.insert_or_assign(neighbor_id, std::move(neighbor));
         }
 
         nodes[node_id] = std::move(edges);
@@ -174,7 +179,7 @@ StaticGraph load_static_graph(const char* path_graph, const deglib::FeatureRepos
         {
             // sort edges by distance
             const auto neighbor_id = *(file_values++);
-            const auto distance = *(float*)(file_values++);
+            const auto distance = *reinterpret_cast<float*>(file_values++);
             const auto neighbor = Neighbor{neighbor_id, distance, repository.getFeature(neighbor_id)};
             edges.emplace_back(std::move(neighbor));
         }

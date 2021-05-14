@@ -20,13 +20,12 @@ target_link_libraries(hnswlib_bench PUBLIC HNSW_LIB compile-options
 target_compile_definitions(hnswlib_bench PUBLIC "DATA_PATH=\"${DATA_PATH}\"")
 
 # build DEG tests files
-add_executable(deg_test ${PROJECT_SOURCE_DIR}/src/deg_test.cpp)
-target_compile_features(deg_test PUBLIC cxx_std_17)
-target_link_libraries(deg_test PUBLIC DEG_LIB compile-options
+add_executable(readonly_graph_test ${PROJECT_SOURCE_DIR}/src/deglib_readonly_graph_test.cpp)
+target_link_libraries(readonly_graph_test PUBLIC DEG_LIB compile-options
                                       fmt::fmt-header-only tsl::robin_map)
+target_compile_definitions(readonly_graph_test PUBLIC "DATA_PATH=\"${DATA_PATH}\"")
 
 add_executable(deglib_bench ${PROJECT_SOURCE_DIR}/src/deglib_bench.cpp)
-target_compile_features(deglib_bench PUBLIC cxx_std_17)
 target_link_libraries(deglib_bench PUBLIC DEG_LIB compile-options
                                           fmt::fmt-header-only tsl::robin_map)
 target_compile_definitions(deglib_bench PUBLIC "DATA_PATH=\"${DATA_PATH}\"")

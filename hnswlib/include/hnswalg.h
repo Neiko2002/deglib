@@ -317,7 +317,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
             _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);                                      // *(data + 1) == neighbor id
             _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);                                 // a mistake? visited_array uses unsigned short and a pointer jump of 64 means 128 bytes
             _mm_prefetch(data_level0_memory_ + (*(data + 1)) * size_data_per_element_ + offsetData_, _MM_HINT_T0);  // 64 bytes of data of the first neighbor
-            _mm_prefetch((char *) (data + 2), _MM_HINT_T0);                                                         // 64 bytes of neigbor ids, skipping the first, because it gets used in the next code line
+            _mm_prefetch((char *) (data + 2), _MM_HINT_T0);                                                         // 64 bytes of neigbor ids if the second node, skipping the first, because it get used in the next code line
 #endif
             // iterate over all neighbor ids
             for (size_t j = 1; j <= size; j++) {

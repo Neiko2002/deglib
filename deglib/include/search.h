@@ -13,54 +13,7 @@
 
 namespace deglib
 {
-//#pragma pack(2)
 
-class ObjectDistance
-{
-    uint32_t id_;
-    float distance_;
-
-  public:
-    ObjectDistance(const uint32_t id, const float distance) : id_(id), distance_(distance) {}
-
-    inline const uint32_t getId() const { return id_; }
-
-    inline const float getDistance() const { return distance_; }
-
-    inline bool operator==(const ObjectDistance& o) const { return (distance_ == o.distance_) && (id_ == o.id_); }
-
-    inline bool operator<(const ObjectDistance& o) const
-    {
-        if (distance_ == o.distance_)
-        {
-            return id_ < o.id_;
-        }
-        else
-        {
-            return distance_ < o.distance_;
-        }
-    }
-
-    inline bool operator>(const ObjectDistance& o) const
-    {
-        if (distance_ == o.distance_)
-        {
-            return id_ > o.id_;
-        }
-        else
-        {
-            return distance_ > o.distance_;
-        }
-    }
-};
-
-//#pragma pack()
-
-// search result set containing node ids and distances
-typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::less<ObjectDistance>> ResultSet;
-
-// set of unchecked node ids
-typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::greater<ObjectDistance>> UncheckedSet;
 
 /**
  * graph: search thru the edges and nodes of this graph
@@ -164,7 +117,7 @@ deglib::ResultSet yahooSearch(const deglib::Graph& graph, const std::vector<degl
  * eps: parameter for the search
  * k: the amount of similar nodes which should be returned
  */
-deglib::ResultSet yahooSearch(const deglib::Graph& graph, deglib::FeatureRepository& repository,
+deglib::ResultSet yahooSearch(const deglib::Graph& graph, const deglib::FeatureRepository& repository,
                               const std::vector<uint32_t>& entry_node_ids, const float* query,
                               const deglib::L2Space& l2space, const float eps, const int k)
 {

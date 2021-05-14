@@ -67,7 +67,7 @@ static void test_vs_recall(const deglib::Graph& graph, deglib::FeatureRepository
     {
         StopW stopw = StopW();
         float recall = test_approx(graph, repository, entry_node_ids, query_repository, ground_truth, l2space, eps, k);
-        float time_us_per_query = stopw.getElapsedTimeMicro() / query_repository.size();
+        float time_us_per_query = static_cast<float>(stopw.getElapsedTimeMicro()) / query_repository.size();
 
         fmt::print("eps {} \t recall {} \t time_us_per_query {}us\n", eps, recall, time_us_per_query);
         if (recall > 1.0)
@@ -83,7 +83,7 @@ static void test_graph(deglib::Graph& graph, deglib::FeatureRepository& reposito
     const auto l2space = deglib::L2Space(repository.dims());
 
     // reproduceable entry point for the graph search
-    auto entry_node_ids = std::vector<uint32_t> {0};
+    auto entry_node_ids = std::vector<uint32_t> { 0 };
     /*auto entry_node_ids = std::vector<uint32_t>();
     entry_node_ids.reserve(1);
     auto it = repository.begin();
@@ -155,7 +155,7 @@ static void test_vs_recall_static(const deglib::StaticGraph& graph, deglib::Feat
     {
         StopW stopw = StopW();
         float recall = test_approx_static(graph, repository, entry_node_ids, query_repository, ground_truth, l2space, eps, k);
-        float time_us_per_query = stopw.getElapsedTimeMicro() / query_repository.size();
+        float time_us_per_query = static_cast<float>(stopw.getElapsedTimeMicro()) / query_repository.size();
 
         fmt::print("eps {} \t recall {} \t time_us_per_query {}us\n", eps, recall, time_us_per_query);
         if (recall > 1.0)
@@ -204,15 +204,20 @@ int main()
     const auto path_graph =
         (data_path / "k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_WorstEdge0_cpp.graph")
             .string();
+    /*
     auto static_graph = deglib::load_static_graph(path_graph.c_str(), repository);
     fmt::print("static graph node count {} \n", static_graph.size());
 
-    /*
+    for(auto n : static_graph.edges(0))  
+        fmt::print("neighbor ids {} \n", n.id);
+    fmt::print("\n");
+    */
+    
     StopW stopw = StopW();
     auto graph = deglib::load_graph(path_graph.c_str(), repository);
-    float time_in_ms = stopw.getElapsedTimeMicro() / 1000;
+    float time_in_ms = static_cast<float>(stopw.getElapsedTimeMicro()) / 1000;
     fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
-    */
+    
 
     const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
     auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
@@ -224,8 +229,8 @@ int main()
     auto ground_truth = ivecs_read(path_query_groundtruth.c_str(), dims, count);
     fmt::print("{} ground truth {} dimensions \n", count, dims);
 
-    //test_graph(graph, repository, query_repository, ground_truth);
-    test_static_graph(static_graph, repository, query_repository, ground_truth);
+    test_graph(graph, repository, query_repository, ground_truth);
+    //test_static_graph(static_graph, repository, query_repository, ground_truth);
 
     fmt::print("Test OK\n");
     return 0;
