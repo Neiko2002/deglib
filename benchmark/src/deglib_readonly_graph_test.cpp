@@ -136,15 +136,13 @@ int main() {
     // size_t neighborSize = rand() % 100;
     // std::pair<uint64_t, uint64_t*>* nsPtrs[neighborSize];
 
-    // auto byte_mem = std::make_unique<char[]>(64);
-    // float query[8] = { 1000, 2, 3.41, -4, 50, 0, -1.1, 7 };
-    // auto m256 = _mm256_load_ps(query);
-    // auto m256Bytes = reinterpret_cast<std::byte*>(m256);
-    // new(byte_mem.get()) _mm256_load_ps(query);
-    // std::memcpy(byte_mem.get(), (void*) m256, 32);
-    // std::memcpy(byte_mem.get() + 32, query, 32);
-
-
+    float query[8] = { 1000, 2, 3.41, -4, 50, 0, -1.1, 7 };
+    auto m265_mem = std::vector<char>(64);
+    new(m265_mem.data()) __m256(_mm256_load_ps(query));
+    fmt::print("m265_mem  {} \n", m265_mem);
+    auto byte_mem = std::vector<char>(64);
+    std::memcpy(byte_mem.data(), query, 32);
+    fmt::print("byte_mem  {} \n", byte_mem);
 
     auto data_path = std::filesystem::path(DATA_PATH);
     fmt::print("Data dir  {} \n", data_path.string().c_str());

@@ -62,7 +62,7 @@ class ReadOnlyGraph : public SearchGraph {
   static const uint32_t alignment = 32; // alignment of node information in bytes
 
   static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size) {
-    if(alignment == 0)
+    if constexpr(alignment == 0)
       return  uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4 + 4;
     else {
       const uint32_t byte_size = uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4 + 4;
@@ -71,7 +71,7 @@ class ReadOnlyGraph : public SearchGraph {
   }
 
   static std::byte* compute_aligned_pointer(std::unique_ptr<std::byte[]>& s) {
-    if(alignment == 0)
+    if constexpr(alignment == 0)
       return s.get();
     else {
       auto unaliged_address = (uint64_t) s.get();
@@ -175,8 +175,10 @@ class ReadOnlyGraph : public SearchGraph {
     const auto new_internal_index = static_cast<uint32_t>(label_to_index_.size());
     label_to_index_.emplace(external_label, new_internal_index);
 
-    const auto node_memory = getNode(new_internal_index);
-    std::memcpy(node_memory, feature_vector, feature_byte_size_);
+    auto node_memory = reinterpret_cast<char*>(getNode(new_internal_index));
+    for (size_t i = 0; i < 16; i++) 
+      new(node_memory + i*32) __m256(_mm256_loadu_ps(reinterpret_cast<const float*>(feature_vector + i*32)));
+    //std::memcpy(node_memory, feature_vector, feature_byte_size_);
     std::memcpy(node_memory + neighbor_indizies_offset_, neighbor_indizies, uint32_t(edges_per_node_) * 4);
     std::memcpy(node_memory + external_label_offset_, &external_label, 4);
   }
@@ -210,6 +212,12 @@ class ReadOnlyGraph : public SearchGraph {
   deglib::ResultSet yahooSearch(const std::vector<deglib::ObjectDistance>& entry_nodes, const float* query, const float eps, const int k) const
   {
     const auto dist_func_param = this->distance_space_.get_dist_func_param();
+
+    auto query_m256 = std::vector<__m256>(16);
+    for (size_t i = 0; i < 16; i++)
+      query_m256[i] = _mm256_load_ps(query + 8 * i);
+    const auto query_m256_data = query_m256.data();
+    
 
     // set of checked node ids
     auto checked_ids = std::vector<bool>(this->size());
@@ -259,7 +267,9 @@ class ReadOnlyGraph : public SearchGraph {
 
         const auto neighbor_index = good_neighbors[i];
         const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
-        const auto neighbor_distance = L2SqrSIMD16ExtAlignedNGT(query, neighbor_feature_vector, dist_func_param);        
+        //const auto neighbor_distance = L2SqrSIMD16ExtAlignedNGT(query, neighbor_feature_vector, dist_func_param);
+        const auto neighbor_distance = L2SqrSIMD16M256(query_m256_data, reinterpret_cast<const __m256*>(neighbor_feature_vector), dist_func_param);
+             
 
         // check the neighborhood of this node later, if its good enough
         if (neighbor_distance <= r * (1 + eps)) {
