@@ -135,14 +135,7 @@ int main() {
     // https://github.com/yahoojapan/NGT/blob/master/lib/NGT/Graph.cpp#L441
     // size_t neighborSize = rand() % 100;
     // std::pair<uint64_t, uint64_t*>* nsPtrs[neighborSize];
-
-    float query[8] = { 1000, 2, 3.41, -4, 50, 0, -1.1, 7 };
-    auto m265_mem = std::vector<char>(64);
-    new(m265_mem.data()) __m256(_mm256_load_ps(query));
-    fmt::print("m265_mem  {} \n", m265_mem);
-    auto byte_mem = std::vector<char>(64);
-    std::memcpy(byte_mem.data(), query, 32);
-    fmt::print("byte_mem  {} \n", byte_mem);
+    
 
     auto data_path = std::filesystem::path(DATA_PATH);
     fmt::print("Data dir  {} \n", data_path.string().c_str());

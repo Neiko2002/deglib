@@ -46,31 +46,6 @@ namespace deglib {
     return deglib::_mm256_reduce_add_ps(sum);
   }
 
-static inline float L2SqrSIMD16M256(const __m256 *a, const __m256 *b, const void *qty_ptr) {
-  size_t size = *((size_t *) qty_ptr) / 8;
-
-  __m256 sum256 = _mm256_setzero_ps();
-  __m256 v;
-  for (size_t i = 0; i < size; i+=2)
-  {
-    v = _mm256_sub_ps(*a, *b);
-    sum256 = _mm256_fmadd_ps(v, v, sum256);
-    a++;
-    b++;
-
-    v = _mm256_sub_ps(*a, *b);
-    sum256 = _mm256_fmadd_ps(v, v, sum256);
-    a++;
-    b++;
-  }
-
-  __m128 sum128 = _mm_add_ps(_mm256_extractf128_ps(sum256, 0), _mm256_extractf128_ps(sum256, 1));
-  float PORTABLE_ALIGN32 f[4];
-  _mm_store_ps(f, sum128);
-
-  return f[0] + f[1] + f[2] + f[3];
-}
-
 static inline __m128 masked_read (size_t d, const float *x)
 {
     assert (0 <= d && d < 4);
