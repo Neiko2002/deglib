@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <limits>
 #include <queue>
+#include <span>
 #include <unordered_set>
 
 
@@ -20,6 +21,15 @@
 
 #include "deglib.h"
 #include "stopwatch.h"
+
+
+#ifdef _WINDOWS
+#include <malloc.h>
+#define stack_uint32_t(size) (uint32_t*) _malloca(size*sizeof(uint32_t));
+#else
+#define stack_uint32_t(size) uint32_t b[size]
+#endif
+
 
 // not very clean, but works as long as sizeof(int) == sizeof(float)
 static uint32_t* ivecs_read(const char* fname, size_t& d_out, size_t& n_out)
@@ -130,12 +140,15 @@ int main() {
         fmt::print("use arch  ...\n");
     #endif
 
-    // https://stackoverflow.com/questions/61913456/expression-must-have-a-constant-value-in-c
     // https://stackoverflow.com/questions/5246900/enabling-vlas-variable-length-arrays-in-ms-visual-c
     // https://github.com/yahoojapan/NGT/blob/master/lib/NGT/Graph.cpp#L441
     // size_t neighborSize = rand() % 100;
     // std::pair<uint64_t, uint64_t*>* nsPtrs[neighborSize];
-    
+
+    auto size = (uint32_t) (rand() % 100);
+    auto&& vals = stack_uint32_t(size);
+    fmt::print("vals[{}]  {} \n", size, std::span{vals, size});
+
 
     auto data_path = std::filesystem::path(DATA_PATH);
     fmt::print("Data dir  {} \n", data_path.string().c_str());

@@ -227,7 +227,8 @@ class ReadOnlyGraph : public SearchGraph {
     auto r = std::numeric_limits<float>::max();
 
     // iterate as long as good elements are in the next_nodes queue     
-    auto good_neighbors = std::array<uint32_t, 100>();    // this limits the neighbor count to 100 using Variable Length Array wrapped in a macro
+    //auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 100 using Variable Length Array wrapped in a macro
+    vla(good_neighbors, uint32_t, k);
     while (next_nodes.empty() == false)
     {
       // next node to check
@@ -279,6 +280,7 @@ class ReadOnlyGraph : public SearchGraph {
         }
       }
     }
+    free_vla(good_neighbors)
 
     return results;
   }

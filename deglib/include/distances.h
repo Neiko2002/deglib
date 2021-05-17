@@ -62,7 +62,9 @@ static inline __m128 masked_read (size_t d, const float *x)
     // cannot use AVX2 _mm_mask_set1_epi32
 }
 
-
+/**
+ * https://gist.github.com/matsui528/583925f88fcb08240319030202588c74
+ */
   static inline float L2SqrSIMD16ExtAlignedFaiss(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     #ifndef _WINDOWS
       float *a = (const float *) __builtin_assume_aligned((float *) pVect1v, 32);

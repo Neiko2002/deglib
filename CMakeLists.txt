@@ -12,7 +12,7 @@ project(
   VERSION 0.0.1)
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -28,7 +28,7 @@ if(OPENMP_FOUND)
 endif()
 
 add_library(compile-options INTERFACE)
-target_compile_features(compile-options INTERFACE cxx_std_17)
+target_compile_features(compile-options INTERFACE cxx_std_20)
 target_link_libraries(compile-options INTERFACE OpenMP::OpenMP_CXX)
 target_compile_definitions(compile-options
                            INTERFACE $<$<PLATFORM_ID:Windows>:NOMINMAX>)

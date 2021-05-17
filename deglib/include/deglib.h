@@ -21,9 +21,7 @@
 #if defined(USE_AVX) || defined(USE_SSE)
 #ifdef _MSC_VER
 #include <intrin.h>
-
 #include <stdexcept>
-
 #else
 #include <x86intrin.h>
 #endif
@@ -36,6 +34,16 @@
 #define PORTABLE_ALIGN16 __declspec(align(16))
 #endif
 #endif
+
+#ifdef _WINDOWS
+#include <malloc.h>
+#define vla(var_name, dtype, size) auto var_name = (dtype*) _malloca(size*sizeof(dtype));
+#define free_vla(arr) _freea(arr);
+#else
+#define vla(var_name, dtype, size) dtype var_name[size];
+#define free_vla(arr) 
+#endif
+
 
 #include <queue>
 #include <fmt/core.h>
