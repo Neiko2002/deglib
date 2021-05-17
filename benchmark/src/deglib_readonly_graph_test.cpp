@@ -3,6 +3,16 @@
 #include <queue>
 #include <unordered_set>
 
+
+#ifdef _WINDOWS
+#include <immintrin.h>
+#include <smmintrin.h>
+#include <tmmintrin.h>
+#include <intrin.h>
+#else
+#include <immintrin.h>
+#endif
+
 #include <fmt/core.h>
 #include <tsl/robin_hash.h>
 #include <tsl/robin_map.h>
@@ -69,7 +79,7 @@ static void test_vs_recall_readonly(const deglib::ReadOnlyGraph& graph, const st
     {
         StopW stopw = StopW();
         float recall = test_approx_readonly(graph, entry_node_indizies, query_repository, ground_truth, eps, k);
-        float time_us_per_query = static_cast<float>(stopw.getElapsedTimeMicro()) / query_repository.size();
+        uint64_t time_us_per_query = stopw.getElapsedTimeMicro() / query_repository.size();
 
         fmt::print("eps {} \t recall {} \t time_us_per_query {}us\n", eps, recall, time_us_per_query);
         if (recall > 1.0)
@@ -103,7 +113,7 @@ static auto load_graph(std::filesystem::path data_path)
           (data_path / "k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_WorstEdge0_cpp.graph")
               .string();
     auto graph = deglib::load_readonly_graph(path_graph.c_str(), repository);
-    float time_in_ms = static_cast<float>(stopw.getElapsedTimeMicro()) / 1000;
+    uint64_t time_in_ms = stopw.getElapsedTimeMicro() / 1000;
     fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
 
     return graph;
@@ -119,6 +129,22 @@ int main() {
     #else
         fmt::print("use arch  ...\n");
     #endif
+
+    // https://stackoverflow.com/questions/61913456/expression-must-have-a-constant-value-in-c
+    // https://stackoverflow.com/questions/5246900/enabling-vlas-variable-length-arrays-in-ms-visual-c
+    // https://github.com/yahoojapan/NGT/blob/master/lib/NGT/Graph.cpp#L441
+    // size_t neighborSize = rand() % 100;
+    // std::pair<uint64_t, uint64_t*>* nsPtrs[neighborSize];
+
+    // auto byte_mem = std::make_unique<char[]>(64);
+    // float query[8] = { 1000, 2, 3.41, -4, 50, 0, -1.1, 7 };
+    // auto m256 = _mm256_load_ps(query);
+    // auto m256Bytes = reinterpret_cast<std::byte*>(m256);
+    // new(byte_mem.get()) _mm256_load_ps(query);
+    // std::memcpy(byte_mem.get(), (void*) m256, 32);
+    // std::memcpy(byte_mem.get() + 32, query, 32);
+
+
 
     auto data_path = std::filesystem::path(DATA_PATH);
     fmt::print("Data dir  {} \n", data_path.string().c_str());
