@@ -149,6 +149,7 @@ class ReadOnlyGraph : public SearchGraph {
    */
   deglib::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
   {
+    const auto dist_func = this->distance_space_.get_dist_func();
     const auto dist_func_param = this->distance_space_.get_dist_func_param();
 
     auto entry_nodes = std::vector<deglib::ObjectDistance>();
@@ -156,7 +157,7 @@ class ReadOnlyGraph : public SearchGraph {
     for (auto&& index : entry_node_indizies)
     {
       const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
-      const auto distance = L2SqrSIMD16ExtAlignedNGT(query, feature, dist_func_param);
+      const auto distance = dist_func(query, feature, dist_func_param);
       entry_nodes.emplace_back(index, distance);
     }
     
@@ -171,6 +172,7 @@ class ReadOnlyGraph : public SearchGraph {
    */
   deglib::ResultSet yahooSearch(const std::vector<deglib::ObjectDistance>& entry_nodes, const float* query, const float eps, const int k) const
   {
+    const auto dist_func = this->distance_space_.get_dist_func();
     const auto dist_func_param = this->distance_space_.get_dist_func_param();
 
     // set of checked node ids
@@ -219,7 +221,7 @@ class ReadOnlyGraph : public SearchGraph {
 
         const auto neighbor_index = good_neighbors[i];
         const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
-        const auto neighbor_distance = L2SqrSIMD16ExtAlignedNGT(query, neighbor_feature_vector, dist_func_param);
+        const auto neighbor_distance = dist_func(query, neighbor_feature_vector, dist_func_param);
              
         // check the neighborhood of this node later, if its good enough
         if (neighbor_distance <= r * (1 + eps)) {

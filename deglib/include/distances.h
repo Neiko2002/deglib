@@ -242,7 +242,7 @@ static inline float L2SqrSIMD16ExtAlignedNGT(const void *pVect1v, const void *pV
             fstdistfunc_ = L2Sqr;
             #if defined(USE_SSE) || defined(USE_AVX)
                 if (dim % 16 == 0)
-                    fstdistfunc_ = L2SqrSIMD16Ext;
+                    fstdistfunc_ = L2SqrSIMD16ExtAlignedNGT;
                 else if (dim % 4 == 0)
                     fstdistfunc_ = L2SqrSIMD4Ext;
                 else if (dim > 16)
