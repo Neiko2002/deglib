@@ -140,15 +140,6 @@ int main() {
         fmt::print("use arch  ...\n");
     #endif
 
-    // https://stackoverflow.com/questions/5246900/enabling-vlas-variable-length-arrays-in-ms-visual-c
-    // https://github.com/yahoojapan/NGT/blob/master/lib/NGT/Graph.cpp#L441
-    // size_t neighborSize = rand() % 100;
-    // std::pair<uint64_t, uint64_t*>* nsPtrs[neighborSize];
-
-    auto size = (uint32_t) (rand() % 100);
-    auto&& vals = stack_uint32_t(size);
-    fmt::print("vals[{}]  {} \n", size, std::span{vals, size});
-
 
     auto data_path = std::filesystem::path(DATA_PATH);
     fmt::print("Data dir  {} \n", data_path.string().c_str());

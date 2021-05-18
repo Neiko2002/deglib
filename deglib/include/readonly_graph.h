@@ -63,21 +63,21 @@ class ReadOnlyGraph : public SearchGraph {
 
   static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size) {
     if constexpr(alignment == 0)
-      return  uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4 + 4;
+      return  uint32_t(feature_byte_size) + uint32_t(edges_per_node) * sizeof(float) + sizeof(uint32_t);
     else {
-      const uint32_t byte_size = uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4 + 4;
+      const uint32_t byte_size = uint32_t(feature_byte_size) + uint32_t(edges_per_node) * sizeof(float) + sizeof(uint32_t);
       return ((byte_size + alignment - 1) / alignment) * alignment;
     }
   }
 
-  static std::byte* compute_aligned_pointer(std::unique_ptr<std::byte[]>& s) {
+  static std::byte* compute_aligned_pointer(const std::unique_ptr<std::byte[]>& arr) {
     if constexpr(alignment == 0)
-      return s.get();
+      return arr.get();
     else {
-      auto unaliged_address = (uint64_t) s.get();
+      auto unaliged_address = (uint64_t) arr.get();
       auto aligned_address = ((unaliged_address + alignment - 1) / alignment) * alignment;
       auto address_alignment = aligned_address - unaliged_address;
-      return s.get() + address_alignment;
+      return arr.get() + address_alignment;
     }
   }
 
@@ -89,21 +89,6 @@ class ReadOnlyGraph : public SearchGraph {
         external_label_offset_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4),
         nodes_(std::make_unique<std::byte[]>(byte_size_per_node_ * max_node_count + alignment)), nodes_memory_(compute_aligned_pointer(nodes_)), label_to_index_(max_node_count) {
   }
-
-  /**
-   * Takes ownership of the nodes unique_ptr from the other object
-   * 
-   * Temporarly removes the const-ness of the unique_ptr.
-   * https://stackoverflow.com/questions/29194304/move-constructor-involving-const-unique-ptr#comment46602858_29194685
-   */
-  /*
-  ReadOnlyGraph(const SizeBoundedGraph&& other) 
-      : max_node_count_(other.max_node_count_), edges_per_node_(other.edges_per_node_), feature_byte_size_(other.feature_byte_size_),
-        byte_size_per_node_(other.byte_size_per_node_), neighbor_indizies_offset_(other.neighbor_indizies_offset_), 
-        external_label_offset_(other.external_label_offset_), nodes_(std::move(const_cast<std::unique_ptr<char[]>&>(other.nodes_))), 
-        label_to_index_(std::move(other.label_to_index_)) {
-  }
-  */
 
   /**
    * Maximal capacity of nodes of the graph
@@ -194,7 +179,7 @@ class ReadOnlyGraph : public SearchGraph {
     for (auto&& index : entry_node_indizies)
     {
       const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
-      const auto distance = dist_func(query, feature, dist_func_param);
+      const auto distance = L2SqrSIMD16ExtAlignedNGT(query, feature, dist_func_param);
       entry_nodes.emplace_back(index, distance);
     }
     
@@ -227,14 +212,11 @@ class ReadOnlyGraph : public SearchGraph {
     auto r = std::numeric_limits<float>::max();
 
     // iterate as long as good elements are in the next_nodes queue     
-    //auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 100 using Variable Length Array wrapped in a macro
-    vla(good_neighbors, uint32_t, k);
+    auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
     while (next_nodes.empty() == false)
     {
       // next node to check
       const auto next_node = next_nodes.top();
-      //MemoryCache::prefetch(reinterpret_cast<const char*>(this->getNeighborIndizies(next_node.getId())));
-      //MemoryCache::prefetch(checked_ids.data() + next_node.getId());
       next_nodes.pop();
 
       // max distance reached
@@ -262,7 +244,6 @@ class ReadOnlyGraph : public SearchGraph {
         const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
         const auto neighbor_distance = L2SqrSIMD16ExtAlignedNGT(query, neighbor_feature_vector, dist_func_param);
              
-
         // check the neighborhood of this node later, if its good enough
         if (neighbor_distance <= r * (1 + eps)) {
             next_nodes.emplace(neighbor_index, neighbor_distance);
@@ -280,7 +261,6 @@ class ReadOnlyGraph : public SearchGraph {
         }
       }
     }
-    free_vla(good_neighbors)
 
     return results;
   }
@@ -341,6 +321,7 @@ auto load_readonly_graph(const char* path_graph, const deglib::FeatureRepository
   for (auto &&pair : node_order) {
     auto node = file_values + pair.second * (edges_per_node*2+2) + 3;
 
+    // Iterating over near neighbors first, saturates the radius in the search algorithms faster with a small value
     neighbor_weights.clear();
     for (uint32_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
       auto neighbor_id = *(node++);
@@ -356,24 +337,6 @@ auto load_readonly_graph(const char* path_graph, const deglib::FeatureRepository
 
     graph.addNode(pair.first, reinterpret_cast<const char*>(repository.getFeature(pair.first)), neighbor_ids.data());
   }
-  
-
-  // // The node and neighbor ids from the file represent external label.
-  // // These label will later be replaced with the internal indizies.
-  // file_values++;
-  // auto neighbor_ids = std::vector<uint32_t>(edges_per_node);
-  // for (uint32_t node_idx = 0; node_idx < node_count; node_idx++) {
-  //   const auto node_id = *(file_values++);
-  //   /*edge count*/ file_values++;
-
-  //   neighbor_ids.clear();
-  //   for (uint32_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-  //     neighbor_ids.emplace_back(*(file_values++));
-  //     /*edge weight*/ file_values++;
-  //   }  
-
-  //   graph.addNode(node_id, reinterpret_cast<const char*>(repository.getFeature(node_id)), neighbor_ids.data());
-  // }
   
   // Replace the external label of the neighbor list with the internal indizies.
   for (uint32_t node_idx = 0; node_idx < node_count; node_idx++) {
