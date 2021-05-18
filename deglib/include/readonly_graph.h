@@ -14,8 +14,7 @@
 namespace deglib
 {
 
-
-  class MemoryCache {
+class MemoryCache {
     public:
       inline static void prefetch(const char *ptr) {
         #if defined(USE_AVX) || defined(USE_SSE)
@@ -23,7 +22,6 @@ namespace deglib
         #endif
       }
   };
-  
 
 /**
  * A size bounded undirected n-regular graph.
@@ -172,6 +170,7 @@ class ReadOnlyGraph : public SearchGraph {
    */
   deglib::ResultSet yahooSearch(const std::vector<deglib::ObjectDistance>& entry_nodes, const float* query, const float eps, const int k) const
   {
+    const size_t edge_count = this->edges_per_node_;
     const auto dist_func = this->distance_space_.get_dist_func();
     const auto dist_func_param = this->distance_space_.get_dist_func_param();
 
@@ -191,7 +190,6 @@ class ReadOnlyGraph : public SearchGraph {
     auto r = std::numeric_limits<float>::max();
 
     // iterate as long as good elements are in the next_nodes queue     
-    auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
     while (next_nodes.empty() == false)
     {
       // next node to check
@@ -202,39 +200,31 @@ class ReadOnlyGraph : public SearchGraph {
       if (next_node.getDistance() > r * (1 + eps)) 
         break;
 
-      size_t good_neighbor_count = 0;
       const auto neighbor_indizies = this->getNeighborIndizies(next_node.getId());
-      for (size_t i = 0; i < this->edges_per_node_; i++) {
+      MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(neighbor_indizies[0])));
+      for (size_t i = 0; i < edge_count; i++) {
         const auto neighbor_index = neighbor_indizies[i];
+        MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(neighbor_indizies[std::min(i + 1, edge_count - 1)])));
+
         if (checked_ids[neighbor_index] == false)  {
           checked_ids[neighbor_index] = true;
-          good_neighbors[good_neighbor_count++] = neighbor_index;
-        }
-      }
 
-      if (good_neighbor_count == 0)
-        continue;
+          const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
+          const auto neighbor_distance = dist_func(query, neighbor_feature_vector, dist_func_param);
+              
+          // check the neighborhood of this node later, if its good enough
+          if (neighbor_distance <= r * (1 + eps)) {
+              next_nodes.emplace(neighbor_index, neighbor_distance);
 
-      MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[0])));
-      for (size_t i = 0; i < good_neighbor_count; i++) {
-        MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+            // remember the node, if its better than the worst in the result list
+            if (neighbor_distance < r) {
+              results.emplace(neighbor_index, neighbor_distance);
 
-        const auto neighbor_index = good_neighbors[i];
-        const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
-        const auto neighbor_distance = dist_func(query, neighbor_feature_vector, dist_func_param);
-             
-        // check the neighborhood of this node later, if its good enough
-        if (neighbor_distance <= r * (1 + eps)) {
-            next_nodes.emplace(neighbor_index, neighbor_distance);
-
-          // remember the node, if its better than the worst in the result list
-          if (neighbor_distance < r) {
-            results.emplace(neighbor_index, neighbor_distance);
-
-            // update the search radius
-            if (results.size() > k) {
-              results.pop();
-              r = results.top().getDistance();
+              // update the search radius
+              if (results.size() > k) {
+                results.pop();
+                r = results.top().getDistance();
+              }
             }
           }
         }
