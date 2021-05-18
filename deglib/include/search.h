@@ -234,7 +234,7 @@ struct YahooSearchStaticFunctor
         auto r = std::numeric_limits<float>::max();
 
         // iterate as long as good elements are in the next_nodes queue
-        auto good_neighbors = std::vector<const deglib::Node<Dimensions>*>(24);
+        auto good_neighbors = std::array<uint32_t, 24>();
         while (next_nodes.empty() == false)
         {
             // next node to check
@@ -244,30 +244,25 @@ struct YahooSearchStaticFunctor
             // max distance reached
             if (next_node.getDistance() > r * (1 + eps)) break;
 
-            good_neighbors.clear();
-            const auto& [/*actual_edge_count, */ edges] = graph.edges<EdgeCount, Dimensions>(next_node.getId());
-            for (auto& neighbor : edges)
-            {
-                if (checked_ids[neighbor.id] == false)
-                {
-                    checked_ids[neighbor.id] = true;
-                    good_neighbors.emplace_back(&neighbor);
+            size_t good_neighbor_count = 0;
+            const auto& node = graph.node<EdgeCount, Dimensions>(next_node.getId());
+            for (auto& neighbor_id : node.edges) {
+                if (checked_ids[neighbor_id] == false) {
+                    checked_ids[neighbor_id] = true;
+                    good_neighbors[good_neighbor_count++] = neighbor_id;
                 }
             }
 
-            if (good_neighbors.empty())
-            {
+            if (good_neighbor_count == 0)
                 continue;
-            }
-            _mm_prefetch((char*)good_neighbors[0]->feature_vector.data(), _MM_HINT_T0);
-            const auto good_neightbors_size = good_neighbors.size();
-            for (size_t i = 0; i < good_neightbors_size; i++)
-            {
-                _mm_prefetch((char*)good_neighbors[std::min(i + 1, good_neightbors_size - 1)]->feature_vector.data(),
-                             _MM_HINT_T0);
 
-                const auto& neighbor = *good_neighbors[i];
-                const auto neighbor_id = neighbor.id;
+            _mm_prefetch((char*)graph.node<EdgeCount, Dimensions>(good_neighbors[0]).feature_vector.data(), _MM_HINT_T0);
+            const auto good_neightbors_size = good_neighbor_count;
+            for (size_t i = 0; i < good_neightbors_size; i++) {
+                _mm_prefetch((char*)graph.node<EdgeCount, Dimensions>(good_neighbors[std::min(i + 1, good_neightbors_size - 1)]).feature_vector.data(), _MM_HINT_T0);
+
+                const auto neighbor_id = good_neighbors[i];
+                const auto& neighbor = graph.node<EdgeCount, Dimensions>(neighbor_id);
                 const auto neighbor_distance = dist_func(query, neighbor.feature_vector.data(), dist_func_param);
 
                 // check the neighborhood of this node later, if its good enough

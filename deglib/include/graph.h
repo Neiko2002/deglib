@@ -96,20 +96,12 @@ Graph load_graph(const char* path_graph, const deglib::FeatureRepository& reposi
     return graph;
 }
 
-template <size_t Dimensions>
-struct Node
-{
-    uint32_t id;
-    // float distance;
-    // uin32_t size;
-    std::array<float, Dimensions> feature_vector;
-};
 
 template <size_t EdgeCount, size_t Dimensions>
-struct Edges
+struct Node
 {
-    // uin32_t size;
-    std::array<deglib::Node<Dimensions>, EdgeCount> values;
+    std::array<float, Dimensions> feature_vector;
+    std::array<uint32_t, EdgeCount> edges;
 };
 
 class StaticGraph
@@ -126,14 +118,10 @@ class StaticGraph
 
     auto dims() const { return dims_; }
 
-    const auto& nodes() const { return nodes_; }
-
-    auto& nodes() { return nodes_; }
-
     template <size_t EdgeCount, size_t Dimensions>
-    const auto& edges(const uint32_t nodeid) const
+    const auto& node(const uint32_t nodeid) const
     {
-        return static_cast<Edges<EdgeCount, Dimensions>*>(nodes_.get())[nodeid];
+        return static_cast<Node<EdgeCount, Dimensions>*>(nodes_.get())[nodeid];
     }
 
   private:
@@ -152,20 +140,23 @@ struct GraphConstructorFunctor
     template <size_t EdgeCount, size_t Dimensions>
     auto operator()()
     {
-        auto nodes = std::make_unique<deglib::Edges<EdgeCount, Dimensions>[]>(node_count);
+        auto nodes = std::make_unique<deglib::Node<EdgeCount, Dimensions>[]>(node_count);
         /*node_count*/ ++file_values;
         for (uint32_t node_idx = 0; node_idx < node_count; node_idx++)
         {
             const auto node_id = *(file_values++);
             /*edge_count*/ file_values++;
-            for (auto&& edge : nodes[node_id].values)
+
+            // copy the feature vector
+            auto& node = nodes[node_id];
+            const auto* features = repository.getFeature(node_id);
+            std::copy_n(features, Dimensions, node.feature_vector.begin());
+
+            // copy all edge information
+            for (uint32_t edge_idx = 0; edge_idx < EdgeCount; edge_idx++)
             {
-                // sort edges by distance
-                const auto neighbor_id = *(file_values++);
-                /*distance*/ *reinterpret_cast<float*>(file_values++);
-                edge.id = neighbor_id;
-                const auto* features = repository.getFeature(neighbor_id);
-                std::copy_n(features, Dimensions, edge.feature_vector.begin());
+                node.edges[edge_idx] = *(file_values++);
+                /*distance*/ file_values++;
             }
         }
         return deglib::StaticGraph(std::move(nodes), node_count, EdgeCount, Dimensions);

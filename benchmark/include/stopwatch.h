@@ -10,7 +10,7 @@ public:
         time_begin = std::chrono::steady_clock::now();
     }
 
-    float getElapsedTimeMicro()
+    long long getElapsedTimeMicro()
     {
         std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
         return (std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
