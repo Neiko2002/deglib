@@ -84,7 +84,7 @@ static void test_vs_recall_readonly(const deglib::ReadOnlyGraph& graph, const st
                            const std::vector<tsl::robin_set<uint32_t>>& ground_truth, const uint32_t k)
 {
     // try different eps values for the search radius
-    std::vector<float> eps_parameter = {0.1, 0.12, 0.14, 0.16};
+    std::vector<float> eps_parameter = {0.01, 0.05, 0.1, 0.12, 0.14, 0.16};
     for (float eps : eps_parameter)
     {
         StopW stopw = StopW();

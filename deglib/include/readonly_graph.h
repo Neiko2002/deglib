@@ -171,7 +171,6 @@ class ReadOnlyGraph : public SearchGraph {
    */
   deglib::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
   {
-    const auto dist_func = this->distance_space_.get_dist_func();
     const auto dist_func_param = this->distance_space_.get_dist_func_param();
 
     auto entry_nodes = std::vector<deglib::ObjectDistance>();

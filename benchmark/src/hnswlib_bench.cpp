@@ -50,7 +50,9 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
                            const std::vector<tsl::robin_set<size_t>>& ground_truth, const size_t query_dims,
                            const size_t k)
 {
-    std::vector<size_t> efs = { 100, 121, 145, 180 };
+    //std::vector<size_t> efs = { 100, 121, 145, 180 }; // m = 96, k = 100
+    std::vector<size_t> efs = { 139, 170, 205, 249 }; // m = 24, k = 100
+    //std::vector<size_t> efs = { 116, 193, 238, 293, 361 }; // m = 16, k = 100
     /*std::vector<size_t> efs;  // = { 10,10,10,10,10 };
     for (int i = k; i < 30; i++)
     {
@@ -74,8 +76,8 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
         auto recall = test_approx(appr_alg, query_repository, ground_truth, query_dims, k);
         auto time_us_per_query = stopw.getElapsedTimeMicro() / ground_truth.size();
 
-        float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * ground_truth.size());
-        float hops_per_query = appr_alg.metric_hops / (1.0f * ground_truth.size());
+        auto distance_comp_per_query = appr_alg.metric_distance_computations / ground_truth.size();
+        auto hops_per_query = appr_alg.metric_hops / ground_truth.size();
 
         fmt::print("ef {} \t recall {} \t time_us_per_query {}us, avg distance computations {}, avg hops {}\n", ef,
                    recall, time_us_per_query, distance_comp_per_query, hops_per_query);
@@ -97,7 +99,7 @@ int main()
     size_t vecdim = 128;
 
     int efConstruction = 500;
-    int M = 96;
+    int M = 24; // 16 24 96
 
 
     fmt::print("Testing  ...\n");
