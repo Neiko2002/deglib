@@ -14,15 +14,6 @@
 namespace deglib
 {
 
-class MemoryCache {
-    public:
-      inline static void prefetch(const char *ptr) {
-        #if defined(USE_AVX) || defined(USE_SSE)
-          _mm_prefetch(ptr, _MM_HINT_T0);
-        #endif
-      }
-  };
-
 /**
  * A size bounded undirected n-regular graph.
  * 
@@ -201,10 +192,8 @@ class ReadOnlyGraph : public SearchGraph {
         break;
 
       const auto neighbor_indizies = this->getNeighborIndizies(next_node.getId());
-      MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(neighbor_indizies[0])));
       for (size_t i = 0; i < edge_count; i++) {
         const auto neighbor_index = neighbor_indizies[i];
-        MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(neighbor_indizies[std::min(i + 1, edge_count - 1)])));
 
         if (checked_ids[neighbor_index] == false)  {
           checked_ids[neighbor_index] = true;
