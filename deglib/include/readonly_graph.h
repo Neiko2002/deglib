@@ -59,35 +59,13 @@ class ReadOnlyGraph : public SearchGraph {
   // distance calculation function between feature vectors of two graph nodes
   const deglib::L2Space distance_space_;
 
-  static const uint32_t alignment = 32; // alignment of node information in bytes
-
-  static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size) {
-    if constexpr(alignment == 0)
-      return  uint32_t(feature_byte_size) + uint32_t(edges_per_node) * sizeof(float) + sizeof(uint32_t);
-    else {
-      const uint32_t byte_size = uint32_t(feature_byte_size) + uint32_t(edges_per_node) * sizeof(float) + sizeof(uint32_t);
-      return ((byte_size + alignment - 1) / alignment) * alignment;
-    }
-  }
-
-  static std::byte* compute_aligned_pointer(const std::unique_ptr<std::byte[]>& arr) {
-    if constexpr(alignment == 0)
-      return arr.get();
-    else {
-      auto unaliged_address = (uint64_t) arr.get();
-      auto aligned_address = ((unaliged_address + alignment - 1) / alignment) * alignment;
-      auto address_alignment = aligned_address - unaliged_address;
-      return arr.get() + address_alignment;
-    }
-  }
-
  public:
   ReadOnlyGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const uint16_t feature_byte_size, deglib::L2Space distance_space)
       : edges_per_node_(edges_per_node), max_node_count_(max_node_count), feature_byte_size_(feature_byte_size), 
-        byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, feature_byte_size)), 
+        byte_size_per_node_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * sizeof(float) + sizeof(uint32_t)), 
         neighbor_indizies_offset_(uint32_t(feature_byte_size)), distance_space_(distance_space),
         external_label_offset_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4),
-        nodes_(std::make_unique<std::byte[]>(byte_size_per_node_ * max_node_count + alignment)), nodes_memory_(compute_aligned_pointer(nodes_)), label_to_index_(max_node_count) {
+        nodes_(std::make_unique<std::byte[]>(byte_size_per_node_ * max_node_count)), nodes_memory_(nodes_.get()), label_to_index_(max_node_count) {
   }
 
   /**
