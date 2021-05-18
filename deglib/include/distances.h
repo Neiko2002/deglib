@@ -4,76 +4,6 @@
 
 namespace deglib {
 
-
-
-static inline float L2SqrSIMD16ExtAlignedNGT(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
-{  
-#ifndef _WINDOWS
-    float *a = (const float *) __builtin_assume_aligned((float *) pVect1v, 32);
-    float *b = (const float *) __builtin_assume_aligned((float *) pVect2v, 32);
-#else
-    float *a = (float *) pVect1v;
-    float *b = (float *) pVect2v;
-#endif
-
-  size_t size = *((size_t *) qty_ptr);
-  const float *last = a + size;
-#if defined(USE_AVX512)
-  __m512 sum512 = _mm512_setzero_ps();
-  while (a < last) {
-    __m512 v = _mm512_sub_ps(_mm512_load_ps(a), _mm512_load_ps(b));
-    sum512 = _mm512_add_ps(sum512, _mm512_mul_ps(v, v));
-    a += 16;
-    b += 16;
-  }
-
-  __m256 sum256 = _mm256_add_ps(_mm512_extractf32x8_ps(sum512, 0), _mm512_extractf32x8_ps(sum512, 1));
-  __m128 sum128 = _mm_add_ps(_mm256_extractf128_ps(sum256, 0), _mm256_extractf128_ps(sum256, 1));
-#elif defined(USE_AVX)
-  __m256 sum256 = _mm256_setzero_ps();
-  __m256 v;
-  while (a < last) {
-    v = _mm256_sub_ps(_mm256_load_ps(a), _mm256_load_ps(b));
-    sum256 = _mm256_fmadd_ps(v, v, sum256);
-    a += 8;
-    b += 8;        
-    v = _mm256_sub_ps(_mm256_load_ps(a), _mm256_load_ps(b));
-    sum256 = _mm256_fmadd_ps(v, v, sum256);
-    a += 8;
-    b += 8;
-  }
-  __m128 sum128 = _mm_add_ps(_mm256_extractf128_ps(sum256, 0), _mm256_extractf128_ps(sum256, 1));
-#elif defined(USE_SSE)
-  __m128 sum128 = _mm_setzero_ps();
-  __m128 v;
-  while (a < last) {
-    v = _mm_sub_ps(_mm_load_ps(a), _mm_load_ps(b));
-    sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
-          a += 4;
-          b += 4;
-    v = _mm_sub_ps(_mm_load_ps(a), _mm_loadu_ps(b));
-    sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
-          a += 4;
-          b += 4;
-    v = _mm_sub_ps(_mm_load_ps(a), _mm_load_ps(b));
-    sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
-          a += 4;
-          b += 4;
-    v = _mm_sub_ps(_mm_load_ps(a), _mm_load_ps(b));
-    sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
-          a += 4;
-          b += 4;
-  }
-#endif
-
-    float PORTABLE_ALIGN32 f[4];
-    _mm_store_ps(f, sum128);
-
-    return f[0] + f[1] + f[2] + f[3];
-  }
-
-
-
     static float L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
@@ -242,7 +172,7 @@ static inline float L2SqrSIMD16ExtAlignedNGT(const void *pVect1v, const void *pV
             fstdistfunc_ = L2Sqr;
             #if defined(USE_SSE) || defined(USE_AVX)
                 if (dim % 16 == 0)
-                    fstdistfunc_ = L2SqrSIMD16ExtAlignedNGT;
+                    fstdistfunc_ = L2SqrSIMD16Ext;
                 else if (dim % 4 == 0)
                     fstdistfunc_ = L2SqrSIMD4Ext;
                 else if (dim > 16)
