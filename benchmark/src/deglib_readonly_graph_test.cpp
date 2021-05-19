@@ -23,14 +23,6 @@
 #include "stopwatch.h"
 
 
-#ifdef _WINDOWS
-#include <malloc.h>
-#define stack_uint32_t(size) (uint32_t*) _malloca(size*sizeof(uint32_t));
-#else
-#define stack_uint32_t(size) uint32_t b[size]
-#endif
-
-
 // not very clean, but works as long as sizeof(int) == sizeof(float)
 static uint32_t* ivecs_read(const char* fname, size_t& d_out, size_t& n_out)
 {
@@ -70,9 +62,8 @@ static float test_approx_readonly(const deglib::ReadOnlyGraph& graph, const std:
         total += gt.size();
         while (result_queue.empty() == false)
         {
-            const auto internal_index = result_queue.top().getId();
-            const auto external_id = graph.getExternalLabel(internal_index);
-            if (gt.find(external_id) != gt.end()) correct++;
+            const auto id = result_queue.top().getId();
+            if (gt.find(id) != gt.end()) correct++;
             result_queue.pop();
         }
     }
@@ -112,11 +103,9 @@ static void test_readonly_graph(const deglib::ReadOnlyGraph& graph, const std::v
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
 }
 
-static auto load_graph(std::filesystem::path data_path) 
+static auto load_graph(std::filesystem::path data_path, const deglib::FeatureRepository& repository) 
 {
-    const auto path_repository = (data_path / "SIFT1M/sift_base.fvecs").string();
-    auto repository = deglib::load_repository(path_repository.c_str());
-    fmt::print("{} Base Features with {} dimensions \n", repository.size(), repository.dims());
+
 
     StopW stopw = StopW();
     const auto path_graph =
@@ -126,7 +115,7 @@ static auto load_graph(std::filesystem::path data_path)
     uint64_t time_in_ms = stopw.getElapsedTimeMicro() / 1000;
     fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
 
-    return graph;
+    return std::move(graph);
 }
 
 int main() {
@@ -142,13 +131,17 @@ int main() {
 
 
     auto data_path = std::filesystem::path(DATA_PATH);
+    const auto path_repository = (data_path / "SIFT1M/sift_base.fvecs").string();
+    auto repository = deglib::load_repository(path_repository.c_str());
+    fmt::print("{} Base Features with {} dimensions \n", repository.size(), repository.dims());
+
     fmt::print("Data dir  {} \n", data_path.string().c_str());
-    const auto graph = load_graph(data_path);
+    const auto graph = load_graph(data_path, repository);
 
     // reproduceable entry point for the graph search
     const uint32_t entry_node_id = 0;
-    const auto entry_node_indizies = std::vector<uint32_t> { graph.getInternalIndex(entry_node_id) };
-    fmt::print("internal id {} \n", graph.getInternalIndex(entry_node_id));
+    const auto entry_node_indizies = std::vector<uint32_t> { entry_node_id };
+    fmt::print("entry node id {} \n", entry_node_id);
 
 
 
