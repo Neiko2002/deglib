@@ -1,24 +1,15 @@
 #include <cstdint>
 #include <limits>
 #include <queue>
-#include <unordered_set>
-
 
 #include <fmt/core.h>
 #include <tsl/robin_hash.h>
 #include <tsl/robin_map.h>
-#include <tsl/robin_set.h>
 
 #include "deglib.h"
 
 namespace deglib
 {
-
-struct Node {
-    uint32_t id;
-    const float* feature_vector;
-    std::vector<std::pair<uint32_t, const float*>> edges;
-};
 
 /**
  * A size bounded undirected n-regular graph.
@@ -39,15 +30,16 @@ class ReadOnlyGraph : public SearchGraph {
   const uint32_t max_node_count_;
 
   // list of nodes (node: feature vector, indizies of neighbor nodes, external label)
-  std::vector<Node> nodes_;
+  tsl::robin_map<uint32_t, tsl::robin_map<uint32_t, const float*>> nodes_;
+
+
 
   // distance calculation function between feature vectors of two graph nodes
   const deglib::L2Space distance_space_;
 
  public:
   ReadOnlyGraph(const uint32_t max_node_count, const deglib::L2Space distance_space)
-      : max_node_count_(max_node_count), distance_space_(distance_space) {
-        nodes_.reserve(max_node_count);
+      : max_node_count_(max_node_count), distance_space_(distance_space), nodes_{max_node_count} {
   }
 
   /**
@@ -64,8 +56,8 @@ class ReadOnlyGraph : public SearchGraph {
   /**
    * Add a new node. The neighbor indizies can be 
    */
-  void addNode(const uint32_t id, const float* feature_vector, const std::vector<std::pair<uint32_t, const float*>>& edges) {
-    nodes_.emplace_back(id, feature_vector, std::move(edges));
+  void addNode(const uint32_t id, const tsl::robin_map<uint32_t, const float*>& edges) {
+    nodes_[id] = std::move(edges);
   }
 
   /**
@@ -80,8 +72,11 @@ class ReadOnlyGraph : public SearchGraph {
     entry_nodes.reserve(entry_node_id.size());
     for (auto&& id : entry_node_id)
     {
-      const auto& node = nodes_[id];
-      const auto distance = dist_func(query, node.feature_vector, dist_func_param);
+      const auto& node = nodes_.at(id);
+      const auto neighbor_id = node.begin().key();
+      const auto& neighbor = nodes_.at(neighbor_id); // we need a neighbor to get the feature of id
+      const auto feature_vector = neighbor.at(id);
+      const auto distance = dist_func(query, feature_vector, dist_func_param);
       entry_nodes.emplace_back(id, distance);
     }
     
@@ -122,12 +117,12 @@ class ReadOnlyGraph : public SearchGraph {
       if (next_node.getDistance() > r * (1 + eps)) 
         break;
 
-      const auto& node = nodes_[next_node.getId()];
-      for (auto&& neighbor : node.edges) {
+      const auto& edges = nodes_.at(next_node.getId());
+      for (auto&& neighbor : edges) {
         const auto neighbor_id = neighbor.first;
         if (checked_ids[neighbor_id] == false)  {
           checked_ids[neighbor_id] = true;
-          
+
           const auto neighbor_distance = dist_func(query, neighbor.second, dist_func_param);
               
           // check the neighborhood of this node later, if its good enough
@@ -206,15 +201,12 @@ auto load_readonly_graph(const char* path_graph, const deglib::FeatureRepository
     } 
     std::sort(neighbor_weights.begin(), neighbor_weights.end(), [](const auto& x, const auto& y){return x.second < y.second;});
 
-    auto edges = std::vector<std::pair<uint32_t, const float*>>();
+    auto edges = tsl::robin_map<uint32_t, const float*>(edge_count);
     for (auto &&neighbor : neighbor_weights) 
-      edges.emplace_back(neighbor.first, repository.getFeature(neighbor.first));
+      edges[neighbor.first] = repository.getFeature(neighbor.first);
     
-    auto feature_vector = repository.getFeature(node_id);
-    graph.addNode(node_id, feature_vector, std::move(edges));
+    graph.addNode(node_id, std::move(edges));
   }
-
-  std::sort(graph.nodes().begin(), graph.nodes().end(), [](const auto& x, const auto& y){return x.id < y.id;});
 
   return std::move(graph);
 }
