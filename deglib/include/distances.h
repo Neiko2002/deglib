@@ -6,6 +6,7 @@ namespace deglib {
 
 
 
+
 static inline float L2SqrSIMD16ExtAlignedNGT(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
 {  
 #ifndef _WINDOWS
@@ -268,5 +269,15 @@ static inline float L2SqrSIMD16ExtAlignedNGT(const void *pVect1v, const void *pV
 
         ~L2Space() {}
     };
+
+    
+    namespace Distances {
+        class L2Float {
+        public:
+            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+                return deglib::L2SqrSIMD16ExtAlignedNGT(pVect1v, pVect2v, qty_ptr);
+            }
+        };
+    }
 
 }  // namespace deglib

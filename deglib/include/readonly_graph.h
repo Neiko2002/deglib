@@ -1,8 +1,10 @@
+#pragma once
+
 #include <cstdint>
 #include <limits>
 #include <queue>
 #include <unordered_set>
-
+#include <math.h>
 
 #include <fmt/core.h>
 #include <tsl/robin_hash.h>
@@ -13,17 +15,6 @@
 
 namespace deglib
 {
-
-
-  class MemoryCache {
-    public:
-      inline static void prefetch(const char *ptr) {
-        #if defined(USE_AVX) || defined(USE_SSE)
-          _mm_prefetch(ptr, _MM_HINT_T0);
-        #endif
-      }
-  };
-  
 
 /**
  * A size bounded undirected n-regular graph.
@@ -59,6 +50,10 @@ class ReadOnlyGraph : public SearchGraph {
   // distance calculation function between feature vectors of two graph nodes
   const deglib::L2Space distance_space_;
 
+
+  using SEARCHFUNC = deglib::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k);
+  SEARCHFUNC search_func_;
+
   static const uint32_t alignment = 32; // alignment of node information in bytes
 
   static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size) {
@@ -81,6 +76,10 @@ class ReadOnlyGraph : public SearchGraph {
     }
   }
 
+  static deglib::ResultSet searchL2(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+    return graph.yahooSearchImpl<deglib::Distances::L2Float>(entry_node_indizies, query, eps, k);
+  }
+
  public:
   ReadOnlyGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const uint16_t feature_byte_size, deglib::L2Space distance_space)
       : edges_per_node_(edges_per_node), max_node_count_(max_node_count), feature_byte_size_(feature_byte_size), 
@@ -88,6 +87,9 @@ class ReadOnlyGraph : public SearchGraph {
         neighbor_indizies_offset_(uint32_t(feature_byte_size)), distance_space_(distance_space),
         external_label_offset_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4),
         nodes_(std::make_unique<std::byte[]>(byte_size_per_node_ * max_node_count + alignment)), nodes_memory_(compute_aligned_pointer(nodes_)), label_to_index_(max_node_count) {
+
+
+    search_func_ = deglib::ReadOnlyGraph::searchL2;
   }
 
   /**
@@ -171,7 +173,15 @@ class ReadOnlyGraph : public SearchGraph {
    */
   deglib::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
   {
-    const auto dist_func = this->distance_space_.get_dist_func();
+    return search_func_(*this, entry_node_indizies, query, eps, k);
+  }
+
+  /**
+   * The result set contains internal indizies. 
+   */
+  template <typename COMPARATOR>
+  deglib::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const
+  {
     const auto dist_func_param = this->distance_space_.get_dist_func_param();
 
     auto entry_nodes = std::vector<deglib::ObjectDistance>();
@@ -179,20 +189,18 @@ class ReadOnlyGraph : public SearchGraph {
     for (auto&& index : entry_node_indizies)
     {
       const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
-      const auto distance = L2SqrSIMD16ExtAlignedNGT(query, feature, dist_func_param);
+      const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
       entry_nodes.emplace_back(index, distance);
     }
     
-    return yahooSearch(entry_nodes, query, eps, k);
+    return yahooSearchImpl<COMPARATOR>(entry_nodes, query, eps, k);  
   }
-
-
-
 
   /**
    * The result set contains internal indizies. 
    */
-  deglib::ResultSet yahooSearch(const std::vector<deglib::ObjectDistance>& entry_nodes, const float* query, const float eps, const int k) const
+  template <typename COMPARATOR>
+  deglib::ResultSet yahooSearchImpl(const std::vector<deglib::ObjectDistance>& entry_nodes, const float* query, const float eps, const int k) const
   {
     const auto dist_func_param = this->distance_space_.get_dist_func_param();
 
@@ -242,7 +250,7 @@ class ReadOnlyGraph : public SearchGraph {
 
         const auto neighbor_index = good_neighbors[i];
         const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
-        const auto neighbor_distance = L2SqrSIMD16ExtAlignedNGT(query, neighbor_feature_vector, dist_func_param);
+        const auto neighbor_distance = COMPARATOR::compare(query, neighbor_feature_vector, dist_func_param);
              
         // check the neighborhood of this node later, if its good enough
         if (neighbor_distance <= r * (1 + eps)) {

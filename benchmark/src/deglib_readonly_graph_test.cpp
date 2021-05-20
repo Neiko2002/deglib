@@ -110,6 +110,7 @@ static void test_readonly_graph(const deglib::ReadOnlyGraph& graph, const std::v
     for (int i = 0; i < 1; i++) 
         test_vs_recall_readonly(graph, entry_node_indizies, query_repository, answer, k);
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
+    fmt::print("Max memory usage: {} Mb\n", getPeakRSS() / 1000000);
 }
 
 static auto load_graph(std::filesystem::path data_path) 
