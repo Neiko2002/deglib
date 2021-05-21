@@ -32,29 +32,8 @@ namespace deglib
  * The number of nodes is limited to uint32.max
  */
 class ReadOnlyGraph : public SearchGraph {
-  const uint32_t max_node_count_;
-  const uint8_t edges_per_node_;
-  const uint16_t feature_byte_size_;
-
-  const uint32_t byte_size_per_node_;
-  const uint32_t neighbor_indizies_offset_;
-  const uint32_t external_label_offset_;
-
-  // list of nodes (node: feature vector, indizies of neighbor nodes, external label)
-  std::unique_ptr<std::byte[]> nodes_;
-  std::byte* nodes_memory_;
-
-  // map from the label of a node to the internal node index
-  tsl::robin_map<uint32_t, uint32_t> label_to_index_;
-
-  // distance calculation function between feature vectors of two graph nodes
-  const deglib::L2Space distance_space_;
-
 
   using SEARCHFUNC = deglib::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k);
-  SEARCHFUNC search_func_;
-
-  static const uint32_t alignment = 32; // alignment of node information in bytes
 
   static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size) {
     if constexpr(alignment == 0)
@@ -76,20 +55,65 @@ class ReadOnlyGraph : public SearchGraph {
     }
   }
 
-  static deglib::ResultSet searchL2(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
-    return graph.yahooSearchImpl<deglib::Distances::L2Float>(entry_node_indizies, query, eps, k);
+  inline static deglib::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+    return graph.yahooSearchImpl<deglib::Distances::L2Float16Ext>(entry_node_indizies, query, eps, k);
   }
 
+  inline static deglib::ResultSet searchL2Ext4(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+    return graph.yahooSearchImpl<deglib::Distances::L2Float4Ext>(entry_node_indizies, query, eps, k);
+  }
+
+  inline static deglib::ResultSet searchL2Ext16Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+    return graph.yahooSearchImpl<deglib::Distances::L2Float16ExtResiduals>(entry_node_indizies, query, eps, k);
+  }
+
+  inline static deglib::ResultSet searchL2Ext4Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+    return graph.yahooSearchImpl<deglib::Distances::L2Float4ExtResiduals>(entry_node_indizies, query, eps, k);
+  }
+
+  static SEARCHFUNC getSearchFunction(const size_t dim) {
+    if (dim % 16 == 0)
+      return deglib::ReadOnlyGraph::searchL2Ext16;
+    else if (dim % 4 == 0)
+      return deglib::ReadOnlyGraph::searchL2Ext4;
+    else if (dim > 16)
+      return deglib::ReadOnlyGraph::searchL2Ext16Residual;
+    else if (dim > 4)
+      return deglib::ReadOnlyGraph::searchL2Ext4Residual;
+    else
+      return deglib::ReadOnlyGraph::searchL2Ext16;
+  }
+
+  static const uint32_t alignment = 32; // alignment of node information in bytes
+
+  const uint32_t max_node_count_;
+  const uint8_t edges_per_node_;
+  const uint16_t feature_byte_size_;
+
+  const uint32_t byte_size_per_node_;
+  const uint32_t neighbor_indizies_offset_;
+  const uint32_t external_label_offset_;
+
+  // list of nodes (node: feature vector, indizies of neighbor nodes, external label)
+  std::unique_ptr<std::byte[]> nodes_;
+  std::byte* nodes_memory_;
+
+  // map from the label of a node to the internal node index
+  tsl::robin_map<uint32_t, uint32_t> label_to_index_;
+
+  // distance calculation function between feature vectors of two graph nodes
+  const deglib::SpaceInterface<float>* distance_space_;
+
+  // internal search function with embedded distances function
+  const SEARCHFUNC search_func_;
+
  public:
-  ReadOnlyGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const uint16_t feature_byte_size, deglib::L2Space distance_space)
+  ReadOnlyGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const uint16_t feature_byte_size, const deglib::SpaceInterface<float>* distance_space)
       : edges_per_node_(edges_per_node), max_node_count_(max_node_count), feature_byte_size_(feature_byte_size), 
         byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, feature_byte_size)), 
         neighbor_indizies_offset_(uint32_t(feature_byte_size)), distance_space_(distance_space),
-        external_label_offset_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4),
+        external_label_offset_(uint32_t(feature_byte_size) + uint32_t(edges_per_node) * 4), search_func_(getSearchFunction(distance_space->dim())),
         nodes_(std::make_unique<std::byte[]>(byte_size_per_node_ * max_node_count + alignment)), nodes_memory_(compute_aligned_pointer(nodes_)), label_to_index_(max_node_count) {
-
-
-    search_func_ = deglib::ReadOnlyGraph::searchL2;
   }
 
   /**
@@ -182,39 +206,27 @@ class ReadOnlyGraph : public SearchGraph {
   template <typename COMPARATOR>
   deglib::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const
   {
-    const auto dist_func_param = this->distance_space_.get_dist_func_param();
-
-    auto entry_nodes = std::vector<deglib::ObjectDistance>();
-    entry_nodes.reserve(entry_node_indizies.size());
-    for (auto&& index : entry_node_indizies)
-    {
-      const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
-      const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
-      entry_nodes.emplace_back(index, distance);
-    }
-    
-    return yahooSearchImpl<COMPARATOR>(entry_nodes, query, eps, k);  
-  }
-
-  /**
-   * The result set contains internal indizies. 
-   */
-  template <typename COMPARATOR>
-  deglib::ResultSet yahooSearchImpl(const std::vector<deglib::ObjectDistance>& entry_nodes, const float* query, const float eps, const int k) const
-  {
-    const auto dist_func_param = this->distance_space_.get_dist_func_param();
+    const auto dist_func_param = this->distance_space_->get_dist_func_param();
 
     // set of checked node ids
     auto checked_ids = std::vector<bool>(this->size());
-    for (auto& node : entry_nodes) checked_ids[node.getId()] = true;
 
-    // items to traverse next, start with the initial entry nodes
+    // items to traverse next
     auto next_nodes = deglib::UncheckedSet();
-    for (auto& node : entry_nodes) next_nodes.push(node);
 
     // result set
-    auto results = deglib::ResultSet();   // custom priority queue with an internal Variable Length Array wrapped in a macro with scan search and memcopy 
-    for (auto& node : entry_nodes) results.push(node);
+    // TODO: custom priority queue with an internal Variable Length Array wrapped in a macro with linear-scan search and memcopy 
+    auto results = deglib::ResultSet();   
+
+    // copy the initial entry nodes and their distances to the query into the three containers
+    for (auto&& index : entry_node_indizies) {
+      checked_ids[index] = true;
+
+      const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
+      const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
+      next_nodes.emplace(index, distance);
+      results.emplace(index, distance);
+    }
 
     // search radius
     auto r = std::numeric_limits<float>::max();
@@ -313,7 +325,7 @@ auto load_readonly_graph(const char* path_graph, const deglib::FeatureRepository
   const auto edges_per_node = static_cast<uint8_t>(*(file_values + 2));         // expecting no more than 256 edges per node
   const auto feature_byte_size = static_cast<uint16_t>(repository.dims() * 4);  // expecting no more than 4096 float values
   const auto distance_space = deglib::L2Space(repository.dims());
-  auto graph = deglib::ReadOnlyGraph(node_count, edges_per_node, feature_byte_size, distance_space);
+  auto graph = deglib::ReadOnlyGraph(node_count, edges_per_node, feature_byte_size, &distance_space);
 
   // This dataset has a natural order, SIFT feature with similar indizies are more similar to each other
   auto node_order = std::vector<std::pair<uint32_t, uint32_t>>();

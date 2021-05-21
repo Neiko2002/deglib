@@ -59,6 +59,9 @@ template <typename MTYPE>
 class SpaceInterface
 {
   public:
+
+    virtual const size_t dim() const = 0;
+
     virtual const size_t get_data_size() const = 0;
 
     virtual const DISTFUNC<MTYPE> get_dist_func() const = 0;
