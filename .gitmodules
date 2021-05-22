@@ -6,3 +6,7 @@
 	path = external/robin-map
 	url = https://github.com/Tessil/robin-map.git
     branch = 0.6.3
+[submodule "external/contiguous"]
+	path = external/contiguous
+	url = https://github.com/Tradias/contiguous
+	branch = master
