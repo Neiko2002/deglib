@@ -22,7 +22,7 @@ target_compile_definitions(hnswlib_bench PUBLIC "DATA_PATH=\"${DATA_PATH}\"")
 # build DEG tests files
 add_executable(readonly_graph_test ${PROJECT_SOURCE_DIR}/src/deglib_readonly_graph_test.cpp)
 target_link_libraries(readonly_graph_test PUBLIC DEG_LIB compile-options
-                                      fmt::fmt-header-only tsl::robin_map)
+                                      fmt::fmt-header-only tsl::robin_map cntgs::cntgs)
 target_compile_definitions(readonly_graph_test PUBLIC "DATA_PATH=\"${DATA_PATH}\"")
 
 add_executable(deglib_bench ${PROJECT_SOURCE_DIR}/src/deglib_bench.cpp)
