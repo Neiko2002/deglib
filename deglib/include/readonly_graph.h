@@ -110,7 +110,7 @@ class ReadOnlyGraph : public SearchGraph {
 
  public:
   template<class FeatureVectorType>
-  using ContiguousVector = cntgs::ContiguousVector<cntgs::FixedSize<FeatureVectorType>, cntgs::FixedSize<uint32_t>, uint32_t>;
+  using ContiguousVector = cntgs::ContiguousVector<cntgs::FixedSize<cntgs::AlignAs<FeatureVectorType, alignment>>, cntgs::FixedSize<uint32_t>, uint32_t>;
 
   cntgs::TypeErasedVector nodes_vector;
 
