@@ -36,7 +36,7 @@ class ReadOnlyGraph : public SearchGraph {
 
   static const uint32_t alignment = 32; // alignment of node information in bytes
 
-  using NODES_T = cntgs::ContiguousVector<cntgs::FixedSize<cntgs::AlignAs<float, alignment>>, cntgs::FixedSize<uint32_t>, uint32_t>;
+  using NODES_T = cntgs::ContiguousVector<cntgs::FixedSize<cntgs::AlignAs<std::byte, alignment>>, cntgs::FixedSize<uint32_t>, uint32_t>;
   using SEARCHFUNC = deglib::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k);
 
   inline static deglib::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
@@ -83,7 +83,7 @@ class ReadOnlyGraph : public SearchGraph {
  public:
   ReadOnlyGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const deglib::L2Space distance_space)
       : distance_space_(distance_space), search_func_(getSearchFunction(distance_space.dim())),
-        nodes_{max_node_count, {distance_space.dim(), edges_per_node}}, label_to_index_(max_node_count) {
+        nodes_{max_node_count, {distance_space.get_data_size(), edges_per_node}}, label_to_index_(max_node_count) {
   }
 
 
@@ -119,11 +119,11 @@ class ReadOnlyGraph : public SearchGraph {
   /**
    * Add a new node. The neighbor indizies can be 
    */
-  void addNode(const uint32_t external_label, const float* feature_vector, std::vector<uint32_t>& neighbor_indizies) {
+  void addNode(const uint32_t external_label, const std::byte* feature_vector, std::vector<uint32_t>& neighbor_indizies) {
     const auto new_internal_index = static_cast<uint32_t>(label_to_index_.size());
     label_to_index_.emplace(external_label, new_internal_index);
 
-    nodes_.emplace_back(std::span(feature_vector, distance_space_.dim()), neighbor_indizies, external_label);
+    nodes_.emplace_back(std::span(feature_vector, distance_space_.get_data_size()), neighbor_indizies, external_label);
   }
 
   /**
@@ -295,7 +295,7 @@ auto load_readonly_graph(const char* path_graph, const deglib::FeatureRepository
       neighbor_indizies.emplace_back(neighbor.first);
     }
 
-    graph.addNode(pair.first, repository.getFeature(pair.first), neighbor_indizies);
+    graph.addNode(pair.first, reinterpret_cast<const std::byte*>(repository.getFeature(pair.first)), neighbor_indizies);
   }
 
   return graph;
