@@ -34,7 +34,9 @@ namespace deglib
  */
 class ReadOnlyGraph : public SearchGraph {
 
-  using NODES_T = cntgs::ContiguousVector<cntgs::FixedSize<float>, cntgs::FixedSize<uint32_t>, uint32_t>;
+  static const uint32_t alignment = 32; // alignment of node information in bytes
+
+  using NODES_T = cntgs::ContiguousVector<cntgs::FixedSize<cntgs::AlignAs<float, alignment>>, cntgs::FixedSize<uint32_t>, uint32_t>;
   using SEARCHFUNC = deglib::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k);
 
   inline static deglib::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
