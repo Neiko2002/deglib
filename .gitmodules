@@ -1,11 +1,11 @@
 [submodule "external/fmt"]
 	path = external/fmt
 	url = https://github.com/fmtlib/fmt
-	branch = 7.1.3
+	branch = master
 [submodule "external/robin-map"]
 	path = external/robin-map
 	url = https://github.com/Tessil/robin-map.git
-    branch = 0.6.3
+    branch = master
 [submodule "external/contiguous"]
 	path = external/contiguous
 	url = https://github.com/Tradias/contiguous
