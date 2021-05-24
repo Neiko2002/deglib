@@ -117,6 +117,14 @@ class ReadOnlyGraph : public SearchGraph {
   }
 
   /**
+   * get the feature vector of a node
+   */
+  inline auto getFeatureVektor(const uint32_t internal_idx) const {
+    auto&& [feature, neighbor_indizies, label] = nodes_[internal_idx];
+    return feature;
+  }
+
+  /**
    * Add a new node. The neighbor indizies can be 
    */
   void addNode(const uint32_t external_label, const std::byte* feature_vector, std::vector<uint32_t>& neighbor_indizies) {
@@ -204,7 +212,9 @@ class ReadOnlyGraph : public SearchGraph {
         const auto neighbor_index = good_neighbors[i];
         auto&& [neighbor_feature_vector, neighbor_indizies, neighbor_label] = nodes_[neighbor_index];
         const auto neighbor_distance = COMPARATOR::compare(query, neighbor_feature_vector.data(), dist_func_param);
-             
+        // const auto neighbor_distance = COMPARATOR::compare(query, getFeatureVektor(neighbor_index).data(), dist_func_param);       // too slow for now
+        // const auto neighbor_distance = COMPARATOR::compare(query, cntgs::get<0>(nodes_[neighbor_index]).data(), dist_func_param);  // too slow for now
+
         // check the neighborhood of this node later, if its good enough
         if (neighbor_distance <= r * (1 + eps)) {
             next_nodes.emplace(neighbor_index, neighbor_distance);
