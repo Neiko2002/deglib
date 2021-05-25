@@ -1,3 +1,5 @@
+#pragma once
+
 /*****************************************************
  * Iterating over the elements of a pointer
  * Reference

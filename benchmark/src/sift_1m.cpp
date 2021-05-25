@@ -4,12 +4,12 @@
 //  >>>    searchKnnCloserFirst(const void* query_data, size_t k) const;
 // of class AlgorithmInterface
 
-#include "hnswlib.h"
-#include "utils.h"
-
 #include <vector>
 #include <iostream>
 #include <omp.h>
+
+#include "hnswlib.h"
+#include "hnsw/utils.h"
 
 /**
  * Add memmove and read all base features at once

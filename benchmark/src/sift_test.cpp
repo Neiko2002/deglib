@@ -2,10 +2,10 @@
 #include <fstream>
 #include <queue>
 #include <chrono>
-#include "hnswlib.h"
-
-
 #include <unordered_set>
+
+#include "hnswlib.h"
+#include "stopwatch.h"
 
 using namespace std;
 using namespace hnswlib;
@@ -20,23 +20,6 @@ template <typename T>
 static void readBinaryPOD(istream& in, T& podRef) {
     in.read((char*)&podRef, sizeof(T));
 }*/
-class StopW {
-    std::chrono::steady_clock::time_point time_begin;
-public:
-    StopW() {
-        time_begin = std::chrono::steady_clock::now();
-    }
-
-    float getElapsedTimeMicro() {
-        std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-        return (std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
-    }
-
-    void reset() {
-        time_begin = std::chrono::steady_clock::now();
-    }
-
-};
 
 void get_gt(float *mass, float *massQ, size_t vecsize, size_t qsize, L2Space &l2space, size_t vecdim,
             vector<std::priority_queue<std::pair<float, labeltype >>> &answers, size_t k) {

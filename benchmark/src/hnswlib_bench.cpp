@@ -1,12 +1,12 @@
-#include "hnswlib.h"
-#include "sift_1m.h"
-#include "stopwatch.h"
-
-#include <fmt/core.h>
 #include <omp.h>
+#include <fmt/core.h>
 #include <tsl/robin_set.h>
 
 #include <algorithm>
+
+#include "hnswlib.h"
+#include "hnsw/utils.h"
+#include "stopwatch.h"
 
 static std::vector<tsl::robin_set<size_t>> get_ground_truth(const uint32_t* ground_truth,
                                                             const size_t ground_truth_size, const size_t k)

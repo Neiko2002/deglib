@@ -2,10 +2,10 @@
 #include <fstream>
 #include <queue>
 #include <chrono>
-#include "hnswlib.h"
-#include "utils.h"
-
 #include <unordered_set>
+
+#include "hnswlib.h"
+#include "hnsw/utils.h"
 
 using namespace std;
 using namespace hnswlib;

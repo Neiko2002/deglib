@@ -1,10 +1,8 @@
 #pragma once
 
-#include "deglib.h"
-
 namespace deglib {
     
-    namespace Distances {
+    namespace distances {
 
         class L2Float {
         public:
@@ -128,12 +126,12 @@ namespace deglib {
             inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 size_t qty = *((size_t *) qty_ptr);
                 size_t qty16 = qty >> 4 << 4;
-                float res = deglib::Distances::L2Float16Ext::compare(pVect1v, pVect2v, &qty16);
+                float res = deglib::distances::L2Float16Ext::compare(pVect1v, pVect2v, &qty16);
                 float *pVect1 = (float *) pVect1v + qty16;
                 float *pVect2 = (float *) pVect2v + qty16;
 
                 size_t qty_left = qty - qty16;
-                float res_tail = deglib::Distances::L2Float::compare(pVect1, pVect2, &qty_left);
+                float res_tail = deglib::distances::L2Float::compare(pVect1, pVect2, &qty_left);
                 return (res + res_tail);
             }
         };
@@ -144,17 +142,36 @@ namespace deglib {
                 size_t qty = *((size_t *) qty_ptr);
                 size_t qty4 = qty >> 2 << 2;
 
-                float res = deglib::Distances::L2Float4Ext::compare(pVect1v, pVect2v, &qty4);
+                float res = deglib::distances::L2Float4Ext::compare(pVect1v, pVect2v, &qty4);
                 size_t qty_left = qty - qty4;
 
                 float *pVect1 = (float *) pVect1v + qty4;
                 float *pVect2 = (float *) pVect2v + qty4;
-                float res_tail = deglib::Distances::L2Float::compare(pVect1, pVect2, &qty_left);
+                float res_tail = deglib::distances::L2Float::compare(pVect1, pVect2, &qty_left);
 
                 return (res + res_tail);
             }
         };
-    }
+    } // end namespace Distances
+
+
+    template <typename MTYPE>
+    using DISTFUNC = MTYPE (*)(const void*, const void*, const void*);
+
+    template <typename MTYPE>
+    class SpaceInterface
+    {
+    public:
+
+        virtual const size_t dim() const = 0;
+
+        virtual const size_t get_data_size() const = 0;
+
+        virtual const DISTFUNC<MTYPE> get_dist_func() const = 0;
+
+        virtual const void* get_dist_func_param() const = 0;
+    };
+
 
     class L2Space : public SpaceInterface<float> {
 
@@ -164,16 +181,16 @@ namespace deglib {
 
     public:
         L2Space(const size_t dim) {
-            fstdistfunc_ = deglib::Distances::L2Float::compare;
+            fstdistfunc_ = deglib::distances::L2Float::compare;
             #if defined(USE_SSE) || defined(USE_AVX)
                 if (dim % 16 == 0)
-                    fstdistfunc_ = deglib::Distances::L2Float16Ext::compare;
+                    fstdistfunc_ = deglib::distances::L2Float16Ext::compare;
                 else if (dim % 4 == 0)
-                    fstdistfunc_ = deglib::Distances::L2Float4Ext::compare;
+                    fstdistfunc_ = deglib::distances::L2Float4Ext::compare;
                 else if (dim > 16)
-                    fstdistfunc_ = deglib::Distances::L2Float16ExtResiduals::compare;
+                    fstdistfunc_ = deglib::distances::L2Float16ExtResiduals::compare;
                 else if (dim > 4)
-                    fstdistfunc_ = deglib::Distances::L2Float4ExtResiduals::compare;
+                    fstdistfunc_ = deglib::distances::L2Float4ExtResiduals::compare;
             #endif
             dim_ = dim;
             data_size_ = dim * sizeof(float);
@@ -198,4 +215,4 @@ namespace deglib {
         ~L2Space() {}
     };
 
-}  // namespace deglib
+}  // end namespace deglib
