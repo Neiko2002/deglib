@@ -53,4 +53,4 @@
 #include "graph.h"
 #include "graph/readonly_graph.h"
 #include "graph/sizebounded_graph.h"
-#include "builder/evenregular_builder.h"
+#include "builder.h"

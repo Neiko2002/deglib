@@ -98,6 +98,7 @@ class SearchGraph
     virtual deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k)  const = 0;
     virtual const uint32_t getExternalLabel(const uint32_t internal_index) const = 0;
     virtual const uint32_t getInternalIndex(const uint32_t external_label) const = 0;
+    virtual const uint32_t* getNeighborIndizies(const uint32_t internal_index) const = 0;
     virtual const uint8_t getEdgesPerNode() const = 0;
     virtual const size_t size() const = 0;
     virtual const deglib::SpaceInterface<float>& getFeatureSpace() const = 0;

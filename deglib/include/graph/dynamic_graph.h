@@ -39,6 +39,10 @@ public:
     return 0;
   }
 
+  inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
+    return nullptr;
+  }
+
   deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
   {
     nullptr;

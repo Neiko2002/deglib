@@ -165,20 +165,21 @@ private:
     return getNode(internal_idx);
   }
 
-  inline auto getNeighborIndizies(const uint32_t internal_idx) const {
-    return reinterpret_cast<uint32_t*>(getNode(internal_idx) + neighbor_indizies_offset_);
-  }
-
 public:
+
   /**
    * convert an external label to an internal index
    */ 
-  inline const uint32_t getInternalIndex(const uint32_t external_label) const {
+  inline const uint32_t getInternalIndex(const uint32_t external_label) const override {
     return label_to_index_.find(external_label)->second;
   }
 
-  inline const uint32_t getExternalLabel(const uint32_t internal_idx) const {
+  inline const uint32_t getExternalLabel(const uint32_t internal_idx) const override {
     return *reinterpret_cast<const int32_t*>(getNode(internal_idx) + external_label_offset_);
+  }
+
+  inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
+    return reinterpret_cast<const uint32_t*>(getNode(internal_idx) + neighbor_indizies_offset_);
   }
 
   /**
