@@ -8,23 +8,23 @@ namespace deglib::search
 #pragma pack(2)
 class ObjectDistance
 {
-    uint32_t id_;
+    uint32_t internal_index_;
     float distance_;
 
   public:
-    ObjectDistance(const uint32_t id, const float distance) : id_(id), distance_(distance) {}
+    ObjectDistance(const uint32_t internal_index, const float distance) : internal_index_(internal_index), distance_(distance) {}
 
-    inline const uint32_t getId() const { return id_; }
+    inline const uint32_t getInternalIndex() const { return internal_index_; }
 
     inline const float getDistance() const { return distance_; }
 
-    inline bool operator==(const ObjectDistance& o) const { return (distance_ == o.distance_) && (id_ == o.id_); }
+    inline bool operator==(const ObjectDistance& o) const { return (distance_ == o.distance_) && (internal_index_ == o.internal_index_); }
 
     inline bool operator<(const ObjectDistance& o) const
     {
         if (distance_ == o.distance_)
         {
-            return id_ < o.id_;
+            return internal_index_ < o.internal_index_;
         }
         else
         {
@@ -36,7 +36,7 @@ class ObjectDistance
     {
         if (distance_ == o.distance_)
         {
-            return id_ > o.id_;
+            return internal_index_ > o.internal_index_;
         }
         else
         {
@@ -95,13 +95,19 @@ typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::gr
 class SearchGraph
 {
   public:    
-    virtual deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k)  const = 0;
+    virtual const size_t size() const = 0;
+    virtual const uint8_t getEdgesPerNode() const = 0;
+    virtual const deglib::SpaceInterface<float>& getFeatureSpace() const = 0;
+
     virtual const uint32_t getExternalLabel(const uint32_t internal_index) const = 0;
     virtual const uint32_t getInternalIndex(const uint32_t external_label) const = 0;
     virtual const uint32_t* getNeighborIndizies(const uint32_t internal_index) const = 0;
-    virtual const uint8_t getEdgesPerNode() const = 0;
-    virtual const size_t size() const = 0;
-    virtual const deglib::SpaceInterface<float>& getFeatureSpace() const = 0;
+    virtual const std::byte* getFeatureVector(const uint32_t internal_index) const = 0;
+
+    virtual const bool hasNode(const uint32_t external_label) const = 0;
+    virtual const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const = 0;
+
+    virtual deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k)  const = 0;
 };
 
 } // end namespace deglib::search

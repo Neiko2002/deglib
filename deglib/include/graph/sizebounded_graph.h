@@ -39,21 +39,21 @@ namespace deglib::graph
  */
 class SizeBoundedGraph : public deglib::graph::MutableGraph {
 
-  using SEARCHFUNC = deglib::search::ResultSet (*)(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k);
+  using SEARCHFUNC = deglib::search::ResultSet (*)(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k);
 
-  inline static deglib::search::ResultSet searchL2Ext16(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext16(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float16Ext>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext4(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float4Ext>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext16Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext16Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float16ExtResiduals>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext4Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float4ExtResiduals>(entry_node_indizies, query, eps, k);
   }
 
@@ -161,10 +161,6 @@ private:
     return nodes_memory_ + internal_idx * byte_size_per_node_;
   }
 
-  inline auto getFeatureVector(const uint32_t internal_idx) const {
-    return getNode(internal_idx);
-  }
-
 public:
 
   /**
@@ -178,24 +174,42 @@ public:
     return *reinterpret_cast<const int32_t*>(getNode(internal_idx) + external_label_offset_);
   }
 
+  inline const std::byte* getFeatureVector(const uint32_t internal_idx) const override {
+    return getNode(internal_idx);
+  }
+
   inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
     return reinterpret_cast<const uint32_t*>(getNode(internal_idx) + neighbor_indizies_offset_);
   }
 
+  inline const float* getNeighborWeights(const uint32_t internal_idx) const override {
+    return reinterpret_cast<const float*>(getNode(internal_idx) + neighbor_weights_offset_);
+  }
+
+  inline const bool hasNode(const uint32_t external_label) const override {
+    return label_to_index_.contains(external_label);
+  }
+
+  inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
+    auto neighbor_indizies = getNeighborIndizies(internal_index);
+    auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;  
+    auto neighbor_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, neighbor_index); 
+    return (*neighbor_ptr == neighbor_index);
+  }
+
   /**
-   * Add a new node. The neighbor indizies/weights and feature vectors will be copied.
-   * The neighbor array need to have enough neighbors to match the edge-per-node count of the graph.
+   * Add a new node. The neighbor indizies will be prefilled with a self-loop, the weights will be 0.
    * 
    * @return the internal index of the new node
    */
-  uint32_t addNode(const uint32_t external_label, const std::byte* feature_vector, const uint32_t* neighbor_indizies, const float* neighbor_weights) override {
+  uint32_t addNode(const uint32_t external_label, const std::byte* feature_vector) override {
     const auto new_internal_index = static_cast<uint32_t>(label_to_index_.size());
     label_to_index_.emplace(external_label, new_internal_index);
 
     auto node_memory = getNode(new_internal_index);
     std::memcpy(node_memory, feature_vector, feature_byte_size_);
-    std::memcpy(node_memory + neighbor_indizies_offset_, neighbor_indizies, uint32_t(edges_per_node_) * sizeof(uint32_t));
-    std::memcpy(node_memory + neighbor_weights_offset_, neighbor_weights, uint32_t(edges_per_node_) * sizeof(float));
+    std::fill_n(reinterpret_cast<uint32_t*>(node_memory + neighbor_indizies_offset_), this->edges_per_node_, new_internal_index);
+    std::fill_n(reinterpret_cast<float*>(node_memory + neighbor_weights_offset_), this->edges_per_node_, float(0));
     std::memcpy(node_memory + external_label_offset_, &external_label, sizeof(uint32_t));
 
     return new_internal_index;
@@ -214,7 +228,7 @@ public:
     auto node_memory = getNode(internal_index);
 
     auto neighbor_indizies = reinterpret_cast<uint32_t*>(node_memory + neighbor_indizies_offset_);    // list of neighbor indizizes
-    auto neighbor_indizies_end = neighbor_indizies + edges_per_node_;                                 // end of the list
+    auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;                           // end of the list
     auto from_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, from_neighbor_index);  // possible position of the from_neighbor_index in the neighbor list
 
     // from_neighbor_index not found in the neighbor list
@@ -244,6 +258,9 @@ public:
 
   /**
    * Change all edges of a node.
+   * The neighbor indizies/weights and feature vectors will be copied.
+   * The neighbor array need to have enough neighbors to match the edge-per-node count of the graph.
+   * The indizies in the neighbor_indizies array must be sorted.
    */
   void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indizies, const float* neighbor_weights) override {
     auto node_memory = getNode(internal_index);
@@ -254,7 +271,7 @@ public:
   /**
    * The result set contains internal indizies. 
    */
-  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
+  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const override
   {
     return search_func_(*this, entry_node_indizies, query, eps, k);
   }
@@ -263,7 +280,7 @@ public:
    * The result set contains internal indizies. 
    */
   template <typename COMPARATOR>
-  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const
+  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
 
@@ -302,7 +319,7 @@ public:
         break;
 
       size_t good_neighbor_count = 0;
-      const auto neighbor_indizies = this->getNeighborIndizies(next_node.getId());
+      const auto neighbor_indizies = this->getNeighborIndizies(next_node.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_node_; i++) {
         const auto neighbor_index = neighbor_indizies[i];
         if (checked_ids[neighbor_index] == false)  {
@@ -415,7 +432,8 @@ auto load_sizebounded_graph(const char* path_graph, const deglib::FeatureReposit
       neighbor_weights.emplace_back(neighbor.second);
     }
 
-    graph.addNode(pair.first, reinterpret_cast<const std::byte*>(repository.getFeature(pair.first)), neighbor_ids.data(), neighbor_weights.data());
+    auto internal_index = graph.addNode(pair.first, reinterpret_cast<const std::byte*>(repository.getFeature(pair.first)));
+    graph.changeEdges(internal_index, neighbor_ids.data(), neighbor_weights.data());
   }
 
   return graph;

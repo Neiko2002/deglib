@@ -39,8 +39,24 @@ public:
     return 0;
   }
 
+  inline const std::byte* getFeatureVector(const uint32_t internal_idx) const override {
+    return nullptr;
+  }
+
   inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
     return nullptr;
+  }
+
+  inline const float* getNeighborWeights(const uint32_t internal_idx) const override {
+    return nullptr;
+  }
+
+  inline const bool hasNode(const uint32_t external_label) const override {
+    return false;
+  }
+
+  inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
+    return false;
   }
 
   deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
@@ -48,7 +64,7 @@ public:
     nullptr;
   }
 
-  uint32_t addNode(const uint32_t external_label, const  std::byte* feature_vector, const uint32_t* neighbor_indizies, const float* neighbor_weights) override {
+  uint32_t addNode(const uint32_t external_label, const  std::byte* feature_vector) override {
     return 0;
   }
 

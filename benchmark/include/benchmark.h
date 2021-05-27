@@ -33,14 +33,14 @@ static float test_approx(const deglib::search::SearchGraph& graph, const std::ve
     size_t correct = 0;
     for (int i = 0; i < query_repository.size(); i++)
     {
-        auto query = query_repository.getFeature(i);
+        auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
         auto result_queue = graph.yahooSearch(entry_node_indizies, query, eps, k);
 
         const auto gt = ground_truth[i];
         total += gt.size();
         while (result_queue.empty() == false)
         {
-            const auto internal_index = result_queue.top().getId();
+            const auto internal_index = result_queue.top().getInternalIndex();
             const auto external_id = graph.getExternalLabel(internal_index);
             if (gt.find(external_id) != gt.end()) correct++;
             result_queue.pop();

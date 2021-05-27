@@ -34,21 +34,21 @@ namespace deglib::graph
  */
 class ReadOnlyGraph : public deglib::search::SearchGraph {
 
-  using SEARCHFUNC = deglib::search::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k);
+  using SEARCHFUNC = deglib::search::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k);
 
-  inline static deglib::search::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float16Ext>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext4(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float4Ext>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext16Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext16Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float16ExtResiduals>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext4Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float4ExtResiduals>(entry_node_indizies, query, eps, k);
   }
 
@@ -148,12 +148,6 @@ private:
     return nodes_memory_ + internal_idx * byte_size_per_node_;
   }
 
-  inline auto getFeatureVector(const uint32_t internal_idx) const {
-    return getNode(internal_idx);
-  }
-
- 
-
 public:
   /**
    * convert an external label to an internal index
@@ -166,8 +160,23 @@ public:
     return *reinterpret_cast<const int32_t*>(getNode(internal_idx) + external_label_offset_);
   }
 
+  inline const std::byte* getFeatureVector(const uint32_t internal_idx) const override{
+    return getNode(internal_idx);
+  }
+
   inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
     return reinterpret_cast<uint32_t*>(getNode(internal_idx) + neighbor_indizies_offset_);
+  }
+
+  inline const bool hasNode(const uint32_t external_label) const override {
+    return label_to_index_.contains(external_label);
+  }
+
+  inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
+    auto neighbor_indizies = getNeighborIndizies(internal_index);
+    auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;  
+    auto neighbor_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, neighbor_index); 
+    return (*neighbor_ptr == neighbor_index);
   }
 
   /**
@@ -186,7 +195,7 @@ public:
   /**
    * The result set contains internal indizies. 
    */
-  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
+  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const override
   {
     return search_func_(*this, entry_node_indizies, query, eps, k);
   }
@@ -195,7 +204,7 @@ public:
    * The result set contains internal indizies. 
    */
   template <typename COMPARATOR>
-  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const
+  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
 
@@ -235,7 +244,7 @@ public:
         break;
 
       size_t good_neighbor_count = 0;
-      const auto neighbor_indizies = this->getNeighborIndizies(next_node.getId());
+      const auto neighbor_indizies = this->getNeighborIndizies(next_node.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_node_; i++) {
         const auto neighbor_index = neighbor_indizies[i];
         if (checked_ids[neighbor_index] == false)  {
