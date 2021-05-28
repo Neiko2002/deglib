@@ -46,6 +46,8 @@ class ObjectDistance
 };
 #pragma pack()
 
+
+
 /**
  * priority queue with access to the internal data.
  * therefore access to the unsorted data is possible.
@@ -90,6 +92,55 @@ typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::gr
 
 
 
+/**
+ * Special class to track a search path
+ */ 
+class TrackableObjectDistance {
+    uint32_t internal_index_;
+    float distance_;
+    uint32_t trackback_index_;
+
+  public:
+    TrackableObjectDistance(const uint32_t internal_index, const float distance, const uint32_t trackback_index) 
+      : internal_index_(internal_index), distance_(distance), trackback_index_(trackback_index) {
+    }
+
+    inline const uint32_t getInternalIndex() const { return internal_index_; }
+
+    inline const float getDistance() const { return distance_; }
+
+    inline const uint32_t getTrackbackIndex() const { return trackback_index_; }
+
+    inline bool operator==(const TrackableObjectDistance& o) const { return (distance_ == o.distance_) && (internal_index_ == o.internal_index_); }
+
+    inline bool operator<(const TrackableObjectDistance& o) const
+    {
+        if (distance_ == o.distance_)
+        {
+            return internal_index_ < o.internal_index_;
+        }
+        else
+        {
+            return distance_ < o.distance_;
+        }
+    }
+
+    inline bool operator>(const TrackableObjectDistance& o) const
+    {
+        if (distance_ == o.distance_)
+        {
+            return internal_index_ > o.internal_index_;
+        }
+        else
+        {
+            return distance_ > o.distance_;
+        }
+    }
+};
+
+// set of unchecked node ids and additional trackback information
+typedef std::priority_queue<TrackableObjectDistance, std::vector<TrackableObjectDistance>, std::greater<TrackableObjectDistance>> TrackableUncheckedSet;
+
 
 
 class SearchGraph
@@ -107,7 +158,15 @@ class SearchGraph
     virtual const bool hasNode(const uint32_t external_label) const = 0;
     virtual const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const = 0;
 
-    virtual deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k)  const = 0;
+    /**
+     * Performan a yahooSearch but stops when the to_node was found.
+     */
+    virtual std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const = 0;
+
+    /**
+     * Approximate nearest neighbor search based on yahoo's graph search algorithm
+     */
+    virtual deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const = 0;
 };
 
 } // end namespace deglib::search

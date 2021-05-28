@@ -59,6 +59,11 @@ public:
     return false;
   }
 
+  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const override {
+
+    return std::vector<deglib::search::ObjectDistance>();
+  }
+
   deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
   {
     nullptr;

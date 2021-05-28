@@ -269,6 +269,113 @@ public:
   }
 
   /**
+   * Performan a yahooSearch but stops when the to_node was found.
+   */
+  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const override
+  {
+    const auto query = this->getFeatureVector(to_node);
+    const auto dist_func = this->feature_space_.get_dist_func();
+    const auto dist_func_param = this->feature_space_.get_dist_func_param();
+
+    // set of checked node ids
+    auto checked_ids = std::vector<bool>(this->size());
+
+    // items to traverse next
+    auto next_nodes = deglib::search::UncheckedSet();
+
+    // trackable information 
+    auto trackback = tsl::robin_map<uint32_t, deglib::search::ObjectDistance>();
+
+    // result set
+    auto results = deglib::search::ResultSet();   
+
+    // copy the initial entry nodes and their distances to the query into the three containers
+    for (auto&& index : entry_node_indizies) {
+      checked_ids[index] = true;
+
+      const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
+      const auto distance = dist_func(query, feature, dist_func_param);
+      results.emplace(index, distance);
+      next_nodes.emplace(index, distance);
+      trackback.insert({index, deglib::search::ObjectDistance(index, distance)});
+    }
+
+    // search radius
+    auto r = std::numeric_limits<float>::max();
+
+    // iterate as long as good elements are in the next_nodes queue     
+    auto good_neighbors = std::array<uint32_t, 256>();
+    while (next_nodes.empty() == false)
+    {
+      // next node to check
+      const auto next_node = next_nodes.top();
+      next_nodes.pop();
+
+      // max distance reached
+      if (next_node.getDistance() > r * (1 + eps)) 
+        break;
+
+      size_t good_neighbor_count = 0;
+      const auto neighbor_indizies = this->getNeighborIndizies(next_node.getInternalIndex());
+      for (size_t i = 0; i < this->edges_per_node_; i++) {
+        const auto neighbor_index = neighbor_indizies[i];
+
+        // found our target node, create a path back to the entry node
+        if(neighbor_index == to_node) {
+          auto path = std::vector<deglib::search::ObjectDistance>();
+          path.emplace_back(to_node, 0);
+          path.emplace_back(next_node.getInternalIndex(), next_node.getDistance());
+
+          auto last_node = trackback.find(next_node.getInternalIndex());
+          while(last_node != trackback.cend() && last_node->first != last_node->second.getInternalIndex()) {
+            path.emplace_back(last_node->second.getInternalIndex(), last_node->second.getDistance());
+            last_node = trackback.find(last_node->second.getInternalIndex());
+          }
+
+          return path;
+        }
+
+        // collect 
+        if (checked_ids[neighbor_index] == false)  {
+          checked_ids[neighbor_index] = true;
+          good_neighbors[good_neighbor_count++] = neighbor_index;
+        }
+      }
+
+      if (good_neighbor_count == 0)
+        continue;
+
+      MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[0])));
+      for (size_t i = 0; i < good_neighbor_count; i++) {
+        MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+
+        const auto neighbor_index = good_neighbors[i];
+        const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
+        const auto neighbor_distance = dist_func(query, neighbor_feature_vector, dist_func_param);
+             
+        // check the neighborhood of this node later, if its good enough
+        if (neighbor_distance <= r * (1 + eps)) {
+          next_nodes.emplace(neighbor_index, neighbor_distance);
+          trackback.insert({neighbor_index, deglib::search::ObjectDistance(next_node.getInternalIndex(), next_node.getDistance())});
+
+          // remember the node, if its better than the worst in the result list
+          if (neighbor_distance < r) {
+            results.emplace(neighbor_index, neighbor_distance);
+
+            // update the search radius
+            if (results.size() > k) {
+              results.pop();
+              r = results.top().getDistance();
+            }
+          }
+        }
+      }
+    }
+
+    return std::vector<deglib::search::ObjectDistance>();
+  }
+
+  /**
    * The result set contains internal indizies. 
    */
   deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const override

@@ -54,7 +54,7 @@ int main() {
         }
 
         // check the graph from time to time
-        if(status.step % 100000 == 0) {
+        if(status.step % 10000 == 0) {
             auto valid = deglib::analysis::check_graph_validation(graph, uint32_t(status.added - status.deleted), true);
             if(valid == false) {
                 builder.stop();
