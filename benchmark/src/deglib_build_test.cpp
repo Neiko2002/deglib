@@ -1,5 +1,7 @@
-#include <fmt/core.h>
 #include <random>
+#include <chrono>
+
+#include <fmt/core.h>
 
 #include "benchmark.h"
 #include "graph.h"
@@ -29,7 +31,7 @@ int main() {
     // create a graph builder to add nodes to the new graph and improve its edges
     auto rnd = std::mt19937(7); 
     const uint8_t extend_k = 20; 
-    const float extend_eps = 0.20;
+    const float extend_eps = 0.2;
     const uint8_t improve_k = 20;
     const float improve_eps = 0.025;
     const uint8_t max_path_length = 10;
@@ -45,22 +47,31 @@ int main() {
     }
     
     // check the integrity of the graph during the graph build process
+    const auto log_after = 10000;
+    const auto start = std::chrono::system_clock::now();
+    auto last_status = deglib::builder::BuilderStatus{};
     const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
 
-        if(status.step % 10000 == 0) {
+        if(status.added % log_after == 0) {
             auto quality = deglib::analysis::calc_graph_quality(graph);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
-            fmt::print("step {}, added {}, deleted {}, improved {}, tries {}, connected {}, quality {} \n", status.step, status.added, status.deleted, status.improved, status.tries, connected, quality);
+            auto duration = uint32_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count());
+            auto avg_improv = uint32_t((status.improved - last_status.improved) / log_after);
+            auto avg_tries = uint32_t((status.tries - last_status.tries) / log_after);
+            fmt::print("{:7} elements, in {:5}s, with {:8} / {:8} improvements (avg {:2}/{:3}), quality {:4.2f}, connected {} \n", 
+                        status.added, duration, status.improved, status.tries, avg_improv, avg_tries, quality, connected);
         }
 
         // check the graph from time to time
-        if(status.step % 10000 == 0) {
+        if(status.added % log_after == 0) {
             auto valid = deglib::analysis::check_graph_validation(graph, uint32_t(status.added - status.deleted), true);
             if(valid == false) {
                 builder.stop();
                 fmt::print("Invalid graph, build process is stopped");
             } 
         }
+
+        last_status = status;
     };
 
     // start the build process

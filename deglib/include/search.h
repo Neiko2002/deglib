@@ -12,6 +12,8 @@ class ObjectDistance
     float distance_;
 
   public:
+    ObjectDistance() {}
+
     ObjectDistance(const uint32_t internal_index, const float distance) : internal_index_(internal_index), distance_(distance) {}
 
     inline const uint32_t getInternalIndex() const { return internal_index_; }
@@ -90,56 +92,6 @@ typedef PQV<std::less<ObjectDistance>> ResultSet;
 // set of unchecked node ids
 typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::greater<ObjectDistance>> UncheckedSet;
 
-
-
-/**
- * Special class to track a search path
- */ 
-class TrackableObjectDistance {
-    uint32_t internal_index_;
-    float distance_;
-    uint32_t trackback_index_;
-
-  public:
-    TrackableObjectDistance(const uint32_t internal_index, const float distance, const uint32_t trackback_index) 
-      : internal_index_(internal_index), distance_(distance), trackback_index_(trackback_index) {
-    }
-
-    inline const uint32_t getInternalIndex() const { return internal_index_; }
-
-    inline const float getDistance() const { return distance_; }
-
-    inline const uint32_t getTrackbackIndex() const { return trackback_index_; }
-
-    inline bool operator==(const TrackableObjectDistance& o) const { return (distance_ == o.distance_) && (internal_index_ == o.internal_index_); }
-
-    inline bool operator<(const TrackableObjectDistance& o) const
-    {
-        if (distance_ == o.distance_)
-        {
-            return internal_index_ < o.internal_index_;
-        }
-        else
-        {
-            return distance_ < o.distance_;
-        }
-    }
-
-    inline bool operator>(const TrackableObjectDistance& o) const
-    {
-        if (distance_ == o.distance_)
-        {
-            return internal_index_ > o.internal_index_;
-        }
-        else
-        {
-            return distance_ > o.distance_;
-        }
-    }
-};
-
-// set of unchecked node ids and additional trackback information
-typedef std::priority_queue<TrackableObjectDistance, std::vector<TrackableObjectDistance>, std::greater<TrackableObjectDistance>> TrackableUncheckedSet;
 
 
 

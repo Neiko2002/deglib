@@ -323,7 +323,7 @@ public:
         // found our target node, create a path back to the entry node
         if(neighbor_index == to_node) {
           auto path = std::vector<deglib::search::ObjectDistance>();
-          path.emplace_back(to_node, 0);
+          path.emplace_back(to_node, 0.f);
           path.emplace_back(next_node.getInternalIndex(), next_node.getDistance());
 
           auto last_node = trackback.find(next_node.getInternalIndex());

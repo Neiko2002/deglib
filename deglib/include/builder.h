@@ -100,6 +100,26 @@ class EvenRegularGraphBuilder {
     }
 
     /**
+     * A unordered version produced the best results, but doubled the needed time
+     * 10000 elements, in   105s, with   239403 /   748134 improvements (avg  0/  0), quality 87391.89, connected 1
+     * 
+     * and if we bra
+     * 10000 elements, in    88s, with   199336 /   627933 improvements (avg  0/  0), quality 88019.92, connected 1 
+     */
+    std::vector<deglib::search::ObjectDistance> topList(deglib::search::ResultSet queue, bool sorted = false) {
+      const auto size = queue.size();
+      auto topList = std::vector<deglib::search::ObjectDistance>(size);
+      for (size_t i = 0; i < size; i++) {
+        if(sorted)
+          topList[(size - 1) - i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
+        else
+          topList[i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
+        queue.pop();
+      }
+      return topList;
+    }
+
+    /**
      * The initial graph contains of "edges-per-node + 1" nodes.
      * Every node in this graph is connected to all other nodes.
      */
@@ -176,11 +196,11 @@ class EvenRegularGraphBuilder {
       const auto edges_per_node = graph.getEdgesPerNode();
       const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
       const std::vector<uint32_t> entry_node_indizies = { distrib(this->rnd_) };
-      auto result_queue = graph.yahooSearch(entry_node_indizies, add_task.feature.data(), this->extend_eps_, std::max(this->extend_k_, edges_per_node));
+      const auto results = topList(graph.yahooSearch(entry_node_indizies, add_task.feature.data(), this->extend_eps_, std::max(this->extend_k_, edges_per_node)));
 
       // their should always be enough neighbors (search results), otherwise the graph would be broken
-      if(result_queue.size() < edges_per_node) {
-        fmt::print(stderr, "the graph search for the new node {} did only provided {} results \n", external_label, result_queue.size());
+      if(results.size() < edges_per_node) {
+        fmt::print(stderr, "the graph search for the new node {} did only provided {} results \n", external_label, results.size());
         perror("");
         abort();
       }
@@ -194,15 +214,13 @@ class EvenRegularGraphBuilder {
         
       // remove the worst edge of the good neighbors and connect them with this new node
       auto new_neighbors = std::vector<std::pair<uint32_t, float>>();
-      while(new_neighbors.size() < edges_per_node) {
-        const auto& result = result_queue.front();
+      for (int i = 0; i < results.size() && new_neighbors.size() < edges_per_node; i++) {
+        const auto& result = results[i];
 
         // check if the node is already in the edge list of the new node (added during a previous loop-run)
         // since all edges are undirected and the edge information of the new node does not yet exist, we search the other way around.
-        if(graph.hasEdge(result.getInternalIndex(), internal_index)) {
-          result_queue.pop();
+        if(graph.hasEdge(result.getInternalIndex(), internal_index)) 
           continue;
-        }
 
         // find the worst edge of the new neighbor
         uint32_t bad_neighbor_index = 0;
@@ -216,7 +234,7 @@ class EvenRegularGraphBuilder {
           // the new node might have been added to the neighbor list of this result-node during a previous loop
           // the suggest neighbors might already be in the edge list of the new node
           // the weight of the neighbor might not be worst than the current worst one
-          if(internal_index != neighbor_index && graph.hasEdge(neighbor_index, internal_index) == false && bad_neighbor_weight < neighbor_weight) {
+          if(bad_neighbor_weight < neighbor_weight && internal_index != neighbor_index && graph.hasEdge(neighbor_index, internal_index) == false) {
             bad_neighbor_index = neighbor_index;
             bad_neighbor_weight = neighbor_weight;
           }          
@@ -233,13 +251,10 @@ class EvenRegularGraphBuilder {
         graph.changeEdge(result.getInternalIndex(), bad_neighbor_index, internal_index, result.getDistance());
         new_neighbors.emplace_back(result.getInternalIndex(), result.getDistance());
 
-        // place the new node in the edge list of the result-node and its worst edge neighbor
+        // place the new node in the edge list of the worst edge neighbor
         const auto distance = dist_func(add_task.feature.data(), graph.getFeatureVector(bad_neighbor_index), dist_func_param);
         graph.changeEdge(bad_neighbor_index, result.getInternalIndex(), internal_index, distance);
         new_neighbors.emplace_back(bad_neighbor_index, distance);
-
-        // iterate to the next search result
-        result_queue.pop();
       }
 
       // sort the neighbors by their neighbor indizies and store them in the new node
@@ -261,6 +276,198 @@ class EvenRegularGraphBuilder {
       perror("");
       abort();
     }
+
+    /**
+     * Do not call this method directly instead call improve() to improve the graph.
+     *  
+     * This is the extended part of the optimization process.
+     * The method takes an array where all graph changes will be documented.
+	   * Node1 and node2 might be in a separate subgraph than node3 and node4.
+     * Thru a series of edges swaps both subgraphs should be reconnected..
+     * If those changes improve the graph this method returns true otherwise false. 
+     * 
+     * @return true if a good sequences of changes has been found
+     */
+    bool improve_recursive(std::vector<deglib::builder::BuilderChange>& changes, uint32_t node1, uint32_t node2, uint32_t node3, uint32_t node4, float total_gain, const uint8_t steps) {
+      auto& graph = this->graph_;
+      const auto edges_per_node = graph.getEdgesPerNode();
+
+      // 1. Find a edge for node2 which connects to the subgraph of node3 and node4. 
+      //    Consider only nodes of the approximate nearest neighbor search. Since the 
+      //    search started from node3 and node4 all nodes in the result list are in 
+      //    their subgraph and would therefore connect the two potential subgraphs.	
+      float dist23 = 0;
+      {
+        const auto node2_feature = graph.getFeatureVector(node2);
+        const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
+        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_));
+
+        // find a good new node3
+        for(auto&& result : results) {
+
+          // TODO maybe making sure the new node3 is not the old node3 or even node4 helps
+          if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
+            node3 = result.getInternalIndex();
+            dist23 = result.getDistance();
+            //break; // TODO maybe remove this and find the best possible edge
+          }
+        }
+
+        // no new node3 was found
+        if(dist23 == 0)
+          return false;
+
+        // replace the temporary self-loop of node2 with a connection to node3. 
+        graph.changeEdge(node2, node2, node3, dist23);
+        changes.emplace_back(node2, node2, 0.f, node3, dist23);
+        total_gain -= dist23;
+      }
+
+      // 2. All nodes are connected but the subgraph between node1/node2 and node3/node4 might just have one edge(node2, node3).
+      //    Furthermore Node 3 has now to many edges, remove the worst one. Ignore the just added edge. 
+      //    FYI: If the new selected node3 is the same as the old node3, this process might cut its connection to node4 again.
+      //    This will be fixed in the next step or until the recursion reaches max_path_length.
+      float dist34 = 0;
+      {
+        // 2.1 find the worst edge of node3
+        uint32_t bad_neighbor_index = 0;
+        float bad_neighbor_weight = 0.f;
+        const auto neighbor_weights = graph.getNeighborWeights(node3);
+        const auto neighbor_indizies = graph.getNeighborIndizies(node3);
+        for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
+
+          // do not remove the edge which was just added
+          if(neighbor_indizies[edge_idx] != node2 && bad_neighbor_weight < neighbor_weights[edge_idx]) {
+            bad_neighbor_index = neighbor_indizies[edge_idx];
+            bad_neighbor_weight = neighbor_weights[edge_idx];    
+          }
+        }
+
+        // 2.2 Remove the worst edge of node3 to node4 and replace it with the connection to node2
+        //     Add a temporaty self-loop for node4 for the missing edge to node3
+        node4 = bad_neighbor_index;
+        dist34 = bad_neighbor_weight;
+        total_gain += dist34;
+        graph.changeEdge(node3, node4, node2, dist23);
+        changes.emplace_back(node3, node4, dist34, node2, dist23);
+        graph.changeEdge(node4, node3, node4, 0.f);
+        changes.emplace_back(node4, node3, dist34, node4, 0.f);
+      }
+
+      // 3. Try to connect node1 with node4
+      {
+        const auto& feature_space = this->graph_.getFeatureSpace();
+        const auto dist_func = feature_space.get_dist_func();
+        const auto dist_func_param = feature_space.get_dist_func_param();
+
+        // 3.1a Node1 and node4 might be the same. Proceed like extending the graph.
+        //     Search for a good node to connect to, remove its worst edge and connect
+        //     both nodes of the worst edge to the node4. Skip the edge any of the two
+        //     two nodes are already connected to node4.
+        //     Quite rare case.
+        if(node1 == node4) {
+
+          // find a good (not yet connected) node for node1/node4
+          const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
+          const auto node4_feature = graph.getFeatureVector(node4);
+          const auto results = topList(graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_));
+
+          for(auto&& result : results) {
+            const auto good_node = result.getInternalIndex();
+
+            // the new node should not be connected to node4 yet
+            if(node4 != good_node && graph.hasEdge(node4, good_node) == false) {
+              const auto good_node_dist = result.getDistance();
+
+              // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
+              const auto neighbors_indizies = graph.getNeighborIndizies(good_node);
+              const auto neighbor_weights = graph.getNeighborWeights(good_node);
+              for (size_t i = 0; i < edges_per_node; i++) {
+                const auto selected_neighbor = neighbors_indizies[i];
+
+                // ignore edges where the second node is already connect to node4
+                if(node4 != selected_neighbor && graph.hasEdge(node4, selected_neighbor) == false) {
+                  const auto old_neighbor_dist = neighbor_weights[i];
+                  const auto new_neighbor_dist = dist_func(node4_feature, graph.getFeatureVector(selected_neighbor), dist_func_param);
+
+                  // do all the changes improve the graph?
+								  if((total_gain + old_neighbor_dist) - (good_node_dist + new_neighbor_dist) > 0) {
+
+                    // replace the two self-loops of node4/node1 with a connection to the good node and its selected neighbor
+                    graph.changeEdge(node4, node4, good_node, good_node_dist);
+                    changes.emplace_back(node4, node4, 0.f, good_node, good_node_dist);
+                    graph.changeEdge(node4, node4, selected_neighbor, new_neighbor_dist);
+                    changes.emplace_back(node4, node4, 0.f, selected_neighbor, new_neighbor_dist);
+
+                    // replace from good node the connection to the selected neighbor with one to node4
+                    graph.changeEdge(good_node, selected_neighbor, node4, good_node_dist);
+                    changes.emplace_back(good_node, selected_neighbor, old_neighbor_dist, node4, good_node_dist);
+
+                     // replace from the selected neighbor the connection to the good node with one to node4
+                    graph.changeEdge(selected_neighbor, good_node, node4, new_neighbor_dist);
+                    changes.emplace_back(selected_neighbor, good_node, old_neighbor_dist, node4, new_neighbor_dist);
+
+                    return true;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // TODO when improve_recursive is implemented it might be better to remove this section
+        else {
+
+          // If there is a way from node2 or node3, to node1 or node4 then ...
+				  // 3.1b Try to connect node1 with node4
+          // Much more likly than 4.1a 
+				  if(graph.hasEdge(node1, node4) == false) {
+
+            // Is the total of all changes still beneficial?
+            const auto dist14 = dist_func(graph.getFeatureVector(node1), graph.getFeatureVector(node4), dist_func_param);
+            if((total_gain - dist14) > 0) {
+
+              const std::vector<uint32_t> entry_node_indizies = { node2, node3 }; 
+              if(graph.hasPath(entry_node_indizies, node1, improve_eps_, improve_k_).size() > 0 || graph.hasPath(entry_node_indizies, node4, improve_eps_, improve_k_).size() > 0) {
+                
+                // replace the the self-loops of node1 with a connection to the node4
+                graph.changeEdge(node1, node1, node4, dist14);
+                changes.emplace_back(node1, node1, 0.f, node4, dist14);
+
+                // replace the the self-loops of node4 with a connection to the node1
+                graph.changeEdge(node4, node4, node1, dist14);
+                changes.emplace_back(node4, node4, 0.f, node1, dist14);
+
+                return true;
+              }
+            }
+          }
+        }
+      }
+
+      // 4. early stop
+      if(total_gain < 0) {
+        //fmt::print("Current swap path is degenerating the graph. Rollback.");
+        return false;
+      }
+      
+      // 5. Maximum path length
+      if(steps == this->max_path_length_) {
+        //fmt::print("Reached maxiumum path length without improvements. Rollback.");	
+        return false;
+      }
+      
+      // 6. swap node1 and node4 every second round, to give each a fair chance
+      if(steps % 2 == 0) {
+        uint32_t b = node1;
+        node1 = node4;
+        node4 = b;
+      }
+		
+
+      return improve_recursive(changes, node1, node4, node2, node3, total_gain, steps + 1);
+    }
+
 
     /**
      * Call just improve() to improve the graph.
@@ -318,27 +525,24 @@ class EvenRegularGraphBuilder {
         // find a good node3 to connect to node 2
         const std::vector<uint32_t> entry_node_indizies = { node1 };
         const auto node2_feature = graph.getFeatureVector(node2);
-        auto result_queue = graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, std::max(this->improve_k_, edges_per_node));
-        while(result_queue.size() > 0) {
-          const auto& result = result_queue.front();
+        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_));
+        for(auto&& result : results) {
 
           if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
             node3 = result.getInternalIndex();
             dist23 = result.getDistance();
-
-            // replace the temporary self-loop of node2 with a connection to node3. 
-            graph.changeEdge(node2, node2, node3, dist23);
-            changes.emplace_back(node2, node2, 0.f, node3, dist23);
-            total_gain -= dist23;
-            break;
+            //break; // TODO maybe remove this and find the best possible edge
           }
-
-          result_queue.pop();
         }
 
         // no good node3 was found, stop this swap try
         if(dist23 == 0) 
           return false;
+
+        // replace the temporary self-loop of node2 with a connection to node3. 
+        graph.changeEdge(node2, node2, node3, dist23);
+        changes.emplace_back(node2, node2, 0.f, node3, dist23);
+        total_gain -= dist23;
       }
 
       // 3. Node 3 has now to many edges, remove the worst one. Ignore the just added edge. 
@@ -380,15 +584,15 @@ class EvenRegularGraphBuilder {
         //     Search for a good node to connect to, remove its worst edge and connect
         //     both nodes of the worst edge to the node4. Skip the edge any of the two
         //     two nodes are already connected to node4.
+        //     Quite rare case.
         if(node1 == node4) {
 
           // find a good (not yet connected) node for node1/node4
           const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
           const auto node4_feature = graph.getFeatureVector(node4);
-          auto result_queue = graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, std::max(this->improve_k_, edges_per_node));
+          const auto results = topList(graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_));
 
-          while(result_queue.size() > 0) {
-            const auto& result = result_queue.front();
+          for(auto&& result : results) {
             const auto good_node = result.getInternalIndex();
 
             // the new node should not be connected to node4 yet
@@ -428,16 +632,15 @@ class EvenRegularGraphBuilder {
                 }
               }
             }
-
-            result_queue.pop();
           }
         }
 
-        // TODO when improve_recursive is implemented it might be better to remove this section
+        // // TODO when improve_recursive is implemented it might be better to remove this section
         else {
 
           // If there is a way from node2 or node3, to node1 or node4 then ...
 				  // 4.1b Try to connect node1 with node4
+          // Much more likly than 4.1a 
 				  if(graph.hasEdge(node1, node4) == false) {
 
             // Is the total of all changes still beneficial?
@@ -463,7 +666,7 @@ class EvenRegularGraphBuilder {
       }
 
 
-      return false;
+      return improve_recursive(changes, node1, node4, node2, node3, total_gain, 1);
     }
 
     /**
@@ -551,7 +754,7 @@ class EvenRegularGraphBuilder {
           }
         }
 
-        // try to improve the graph
+        //try to improve the graph
         for (int swap_try = 0; swap_try < int(this->swap_tries_); swap_try++) {
           status.tries++;
 
