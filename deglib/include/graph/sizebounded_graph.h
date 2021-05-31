@@ -70,17 +70,17 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
       return deglib::graph::SizeBoundedGraph::searchL2Ext16;
   }
 
-  static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size) {
+  static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size, const uint8_t alignment) {
     const uint32_t byte_size = uint32_t(feature_byte_size) + uint32_t(edges_per_node) * (sizeof(uint32_t) + sizeof(float)) + sizeof(uint32_t);
-    if constexpr(alignment == 0)
+    if (alignment == 0)
       return byte_size;
     else {
       return ((byte_size + alignment - 1) / alignment) * alignment;
     }
   }
 
-  static std::byte* compute_aligned_pointer(const std::unique_ptr<std::byte[]>& arr) {
-    if constexpr(alignment == 0)
+  static std::byte* compute_aligned_pointer(const std::unique_ptr<std::byte[]>& arr, const uint8_t alignment) {
+    if (alignment == 0)
       return arr.get();
     else {
       auto unaliged_address = (uint64_t) arr.get();
@@ -90,7 +90,7 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
     }
   }
 
-  static const uint32_t alignment = 32; // alignment of node information in bytes
+  static const uint8_t object_alignment = 32; // alignment of node information in bytes
 
   const uint32_t max_node_count_;
   const uint8_t edges_per_node_;
@@ -121,15 +121,28 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
         feature_space_(feature_space),
         search_func_(getSearchFunction(feature_space.dim())),
         feature_byte_size_(uint16_t(feature_space.get_data_size())), 
-        byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, uint16_t(feature_space.get_data_size()))), 
+        byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, uint16_t(feature_space.get_data_size()), object_alignment)), 
         neighbor_indizies_offset_(uint32_t(feature_space.get_data_size())),
         neighbor_weights_offset_(neighbor_indizies_offset_ + uint32_t(edges_per_node) * sizeof(uint32_t)),
         external_label_offset_(neighbor_weights_offset_ + uint32_t(edges_per_node) * sizeof(float)), 
-        nodes_(std::make_unique<std::byte[]>(max_node_count * byte_size_per_node_ + alignment)), 
-        nodes_memory_(compute_aligned_pointer(nodes_)), 
+        nodes_(std::make_unique<std::byte[]>(max_node_count * byte_size_per_node_ + object_alignment)), 
+        nodes_memory_(compute_aligned_pointer(nodes_, object_alignment)), 
         label_to_index_(max_node_count) {
   }
 
+  /**
+   *  Load from file
+   */
+  SizeBoundedGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const deglib::L2Space feature_space, std::ifstream& ifstream, const uint32_t size)
+      : SizeBoundedGraph(max_node_count, edges_per_node, feature_space) {
+
+    // copy the old data over
+    uint32_t file_byte_size_per_node = compute_aligned_byte_size_per_node(this->edges_per_node_, this->feature_byte_size_, 0);
+    for (uint32_t i = 0; i < size; i++) {
+      ifstream.read(reinterpret_cast<char*>(this->getNode(i)), file_byte_size_per_node);
+      label_to_index_.emplace(this->getExternalLabel(i), i);
+    }
+  }
 
   /**
    * Current maximal capacity of nodes
@@ -157,7 +170,7 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
   }
 
 private:  
-  inline auto getNode(const uint32_t internal_idx) const {
+  inline std::byte* getNode(const uint32_t internal_idx) const {
     return nodes_memory_ + internal_idx * byte_size_per_node_;
   }
 
@@ -195,6 +208,35 @@ public:
     auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;  
     auto neighbor_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, neighbor_index); 
     return (*neighbor_ptr == neighbor_index);
+  }
+
+  const bool saveGraph(const char* path_to_graph) const override {
+    auto out = std::ofstream(path_to_graph, std::ios::out | std::ios::binary);
+
+    // check open file for write
+    if (!out.is_open()) {
+      fmt::print(stderr, "Error in open file {}\n", path_to_graph);
+      return false;
+    }
+
+    // store feature space information
+    uint8_t data_type = 1; // 1=float
+    out.write(reinterpret_cast<const char*>(&data_type), sizeof(data_type));
+    uint16_t dim = uint16_t(this->feature_space_.dim());
+    out.write(reinterpret_cast<const char*>(&dim), sizeof(dim));
+
+    // store graph information
+    uint32_t size = uint32_t(this->size());
+    out.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    out.write(reinterpret_cast<const char*>(&this->edges_per_node_), sizeof(this->edges_per_node_));
+
+    // store the existing nodes
+    uint32_t byte_size_per_node = compute_aligned_byte_size_per_node(this->edges_per_node_, this->feature_byte_size_, 0);
+    for (uint32_t i = 0; i < size; i++)
+      out.write(reinterpret_cast<const char*>(this->getNode(i)), byte_size_per_node);    
+    out.close();
+
+    return true;
   }
 
   /**
@@ -468,10 +510,56 @@ public:
   }
 };
 
-
 /**
  * Load the graph
- **/
+ */
+auto load_sizebounded_graph(const char* path_graph, const uint32_t new_max_size)
+{
+  std::error_code ec{};
+  auto file_size = std::filesystem::file_size(path_graph, ec);
+  if (ec != std::error_code{})
+  {
+    fmt::print(stderr, "error when accessing test file, size is: {} message: {} \n", file_size, ec.message());
+    perror("");
+    abort();
+  }
+
+  auto ifstream = std::ifstream(path_graph, std::ios::binary);
+  if (!ifstream.is_open())
+  {
+    fmt::print(stderr, "could not open {}\n", path_graph);
+    perror("");
+    abort();
+  }
+
+  // create feature space
+  uint8_t data_type;
+  ifstream.read(reinterpret_cast<char*>(&data_type), sizeof(data_type));
+  uint16_t dim;
+  ifstream.read(reinterpret_cast<char*>(&dim), sizeof(dim));
+  const auto feature_space = deglib::L2Space(dim);
+
+  // create the graph
+  uint32_t size;
+  ifstream.read(reinterpret_cast<char*>(&size), sizeof(size));
+  uint8_t edges_per_node;
+  ifstream.read(reinterpret_cast<char*>(&edges_per_node), sizeof(edges_per_node));
+
+  if(new_max_size < size) {
+    fmt::print(stderr, "The graph in the {} file has {} nodes but the new max size is {}\n", path_graph, size, new_max_size);
+    perror("");
+    abort();
+  }
+
+  auto graph = deglib::graph::SizeBoundedGraph(new_max_size, edges_per_node, std::move(feature_space), ifstream, size);
+  ifstream.close();
+
+  return graph;
+}
+
+/**
+ * Load a graph without feature vectors. 
+ */
 auto load_sizebounded_graph(const char* path_graph, const deglib::FeatureRepository &repository)
 {
   std::error_code ec{};
@@ -505,8 +593,8 @@ auto load_sizebounded_graph(const char* path_graph, const deglib::FeatureReposit
   auto file_values = (uint32_t*)buffer.get();
   const uint32_t node_count = *(file_values + 0);
   const auto edges_per_node = static_cast<uint8_t>(*(file_values + 2));         // expecting no more than 256 edges per node
-  const auto distance_space = deglib::L2Space(repository.dims());
-  auto graph = deglib::graph::SizeBoundedGraph(node_count, edges_per_node, std::move(distance_space));
+  const auto feature_space = deglib::L2Space(repository.dims());
+  auto graph = deglib::graph::SizeBoundedGraph(node_count, edges_per_node, std::move(feature_space));
 
   // This dataset has a natural order, SIFT feature with similar indizies are more similar to each other
   auto node_order = std::vector<std::pair<uint32_t, uint32_t>>();

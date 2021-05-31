@@ -110,6 +110,8 @@ class SearchGraph
     virtual const bool hasNode(const uint32_t external_label) const = 0;
     virtual const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const = 0;
 
+    virtual const bool saveGraph(const char* path_to_graph) const = 0;
+
     /**
      * Performan a yahooSearch but stops when the to_node was found.
      */

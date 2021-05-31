@@ -18,10 +18,13 @@ int main() {
     auto data_path = std::filesystem::path(DATA_PATH);
 
     // load an existing graph
-    auto graph_file = std::filesystem::path("k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_WorstEdge0_cpp.graph");
-    fmt::print("Data dir  {} \n", data_path.string().c_str());
-    const auto graph = deglib::benchmark::load_sift1m_sizebounded_graph(data_path, graph_file);
-    //const auto graph = deglib::benchmark::load_sift1m_readonly_graph(data_path, graph_file);
+    // auto graph_file = std::filesystem::path("k24nns_128D_L2_Path10_Rnd3+3Improve_AddK20Eps0.2_ImproveK20Eps0.025_WorstEdge0_cpp.graph");
+    // fmt::print("Data dir  {} \n", data_path.string().c_str());
+    // const auto graph = deglib::benchmark::load_sift1m_sizebounded_graph(data_path, graph_file);
+    // const auto graph = deglib::benchmark::load_sift1m_readonly_graph(data_path, graph_file);
+    const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2.deg").string();
+    fmt::print("Load graph {} \n", graph_file);
+    const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
 
     // test the graph
     const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();

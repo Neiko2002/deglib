@@ -59,6 +59,10 @@ public:
     return false;
   }
 
+  const bool saveGraph(const char* path_to_graph) const override {
+    return true;
+  }
+
   std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const override {
 
     return std::vector<deglib::search::ObjectDistance>();

@@ -51,11 +51,13 @@ struct BuilderStatus {
 
 class EvenRegularGraphBuilder {
 
-    const uint8_t extend_k_;         // k value for extending the graph
-    const float extend_eps_;          // eps value for extending the graph
-    const uint8_t improve_k_;        // k value for improving the graph
-    const float improve_eps_;         // eps value for improving the graph
-    const uint8_t max_path_length_;  // max amount of changes before canceling an improvement try
+    const uint8_t extend_k_;            // k value for extending the graph
+    const float extend_eps_;            // eps value for extending the graph
+    const uint8_t improve_k_;           // k value for improving the graph
+    const float improve_eps_;           // eps value for improving the graph
+    const uint8_t improve_extended_k_;  // k value for the extended improvement algorithm part
+    const float improve_extended_eps_;  // eps value for the extended improvement algorithm part
+    const uint8_t max_path_length_;     // max amount of changes before canceling an improvement try
     const uint32_t swap_tries_;
     const uint32_t additional_swap_tries_;
 
@@ -70,8 +72,12 @@ class EvenRegularGraphBuilder {
 
   public:
 
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, const uint8_t extend_k, const float extend_eps, const uint8_t improve_k, const float improve_eps, const uint8_t max_path_length, const uint32_t swap_tries, const uint32_t additional_swap_tries, std::mt19937& rnd) 
-      : graph_(graph), extend_k_(extend_k), extend_eps_(extend_eps), improve_k_(improve_k), improve_eps_(improve_eps), max_path_length_(max_path_length), swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries), rnd_(rnd) {
+    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, const uint8_t extend_k, const float extend_eps, const uint8_t improve_k, 
+                            const float improve_eps, const uint8_t improve_extended_k, const float improve_extended_eps, const uint8_t max_path_length, 
+                            const uint32_t swap_tries, const uint32_t additional_swap_tries, std::mt19937& rnd) 
+      : graph_(graph), extend_k_(extend_k), extend_eps_(extend_eps), improve_k_(improve_k), improve_eps_(improve_eps), 
+        improve_extended_k_(improve_extended_k), improve_extended_eps_(improve_extended_eps), max_path_length_(max_path_length), 
+        swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries), rnd_(rnd) {
     }
 
     /**
@@ -100,17 +106,13 @@ class EvenRegularGraphBuilder {
     }
 
     /**
-     * A unordered version produced the best results, but doubled the needed time
-     * 10000 elements, in   105s, with   239403 /   748134 improvements (avg  0/  0), quality 87391.89, connected 1
      * 
-     * and if we bra
-     * 10000 elements, in    88s, with   199336 /   627933 improvements (avg  0/  0), quality 88019.92, connected 1 
      */
-    std::vector<deglib::search::ObjectDistance> topList(deglib::search::ResultSet queue, bool sorted = false) {
+    std::vector<deglib::search::ObjectDistance> topList(deglib::search::ResultSet queue, bool ascending = true) {
       const auto size = queue.size();
       auto topList = std::vector<deglib::search::ObjectDistance>(size);
       for (size_t i = 0; i < size; i++) {
-        if(sorted)
+        if(ascending)
           topList[(size - 1) - i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
         else
           topList[i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
@@ -288,7 +290,7 @@ class EvenRegularGraphBuilder {
      * 
      * @return true if a good sequences of changes has been found
      */
-    bool improve_recursive(std::vector<deglib::builder::BuilderChange>& changes, uint32_t node1, uint32_t node2, uint32_t node3, uint32_t node4, float total_gain, const uint8_t steps) {
+    bool improveExtended(std::vector<deglib::builder::BuilderChange>& changes, uint32_t node1, uint32_t node2, uint32_t node3, uint32_t node4, float total_gain, const uint8_t steps) {
       auto& graph = this->graph_;
       const auto edges_per_node = graph.getEdgesPerNode();
 
@@ -300,7 +302,7 @@ class EvenRegularGraphBuilder {
       {
         const auto node2_feature = graph.getFeatureVector(node2);
         const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
-        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_));
+        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_), false);
 
         // find a good new node3
         for(auto&& result : results) {
@@ -309,7 +311,7 @@ class EvenRegularGraphBuilder {
           if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
             node3 = result.getInternalIndex();
             dist23 = result.getDistance();
-            //break; // TODO maybe remove this and find the best possible edge
+            break;
           }
         }
 
@@ -415,7 +417,7 @@ class EvenRegularGraphBuilder {
           }
         }
 
-        // TODO when improve_recursive is implemented it might be better to remove this section
+        // TODO when improveExtended is implemented it might be better to remove this section
         else {
 
           // If there is a way from node2 or node3, to node1 or node4 then ...
@@ -465,7 +467,7 @@ class EvenRegularGraphBuilder {
       }
 		
 
-      return improve_recursive(changes, node1, node4, node2, node3, total_gain, steps + 1);
+      return improveExtended(changes, node1, node4, node2, node3, total_gain, steps + 1);
     }
 
 
@@ -531,7 +533,7 @@ class EvenRegularGraphBuilder {
           if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
             node3 = result.getInternalIndex();
             dist23 = result.getDistance();
-            //break; // TODO maybe remove this and find the best possible edge
+            break;
           }
         }
 
@@ -635,7 +637,7 @@ class EvenRegularGraphBuilder {
           }
         }
 
-        // // TODO when improve_recursive is implemented it might be better to remove this section
+        // // TODO when improveExtended is implemented it might be better to remove this section
         else {
 
           // If there is a way from node2 or node3, to node1 or node4 then ...
@@ -666,7 +668,7 @@ class EvenRegularGraphBuilder {
       }
 
 
-      return improve_recursive(changes, node1, node4, node2, node3, total_gain, 1);
+      return improveExtended(changes, node1, node4, node2, node3, total_gain, 1);
     }
 
     /**
