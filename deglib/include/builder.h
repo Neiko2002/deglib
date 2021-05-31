@@ -415,10 +415,7 @@ class EvenRegularGraphBuilder {
               }
             }
           }
-        }
-
-        // TODO when improveExtended is implemented it might be better to remove this section
-        else {
+        } else {
 
           // If there is a way from node2 or node3, to node1 or node4 then ...
 				  // 3.1b Try to connect node1 with node4
@@ -635,10 +632,7 @@ class EvenRegularGraphBuilder {
               }
             }
           }
-        }
-
-        // // TODO when improveExtended is implemented it might be better to remove this section
-        else {
+        } else {
 
           // If there is a way from node2 or node3, to node1 or node4 then ...
 				  // 4.1b Try to connect node1 with node4

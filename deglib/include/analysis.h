@@ -83,7 +83,7 @@ namespace deglib::analysis
     /**
      * check if the graph is connected and contains only one graph component
      */
-    static boolean check_graph_connectivity(const deglib::search::SearchGraph& graph) {
+    static bool check_graph_connectivity(const deglib::search::SearchGraph& graph) {
         const auto node_count = graph.size();
         const auto edges_per_node = graph.getEdgesPerNode();
 

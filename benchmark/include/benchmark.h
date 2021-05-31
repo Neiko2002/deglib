@@ -54,7 +54,7 @@ static void test_vs_recall(const deglib::search::SearchGraph& graph, const std::
                            const std::vector<tsl::robin_set<uint32_t>>& ground_truth, const uint32_t k)
 {
     // try different eps values for the search radius
-    std::vector<float> eps_parameter = {0.1, 0.12, 0.14, 0.16};
+    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16 };
     for (float eps : eps_parameter)
     {
         StopW stopw = StopW();
@@ -86,36 +86,6 @@ static void test_graph(const deglib::search::SearchGraph& graph, const deglib::F
         deglib::benchmark::test_vs_recall(graph, entry_node_indizies, query_repository, answer, k);
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
     fmt::print("Max memory usage: {} Mb\n", getPeakRSS() / 1000000);
-}
-
-static auto load_sift1m_readonly_graph(std::filesystem::path data_path, std::filesystem::path graph_file) 
-{
-    const auto path_repository = (data_path / "SIFT1M/sift_base.fvecs").string();
-    auto repository = deglib::load_repository(path_repository.c_str());
-    fmt::print("{} Base Features with {} dimensions \n", repository.size(), repository.dims());
-
-    StopW stopw = StopW();
-    const auto path_graph = (data_path / graph_file).string();
-    auto graph = deglib::graph::load_readonly_graph(path_graph.c_str(), repository);
-    uint64_t time_in_ms = stopw.getElapsedTimeMicro() / 1000;
-    fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
-
-    return graph;
-}
-
-static auto load_sift1m_sizebounded_graph(std::filesystem::path data_path, std::filesystem::path graph_file) 
-{
-    const auto path_repository = (data_path / "SIFT1M/sift_base.fvecs").string();
-    auto repository = deglib::load_repository(path_repository.c_str());
-    fmt::print("{} Base Features with {} dimensions \n", repository.size(), repository.dims());
-
-    StopW stopw = StopW();
-    const auto path_graph = (data_path / graph_file).string();
-    auto graph = deglib::graph::load_sizebounded_graph(path_graph.c_str(), repository);
-    uint64_t time_in_ms = stopw.getElapsedTimeMicro() / 1000;
-    fmt::print("graph node count {} took {}ms\n", graph.size(), time_in_ms);
-
-    return graph;
 }
 
 }  // namespace deglib::benchmark

@@ -4,25 +4,18 @@
 #include <fmt/core.h>
 
 #include "benchmark.h"
-#include "graph.h"
-#include "analysis.h"
+#include "deglib.h"
 
-int main() {
-    fmt::print("Testing ...\n");
 
-    #if defined(USE_AVX)
-        fmt::print("use AVX2  ...\n");
-    #elif defined(USE_SSE)
-        fmt::print("use SSE  ...\n");
-    #else
-        fmt::print("use arch  ...\n");
-    #endif
-
-    auto data_path = std::filesystem::path(DATA_PATH);
+/**
+ * Load the SIFT repository and create a dynamic exploratino graph with it.
+ * Store the graph in the graph file.
+ */
+void create_graph(const std::string repository_file, const std::string graph_file) {
 
     // create a new graph
     const uint8_t edges_per_node = 24;
-    auto repository = deglib::load_static_repository((data_path / "SIFT1M/sift_base.fvecs").string().c_str());
+    auto repository = deglib::load_static_repository(repository_file.c_str());
     const auto dims = repository.dims();
     const uint32_t max_node_count = uint32_t(repository.size());
     const auto feature_space = deglib::L2Space(dims);
@@ -35,7 +28,7 @@ int main() {
     const uint8_t improve_k = 20;
     const float improve_eps = 0.02;
     const uint8_t improve_extended_k = 12;
-    const float improve_extended_eps = 0.020;
+    const float improve_extended_eps = 0.02;
     const uint8_t max_path_length = 10;
     const uint32_t swap_tries = 3;
     const uint32_t additional_swap_tries = 3;
@@ -80,13 +73,17 @@ int main() {
     builder.build(improvement_callback, false);
 
     // store the graph
-    //const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2.deg").string();
-    const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2_ImproveK20Eps0.02_ImproveExtK12-1StepEps0.02.deg").string();
     graph.saveGraph(graph_file.c_str());
+}
 
+/**
+ * Load the graph from the drive and test it against the SIFT query data.
+ */
+void test_graph(const std::filesystem::path data_path, const std::string graph_file) {
 
-    
-
+    // load an existing graph
+    fmt::print("Load graph {} \n", graph_file);
+    const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
 
     const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
@@ -98,6 +95,28 @@ int main() {
     const auto ground_truth = (uint32_t*)ground_truth_f.get(); // not very clean, works as long as sizeof(int) == sizeof(float)
     fmt::print("{} ground truth {} dimensions \n", count_out, dims_out);
     deglib::benchmark::test_graph(graph, query_repository, ground_truth);
+}
+
+int main() {
+    fmt::print("Testing ...\n");
+
+    #if defined(USE_AVX)
+        fmt::print("use AVX2  ...\n");
+    #elif defined(USE_SSE)
+        fmt::print("use SSE  ...\n");
+    #else
+        fmt::print("use arch  ...\n");
+    #endif
+
+    const auto data_path = std::filesystem::path(DATA_PATH);
+    const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
+    const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2_ImproveK20Eps0.02_ImproveExtK12-1StepEps0.02.deg").string();
+
+    // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
+    create_graph(repository_file, graph_file);
+
+    // loads the graph from the drive and test it against the SIFT query data
+    test_graph(data_path, graph_file);
 
     fmt::print("Test OK\n");
     return 0;
