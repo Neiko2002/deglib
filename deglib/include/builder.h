@@ -72,9 +72,9 @@ class EvenRegularGraphBuilder {
 
   public:
 
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, const uint8_t extend_k, const float extend_eps, const uint8_t improve_k, 
-                            const float improve_eps, const uint8_t improve_extended_k, const float improve_extended_eps, const uint8_t max_path_length, 
-                            const uint32_t swap_tries, const uint32_t additional_swap_tries, std::mt19937& rnd) 
+    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, const uint8_t extend_k, const float extend_eps, const uint8_t improve_k, 
+                            const float improve_eps, const uint8_t improve_extended_k, const float improve_extended_eps, const uint8_t max_path_length = 10, 
+                            const uint32_t swap_tries = 3, const uint32_t additional_swap_tries = 3) 
       : graph_(graph), extend_k_(extend_k), extend_eps_(extend_eps), improve_k_(improve_k), improve_eps_(improve_eps), 
         improve_extended_k_(improve_extended_k), improve_extended_eps_(improve_extended_eps), max_path_length_(max_path_length), 
         swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries), rnd_(rnd) {
@@ -302,7 +302,7 @@ class EvenRegularGraphBuilder {
       {
         const auto node2_feature = graph.getFeatureVector(node2);
         const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
-        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_), false);
+        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*1), false);
 
         // find a good new node3
         for(auto&& result : results) {

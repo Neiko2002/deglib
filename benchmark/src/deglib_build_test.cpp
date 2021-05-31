@@ -33,13 +33,13 @@ int main() {
     const uint8_t extend_k = 20; 
     const float extend_eps = 0.2;
     const uint8_t improve_k = 20;
-    const float improve_eps = 0.025;
-    const uint8_t improve_extended_k = 20;
-    const float improve_extended_eps = 0.025;
+    const float improve_eps = 0.02;
+    const uint8_t improve_extended_k = 12;
+    const float improve_extended_eps = 0.020;
     const uint8_t max_path_length = 10;
     const uint32_t swap_tries = 3;
     const uint32_t additional_swap_tries = 3;
-    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, extend_k, extend_eps, improve_k, improve_eps, improve_extended_k, improve_extended_eps, max_path_length, swap_tries, additional_swap_tries, rnd);
+    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, improve_k, improve_eps, improve_extended_k, improve_extended_eps, max_path_length, swap_tries, additional_swap_tries);
 
     // provide all features to the graph builder at once. In an online system this will be called 
     for (uint32_t label = 0; label < repository.size(); label++) {
@@ -81,7 +81,7 @@ int main() {
 
     // store the graph
     //const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2.deg").string();
-    const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2_ImproveK20Eps0.025_ImproveExtK20-1StepEps0.025.deg").string();
+    const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2_ImproveK20Eps0.02_ImproveExtK12-1StepEps0.02.deg").string();
     graph.saveGraph(graph_file.c_str());
 
 
