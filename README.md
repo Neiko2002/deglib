@@ -29,7 +29,7 @@ For the HNSW graph it will be the following settings:
 efConstruction = 500;
 M = 24;
 
-![line chart showing the ANNS timing for the SIFT1M benchmark](https://raw.githubusercontent.com/Neiko2002/deglib/hnswlib_deglib/results/sift1m.svg =800x545)
+![line chart showing the ANNS timing for the SIFT1M benchmark](https://raw.githubusercontent.com/Neiko2002/deglib/hnswlib_deglib/results/sift1m.svg)
 
 ### Roadmap
 There is no specific order. All the functionality listed here will be added when the associated paper comes out.
