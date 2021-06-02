@@ -126,7 +126,7 @@ class ReadOnlyGraph : public deglib::search::SearchGraph {
     // copy the old data over
     uint32_t node_without_external = uint32_t(feature_space.get_data_size()) + uint32_t(edges_per_node) * sizeof(uint32_t);
     for (uint32_t i = 0; i < max_node_count; i++) {
-      auto node = reinterpret_cast<char*>(this->getNode(i));
+      auto node = reinterpret_cast<char*>(this->node_by_index(i));
       ifstream.read(node, node_without_external);                     // read the feature vector and neighbor indizies
       ifstream.ignore(uint32_t(edges_per_node) * sizeof(float));      // skip the weights
       ifstream.read(node + node_without_external, sizeof(uint32_t));  // read the external label
@@ -161,8 +161,20 @@ class ReadOnlyGraph : public deglib::search::SearchGraph {
 
     
 private:  
-  inline std::byte* getNode(const uint32_t internal_idx) const {
+  inline std::byte* node_by_index(const uint32_t internal_idx) const {
     return nodes_memory_ + internal_idx * byte_size_per_node_;
+  }
+
+  inline const uint32_t label_by_index(const uint32_t internal_idx) const {
+    return *reinterpret_cast<const int32_t*>(node_by_index(internal_idx) + external_label_offset_);
+  }
+
+  inline const std::byte* feature_by_index(const uint32_t internal_idx) const{
+    return node_by_index(internal_idx);
+  }
+
+  inline const uint32_t* neighbors_by_index(const uint32_t internal_idx) const {
+    return reinterpret_cast<uint32_t*>(node_by_index(internal_idx) + neighbor_indizies_offset_);
   }
 
 public:
@@ -175,15 +187,15 @@ public:
   }
 
   inline const uint32_t getExternalLabel(const uint32_t internal_idx) const override {
-    return *reinterpret_cast<const int32_t*>(getNode(internal_idx) + external_label_offset_);
+    return label_by_index(internal_idx);
   }
 
   inline const std::byte* getFeatureVector(const uint32_t internal_idx) const override{
-    return getNode(internal_idx);
+    return feature_by_index(internal_idx);
   }
 
   inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
-    return reinterpret_cast<uint32_t*>(getNode(internal_idx) + neighbor_indizies_offset_);
+    return neighbors_by_index(internal_idx);
   }
 
   inline const bool hasNode(const uint32_t external_label) const override {
@@ -211,7 +223,7 @@ public:
     const auto new_internal_index = static_cast<uint32_t>(label_to_index_.size());
     label_to_index_.emplace(external_label, new_internal_index);
 
-    auto node_memory = getNode(new_internal_index);
+    auto node_memory = node_by_index(new_internal_index);
     std::memcpy(node_memory, feature_vector, feature_byte_size_);
     std::memcpy(node_memory + neighbor_indizies_offset_, neighbor_indizies, uint32_t(edges_per_node_) * 4);
     std::memcpy(node_memory + external_label_offset_, &external_label, 4);
@@ -222,7 +234,7 @@ public:
    */
   std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const override
   {
-    const auto query = this->getFeatureVector(to_node);
+    const auto query = this->feature_by_index(to_node);
     const auto dist_func = this->feature_space_.get_dist_func();
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
 
@@ -242,7 +254,7 @@ public:
     for (auto&& index : entry_node_indizies) {
       checked_ids[index] = true;
 
-      const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
+      const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
       const auto distance = dist_func(query, feature, dist_func_param);
       results.emplace(index, distance);
       next_nodes.emplace(index, distance);
@@ -265,7 +277,7 @@ public:
         break;
 
       size_t good_neighbor_count = 0;
-      const auto neighbor_indizies = this->getNeighborIndizies(next_node.getInternalIndex());
+      const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_node_; i++) {
         const auto neighbor_index = neighbor_indizies[i];
 
@@ -293,12 +305,12 @@ public:
       if (good_neighbor_count == 0)
         continue;
 
-      MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[0])));
+      MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[0])));
       for (size_t i = 0; i < good_neighbor_count; i++) {
-        MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+        MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
 
         const auto neighbor_index = good_neighbors[i];
-        const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
+        const auto neighbor_feature_vector = this->feature_by_index(neighbor_index);
         const auto neighbor_distance = dist_func(query, neighbor_feature_vector, dist_func_param);
              
         // check the neighborhood of this node later, if its good enough
@@ -353,7 +365,7 @@ public:
     for (auto&& index : entry_node_indizies) {
       checked_ids[index] = true;
 
-      const auto feature = reinterpret_cast<const float*>(this->getFeatureVector(index));
+      const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
       const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
       next_nodes.emplace(index, distance);
       results.emplace(index, distance);
@@ -375,7 +387,7 @@ public:
         break;
 
       size_t good_neighbor_count = 0;
-      const auto neighbor_indizies = this->getNeighborIndizies(next_node.getInternalIndex());
+      const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_node_; i++) {
         const auto neighbor_index = neighbor_indizies[i];
         if (checked_ids[neighbor_index] == false)  {
@@ -387,12 +399,12 @@ public:
       if (good_neighbor_count == 0)
         continue;
 
-      MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[0])));
+      MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[0])));
       for (size_t i = 0; i < good_neighbor_count; i++) {
-        MemoryCache::prefetch(reinterpret_cast<const char*>(this->getFeatureVector(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+        MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
 
         const auto neighbor_index = good_neighbors[i];
-        const auto neighbor_feature_vector = this->getFeatureVector(neighbor_index);
+        const auto neighbor_feature_vector = this->feature_by_index(neighbor_index);
         const auto neighbor_distance = COMPARATOR::compare(query, neighbor_feature_vector, dist_func_param);
              
         // check the neighborhood of this node later, if its good enough
