@@ -18,6 +18,14 @@
   <g transform="matrix(1.0 0.0 -0.0 -1.0 0.0 300.0) ">
     <g clip-path="url(#path0)" transform="matrix(1.0 0.0 0.0 1.0 9.58 -8.39) " id="">
       <g>
+        <rect x="-7.75137554" y="17.67" width="433.88" height="288.1" fill="#FFFFFF" fill-rule="evenodd"/>
+        <rect x="-43.73" y="-5.69304609" width="87.47" height="11.39" transform="matrix(0.0 1.0 -1.0 0.0 5.78 171.88) " fill="#FFFFFF" fill-rule="evenodd"/>
+        <g>
+          <text x="0.0 5.25390625 10.51 15.48 18.97 22.32 24.61 29.59 33.5 35.76 39.62" y="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" fill="#595959" font-family="Calibri" font-size="10.0" kerning="auto" letter-spacing="0.0" word-spacing="0.0" transform="matrix(0.0 1.0 -1.0 0.0 177.66 166.1) translate(-37.95 170.07) scale(1.0 -1.0) ">querties / </text>
+          <text x="0.0 3.91113281 8.88671875" y="0.0 0.0 0.0" fill="#595959" font-family="Calibri" font-size="10.0" kerning="auto" letter-spacing="0.0" word-spacing="0.0" transform="matrix(0.0 1.0 -1.0 0.0 177.66 166.1) translate(3.93 170.07) scale(1.0 -1.0) ">sec</text>
+        </g>
+      </g>
+      <g>
         <path d="M49.51 119.6 L397.63 119.6  M49.51 157.04 L397.63 157.04  M49.51 194.48 L397.63 194.48  M49.51 231.92 L397.63 231.92  M49.51 269.27 L397.63 269.27 " fill="none" stroke="#D9D9D9" stroke-width="0.75" stroke-miterlimit="28.65" stroke-linejoin="round" id=""/>
         <path d="M49.51 269.27 L49.51 82.24  M84.29 269.27 L84.29 82.24  M119.09 269.27 L119.09 82.24  M154.01 269.27 L154.01 82.24  M188.81 269.27 L188.81 82.24  M223.61 269.27 L223.61 82.24  M258.41 269.27 L258.41 82.24  M293.21 269.27 L293.21 82.24  M328.01 269.27 L328.01 82.24  M362.81 269.27 L362.81 82.24  M397.63 269.27 L397.63 82.24 " fill="none" stroke="#D9D9D9" stroke-width="0.75" stroke-miterlimit="28.65" stroke-linejoin="round" id=""/>
         <path d="M49.51 82.24 L397.63 82.24 " fill="none" stroke="#D9D9D9" stroke-width="0.75" stroke-miterlimit="28.65" stroke-linejoin="round" id=""/>
@@ -112,10 +120,6 @@
         <g clip-path="url(#path3)" id="">
           <path d="M-8.24 305.48 L-8.24 17.24 426.76 17.24 426.76 305.48 -8.24 305.48 Z" fill="none" stroke="#D9D9D9" stroke-width="0.75" stroke-miterlimit="28.65" stroke-linejoin="round"/>
         </g>
-      </g>
-      <g id="">
-        <text x="0.0 5.25390625 10.51 15.48 18.97 22.32 24.61 29.59 33.5 35.76 39.62" y="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" fill="#595959" font-family="Calibri" font-size="10.0" kerning="auto" letter-spacing="0.0" word-spacing="0.0" transform="matrix(0.0 1.0 -1.0 0.0 177.66 166.1) translate(-37.95 170.07) scale(1.0 -1.0) ">querties / </text>
-        <text x="0.0 3.91113281 8.88671875" y="0.0 0.0 0.0" fill="#595959" font-family="Calibri" font-size="10.0" kerning="auto" letter-spacing="0.0" word-spacing="0.0" transform="matrix(0.0 1.0 -1.0 0.0 177.66 166.1) translate(3.93 170.07) scale(1.0 -1.0) ">sec</text>
       </g>
     </g>
   </g>
