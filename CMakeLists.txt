@@ -16,6 +16,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+add_library(compile-options INTERFACE)
+target_compile_features(compile-options INTERFACE cxx_std_20)
+target_compile_definitions(compile-options INTERFACE $<$<PLATFORM_ID:Windows>:NOMINMAX>)
+
 # detecting CPU instruction support
 # https://github.com/lemire/FastPFor/blob/master/CMakeLists.txt
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
@@ -25,13 +29,8 @@ include(DetectCPUFeatures)
 find_package(OpenMP)
 if(OPENMP_FOUND)
   message("Found OpenMP")
+  target_link_libraries(compile-options INTERFACE OpenMP::OpenMP_CXX)
 endif()
-
-add_library(compile-options INTERFACE)
-target_compile_features(compile-options INTERFACE cxx_std_20)
-target_link_libraries(compile-options INTERFACE OpenMP::OpenMP_CXX)
-target_compile_definitions(compile-options
-                           INTERFACE $<$<PLATFORM_ID:Windows>:NOMINMAX>)
 
 # setup compiler flags
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

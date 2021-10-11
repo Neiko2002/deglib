@@ -85,7 +85,7 @@ namespace deglib {
                 }
             #endif
 
-                float PORTABLE_ALIGN32 f[4];
+                alignas(32) float f[4];
                 _mm_store_ps(f, sum128);
 
                 return f[0] + f[1] + f[2] + f[3];
@@ -95,7 +95,7 @@ namespace deglib {
         class L2Float4Ext {
         public:
             inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-                float PORTABLE_ALIGN32 TmpRes[8];
+                alignas(32) float TmpRes[8];
                 float *pVect1 = (float *) pVect1v;
                 float *pVect2 = (float *) pVect2v;
                 size_t qty = *((size_t *) qty_ptr);

@@ -25,18 +25,17 @@
   #else
     #include <x86intrin.h>
   #endif
-
-  #if defined(__GNUC__)
-    #define PORTABLE_ALIGN32 __attribute__((aligned(32)))
-    #define PORTABLE_ALIGN16 __attribute__((aligned(16)))
-  #else
-    #define PORTABLE_ALIGN32 __declspec(align(32))
-    #define PORTABLE_ALIGN16 __declspec(align(16))
-  #endif
 #endif
 
+//#ifdef _WINDOWS
+//  #include <malloc.h>
+//#else
+//  #include <alloca.h>
+//#endif
+//#define vla(dtype, size) static_cast<type*>(alloca(sizeof(dtype) * size))
+
 #ifdef _WINDOWS
-  #include <malloc.h>
+  #include <malloc.h>  
   #define vla(var_name, dtype, size) auto var_name = (dtype*) _malloca(size*sizeof(dtype));
   #define free_vla(arr) _freea(arr);
 #else

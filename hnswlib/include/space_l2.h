@@ -25,7 +25,7 @@ namespace hnswlib {
             float *pVect1 = (float *) pVect1v;
             float *pVect2 = (float *) pVect2v;
             size_t qty = *((size_t *) qty_ptr);
-            float PORTABLE_ALIGN32 TmpRes[8];
+            alignas(32) float TmpRes[8];
             size_t qty16 = qty >> 4;
 
             const float *pEnd1 = pVect1 + (qty16 << 4);
@@ -59,7 +59,7 @@ namespace hnswlib {
             float *pVect1 = (float *) pVect1v;
             float *pVect2 = (float *) pVect2v;
             size_t qty = *((size_t *) qty_ptr);
-            float PORTABLE_ALIGN32 TmpRes[8];
+            alignas(32) float TmpRes[8];
             size_t qty16 = qty >> 4;
 
             const float *pEnd1 = pVect1 + (qty16 << 4);
@@ -120,7 +120,7 @@ namespace hnswlib {
 
     #ifdef USE_SSE
         static float L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-            float PORTABLE_ALIGN32 TmpRes[8];
+            alignas(32) float TmpRes[8];
             float *pVect1 = (float *) pVect1v;
             float *pVect2 = (float *) pVect2v;
             size_t qty = *((size_t *) qty_ptr);
