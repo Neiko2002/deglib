@@ -23,16 +23,26 @@ void create_graph(const std::string repository_file, const std::string graph_fil
 
     // create a graph builder to add nodes to the new graph and improve its edges
     auto rnd = std::mt19937(7); 
-    const uint8_t extend_k = 20; 
+    const uint8_t extend_k = 24; // should always be >= K
     const float extend_eps = 0.2;
-    const uint8_t improve_k = 20;
+    const uint8_t improve_k = 24;
     const float improve_eps = 0.02;
-    const uint8_t improve_extended_k = 12;
+    // best 28, 0.01, 2, 10 in 5h
+    // 10000 elements, in    72s, with   168844 /   536457 improvements (avg  0/  0), quality 86074.66, connected true
+    // 20000 elements, in   178s, with   334572 /  1063641 improvements (avg  0/  0), quality 79137.60, connected true
+    // 30000 elements, in   299s, with   483102 /  1539231 improvements (avg  0/  0), quality 77636.29, connected true
+
+    // best 36, 0.02, 2, 20 in 8h
+    // 10000 elements, in   117s, with   174432 /   553221 improvements (avg  0/  0), quality 85804.59, connected true 
+    // 20000 elements, in   299s, with   350151 /  1110378 improvements (avg  0/  0), quality 78868.05, connected true 
+    // 30000 elements, in   505s, with   512440 /  1627245 improvements (avg  0/  0), quality 77274.68, connected true 
+    const uint8_t improve_extended_k = 36;
     const float improve_extended_eps = 0.02;
-    const uint8_t max_path_length = 10;
+    const uint8_t improve_extended_step_factor = 2;
+    const uint8_t max_path_length = 20; 
     const uint32_t swap_tries = 3;
     const uint32_t additional_swap_tries = 3;
-    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, improve_k, improve_eps, improve_extended_k, improve_extended_eps, max_path_length, swap_tries, additional_swap_tries);
+    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, improve_k, improve_eps, improve_extended_k, improve_extended_eps, improve_extended_step_factor, max_path_length, swap_tries, additional_swap_tries);
 
     // provide all features to the graph builder at once. In an online system this will be called 
     for (uint32_t label = 0; label < repository.size(); label++) {
@@ -108,15 +118,16 @@ int main() {
         fmt::print("use arch  ...\n");
     #endif
 
+    const auto repeat_test = 3;
     const auto data_path = std::filesystem::path(DATA_PATH);
     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2_ImproveK20Eps0.02_ImproveExtK12-1StepEps0.02.deg").string();
+    const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK20Eps0.02_ImproveExtK21-3StepEps0.01-rerun.deg").string();
 
     // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
     create_graph(repository_file, graph_file);
 
     // loads the graph from the drive and test it against the SIFT query data
-    test_graph(data_path, graph_file);
+    test_graph(data_path, graph_file, repeat_test);
 
     fmt::print("Test OK\n");
     return 0;

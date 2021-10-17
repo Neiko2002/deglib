@@ -91,13 +91,21 @@ int main()
 {
     fmt::print("Testing ...\n");
 
+    #ifdef _OPENMP
+        omp_set_dynamic(0);     // Explicitly disable dynamic teams
+        omp_set_num_threads(1); // Use 1 threads for all consecutive parallel regions
+
+        std::cout << "_OPENMP " << omp_get_num_threads() << " threads" << std::endl;
+    #endif
+
     size_t query_size = 10000;
     size_t base_size = 1000000;
     size_t top_k = 100;
     size_t vecdim = 128;
+    size_t threads = 1;
 
     int efConstruction = 500;
-    int M = 96;
+    int M = 24;
 
 
     fmt::print("Testing  ...\n");
@@ -109,7 +117,7 @@ int main()
     const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
     const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
     char path_index[1024];
-    const auto path_index_template = (data_path / "sift1m_ef_%d_M_%d.bin").string();
+    const auto path_index_template = (data_path / "hnsw/sift1m_ef_%d_M_%d.hnsw").string();
     sprintf(path_index, path_index_template.c_str(), efConstruction, M);
 
     auto ground_truth = ivecs_read(path_groundtruth.c_str(), top_k, query_size);
@@ -136,7 +144,7 @@ int main()
         StopW stopw_full = StopW();
         size_t report_every = 10000;
 
-        omp_set_num_threads(8);
+        omp_set_num_threads(threads);
 #pragma omp parallel for
         for (int i = 1; i < base_size; i++)
         {

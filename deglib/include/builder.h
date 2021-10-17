@@ -57,6 +57,7 @@ class EvenRegularGraphBuilder {
     const float improve_eps_;           // eps value for improving the graph
     const uint8_t improve_extended_k_;  // k value for the extended improvement algorithm part
     const float improve_extended_eps_;  // eps value for the extended improvement algorithm part
+    const uint8_t improve_extended_step_factor_;
     const uint8_t max_path_length_;     // max amount of changes before canceling an improvement try
     const uint32_t swap_tries_;
     const uint32_t additional_swap_tries_;
@@ -73,11 +74,11 @@ class EvenRegularGraphBuilder {
   public:
 
     EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, const uint8_t extend_k, const float extend_eps, const uint8_t improve_k, 
-                            const float improve_eps, const uint8_t improve_extended_k, const float improve_extended_eps, const uint8_t max_path_length = 10, 
-                            const uint32_t swap_tries = 3, const uint32_t additional_swap_tries = 3) 
+                            const float improve_eps, const uint8_t improve_extended_k, const float improve_extended_eps, const uint8_t improve_extended_step_factor,
+                            const uint8_t max_path_length = 10, const uint32_t swap_tries = 3, const uint32_t additional_swap_tries = 3) 
       : graph_(graph), extend_k_(extend_k), extend_eps_(extend_eps), improve_k_(improve_k), improve_eps_(improve_eps), 
-        improve_extended_k_(improve_extended_k), improve_extended_eps_(improve_extended_eps), max_path_length_(max_path_length), 
-        swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries), rnd_(rnd) {
+        improve_extended_k_(improve_extended_k), improve_extended_eps_(improve_extended_eps), improve_extended_step_factor_(improve_extended_step_factor),
+        max_path_length_(max_path_length), swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries), rnd_(rnd) {
     }
 
     /**
@@ -106,16 +107,26 @@ class EvenRegularGraphBuilder {
     }
 
     /**
-     * 
-     */
-    std::vector<deglib::search::ObjectDistance> topList(deglib::search::ResultSet queue, bool ascending = true) {
+     * Convert the queue into a vector with ascending distance order
+     **/
+    std::vector<deglib::search::ObjectDistance> topListAscending(deglib::search::ResultSet queue) {
+      const auto size = queue.size();
+      auto topList = std::vector<deglib::search::ObjectDistance>(size);
+      for (int32_t i = size - 1; i >= 0; i--) {
+        topList[i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
+        queue.pop();
+      }
+      return topList;
+    }
+
+    /**
+     * Convert the queue into a vector with decending distance order
+     **/
+    std::vector<deglib::search::ObjectDistance> topListDescending(deglib::search::ResultSet queue) {
       const auto size = queue.size();
       auto topList = std::vector<deglib::search::ObjectDistance>(size);
       for (size_t i = 0; i < size; i++) {
-        if(ascending)
-          topList[(size - 1) - i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
-        else
-          topList[i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
+        topList[i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
         queue.pop();
       }
       return topList;
@@ -198,7 +209,7 @@ class EvenRegularGraphBuilder {
       const auto edges_per_node = graph.getEdgesPerNode();
       const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
       const std::vector<uint32_t> entry_node_indizies = { distrib(this->rnd_) };
-      const auto results = topList(graph.yahooSearch(entry_node_indizies, add_task.feature.data(), this->extend_eps_, std::max(this->extend_k_, edges_per_node)));
+      const auto results = topListAscending(graph.yahooSearch(entry_node_indizies, add_task.feature.data(), this->extend_eps_, std::max(this->extend_k_, edges_per_node)));
 
       // their should always be enough neighbors (search results), otherwise the graph would be broken
       if(results.size() < edges_per_node) {
@@ -233,10 +244,9 @@ class EvenRegularGraphBuilder {
           const auto neighbor_index = neighbor_indizies[edge_idx];
           const auto neighbor_weight = neighbor_weights[edge_idx];
 
-          // the new node might have been added to the neighbor list of this result-node during a previous loop
           // the suggest neighbors might already be in the edge list of the new node
           // the weight of the neighbor might not be worst than the current worst one
-          if(bad_neighbor_weight < neighbor_weight && internal_index != neighbor_index && graph.hasEdge(neighbor_index, internal_index) == false) {
+          if(bad_neighbor_weight < neighbor_weight && graph.hasEdge(neighbor_index, internal_index) == false) {
             bad_neighbor_index = neighbor_index;
             bad_neighbor_weight = neighbor_weight;
           }          
@@ -302,7 +312,7 @@ class EvenRegularGraphBuilder {
       {
         const auto node2_feature = graph.getFeatureVector(node2);
         const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
-        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*1), false);
+        const auto results = topListDescending(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*improve_extended_step_factor_));
 
         // find a good new node3
         for(auto&& result : results) {
@@ -372,7 +382,7 @@ class EvenRegularGraphBuilder {
           // find a good (not yet connected) node for node1/node4
           const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
           const auto node4_feature = graph.getFeatureVector(node4);
-          const auto results = topList(graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_));
+          const auto results = topListAscending(graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_));
 
           for(auto&& result : results) {
             const auto good_node = result.getInternalIndex();
@@ -451,7 +461,7 @@ class EvenRegularGraphBuilder {
       }
       
       // 5. Maximum path length
-      if(steps == this->max_path_length_) {
+      if(steps >= this->max_path_length_ || (this->improve_extended_k_ - (steps+1)*improve_extended_step_factor_) <= 1) {
         //fmt::print("Reached maxiumum path length without improvements. Rollback.");	
         return false;
       }
@@ -462,7 +472,6 @@ class EvenRegularGraphBuilder {
         node1 = node4;
         node4 = b;
       }
-		
 
       return improveExtended(changes, node1, node4, node2, node3, total_gain, steps + 1);
     }
@@ -524,7 +533,7 @@ class EvenRegularGraphBuilder {
         // find a good node3 to connect to node 2
         const std::vector<uint32_t> entry_node_indizies = { node1 };
         const auto node2_feature = graph.getFeatureVector(node2);
-        const auto results = topList(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_));
+        const auto results = topListAscending(graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_));
         for(auto&& result : results) {
 
           if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
@@ -579,17 +588,17 @@ class EvenRegularGraphBuilder {
         const auto dist_func = feature_space.get_dist_func();
         const auto dist_func_param = feature_space.get_dist_func_param();
 
-        // 4.1a Node1 and node4 might be the same. Proceed like extending the graph.
+        // 4.1a Node1 and node4 might be the same. Quite rare case.
+        //     Proceed like extending the graph:
         //     Search for a good node to connect to, remove its worst edge and connect
-        //     both nodes of the worst edge to the node4. Skip the edge any of the two
-        //     two nodes are already connected to node4.
-        //     Quite rare case.
+        //     both nodes of the worst edge to the node4. Skip the any edge of the two
+        //     two nodes that are already connected to node4.
         if(node1 == node4) {
 
           // find a good (not yet connected) node for node1/node4
           const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
           const auto node4_feature = graph.getFeatureVector(node4);
-          const auto results = topList(graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_));
+          const auto results = topListAscending(graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_));
 
           for(auto&& result : results) {
             const auto good_node = result.getInternalIndex();
@@ -634,9 +643,9 @@ class EvenRegularGraphBuilder {
           }
         } else {
 
-          // If there is a way from node2 or node3, to node1 or node4 then ...
-				  // 4.1b Try to connect node1 with node4
-          // Much more likly than 4.1a 
+          // 4.1b If there is a way from node2 or node3, to node1 or node4 then:
+				  //      Try to connect node1 with node4
+          //      This case is much more likly than 4.1a 
 				  if(graph.hasEdge(node1, node4) == false) {
 
             // Is the total of all changes still beneficial?
@@ -661,8 +670,9 @@ class EvenRegularGraphBuilder {
         }
       }
 
-
-      return improveExtended(changes, node1, node4, node2, node3, total_gain, 1);
+      if(improve_extended_k_ > 0)
+        return improveExtended(changes, node1, node4, node2, node3, total_gain, 0);
+      return false;
     }
 
     /**
@@ -680,6 +690,7 @@ class EvenRegularGraphBuilder {
           auto c = changes[(size - 1) - i];
           this->graph_.changeEdge(c.internal_index, c.to_neighbor_index, c.from_neighbor_index, c.from_neighbor_weight);
         }
+
         return false;
       }
 
@@ -751,13 +762,15 @@ class EvenRegularGraphBuilder {
         }
 
         //try to improve the graph
-        for (int swap_try = 0; swap_try < int(this->swap_tries_); swap_try++) {
-          status.tries++;
+        if(improve_k_ > 0) {
+          for (int swap_try = 0; swap_try < int(this->swap_tries_); swap_try++) {
+            status.tries++;
 
-          if(this->improve()) {
-						status.improved++;
-						swap_try -= this->additional_swap_tries_;
-					}
+            if(this->improve()) {
+              status.improved++;
+              swap_try -= this->additional_swap_tries_;
+            }
+          }
         }
         
         status.step++;

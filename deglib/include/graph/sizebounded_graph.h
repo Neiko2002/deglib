@@ -430,6 +430,7 @@ public:
       }
     }
 
+    // there is no path
     return std::vector<deglib::search::ObjectDistance>();
   }
 

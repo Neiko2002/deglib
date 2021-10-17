@@ -16,10 +16,11 @@ int main() {
         fmt::print("use arch  ...\n");
     #endif
 
-    auto data_path = std::filesystem::path(DATA_PATH);
+    const auto repeat_test = 3;
+    const auto data_path = std::filesystem::path(DATA_PATH);
 
     // load an existing graph
-    const auto graph_file = (data_path / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2.deg").string();
+    const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK20Eps0.02.deg").string();
     fmt::print("Load graph {} \n", graph_file);
     const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
 
@@ -33,7 +34,7 @@ int main() {
     const auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), dims, count);
     const auto ground_truth = (uint32_t*)ground_truth_f.get(); // not very clean, works as long as sizeof(int) == sizeof(float)
     fmt::print("{} ground truth {} dimensions \n", count, dims);
-    deglib::benchmark::test_graph(graph, query_repository, ground_truth);
+    deglib::benchmark::test_graph(graph, query_repository, ground_truth, repeat_test);
 
     fmt::print("Test OK\n");
     return 0;

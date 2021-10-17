@@ -51,26 +51,25 @@ static float test_approx(const deglib::search::SearchGraph& graph, const std::ve
 }
 
 static void test_vs_recall(const deglib::search::SearchGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const deglib::FeatureRepository& query_repository,
-                           const std::vector<tsl::robin_set<uint32_t>>& ground_truth, const uint32_t k)
+                           const std::vector<tsl::robin_set<uint32_t>>& ground_truth, const uint32_t k, const uint32_t repreat)
 {
     // try different eps values for the search radius
-    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16 };
+    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };
     for (float eps : eps_parameter)
     {
         StopW stopw = StopW();
-        float recall = deglib::benchmark::test_approx(graph, entry_node_indizies, query_repository, ground_truth, eps, k);
-        uint64_t time_us_per_query = stopw.getElapsedTimeMicro() / query_repository.size();
+        float recall = 0;
+        for (size_t i = 0; i < repreat; i++)
+            recall = deglib::benchmark::test_approx(graph, entry_node_indizies, query_repository, ground_truth, eps, k);
+        uint64_t time_us_per_query = (stopw.getElapsedTimeMicro() / query_repository.size()) / repreat;
 
         fmt::print("eps {} \t recall {} \t time_us_per_query {}us\n", eps, recall, time_us_per_query);
         if (recall > 1.0)
-        {
-            fmt::print("recall {} \t time_us_per_query {}us\n", recall, time_us_per_query);
             break;
-        }
     }
 }
 
-static void test_graph(const deglib::search::SearchGraph& graph, const deglib::FeatureRepository& query_repository, const uint32_t* ground_truth)
+static void test_graph(const deglib::search::SearchGraph& graph, const deglib::FeatureRepository& query_repository, const uint32_t* ground_truth, const uint32_t repeat)
 {
     // reproduceable entry point for the graph search
     const uint32_t entry_node_id = 0;
@@ -82,8 +81,7 @@ static void test_graph(const deglib::search::SearchGraph& graph, const deglib::F
     fmt::print("Parsing gt:\n");
     auto answer = get_ground_truth(ground_truth, query_repository.size(), k);
     fmt::print("Loaded gt:\n");
-    for (int i = 0; i < 1; i++) 
-        deglib::benchmark::test_vs_recall(graph, entry_node_indizies, query_repository, answer, k);
+    deglib::benchmark::test_vs_recall(graph, entry_node_indizies, query_repository, answer, k, repeat);
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
     fmt::print("Max memory usage: {} Mb\n", getPeakRSS() / 1000000);
 }
