@@ -34,7 +34,7 @@ int main() {
     const auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), dims, count);
     const auto ground_truth = (uint32_t*)ground_truth_f.get(); // not very clean, works as long as sizeof(int) == sizeof(float)
     fmt::print("{} ground truth {} dimensions \n", count, dims);
-    deglib::benchmark::test_graph(graph, query_repository, ground_truth, repeat_test);
+    deglib::benchmark::test_graph(graph, query_repository, ground_truth, (uint32_t) dims, repeat_test);
 
     fmt::print("Test OK\n");
     return 0;

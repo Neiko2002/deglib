@@ -8,8 +8,7 @@
 namespace deglib::benchmark
 {
 
-static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* ground_truth,
-                                                              const size_t ground_truth_size, const size_t k)
+static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* ground_truth, const size_t ground_truth_size, const uint32_t ground_truth_dims, const size_t k)
 {
     auto answers = std::vector<tsl::robin_set<uint32_t>>();
     answers.reserve(ground_truth_size);
@@ -17,7 +16,8 @@ static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* gr
     {
         auto gt = tsl::robin_set<uint32_t>();
         gt.reserve(k);
-        for (size_t j = 0; j < k; j++) gt.insert(ground_truth[k * i + j]);
+        for (size_t j = 0; j < k; j++) 
+            gt.insert(ground_truth[ground_truth_dims * i + j]);
 
         answers.push_back(gt);
     }
@@ -27,7 +27,7 @@ static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* gr
 
 static float test_approx(const deglib::search::SearchGraph& graph, const std::vector<uint32_t>& entry_node_indizies,
                          const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& ground_truth, 
-                         const float eps, const int k)
+                         const float eps, const uint32_t k)
 {
     size_t total = 0;
     size_t correct = 0;
@@ -69,7 +69,7 @@ static void test_vs_recall(const deglib::search::SearchGraph& graph, const std::
     }
 }
 
-static void test_graph(const deglib::search::SearchGraph& graph, const deglib::FeatureRepository& query_repository, const uint32_t* ground_truth, const uint32_t repeat)
+static void test_graph(const deglib::search::SearchGraph& graph, const deglib::FeatureRepository& query_repository, const uint32_t* ground_truth, const uint32_t ground_truth_dims, const uint32_t repeat)
 {
     // reproduceable entry point for the graph search
     const uint32_t entry_node_id = 0;
@@ -79,7 +79,7 @@ static void test_graph(const deglib::search::SearchGraph& graph, const deglib::F
     // test ground truth
     uint32_t k = 100;  // k at test time
     fmt::print("Parsing gt:\n");
-    auto answer = get_ground_truth(ground_truth, query_repository.size(), k);
+    auto answer = get_ground_truth(ground_truth, query_repository.size(), ground_truth_dims, k);
     fmt::print("Loaded gt:\n");
     deglib::benchmark::test_vs_recall(graph, entry_node_indizies, query_repository, answer, k, repeat);
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);

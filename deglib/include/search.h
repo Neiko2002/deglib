@@ -98,7 +98,7 @@ typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::gr
 class SearchGraph
 {
   public:    
-    virtual const size_t size() const = 0;
+    virtual const uint32_t size() const = 0;
     virtual const uint8_t getEdgesPerNode() const = 0;
     virtual const deglib::SpaceInterface<float>& getFeatureSpace() const = 0;
 

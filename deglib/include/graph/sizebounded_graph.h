@@ -101,7 +101,7 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
   const uint32_t neighbor_weights_offset_;
   const uint32_t external_label_offset_;
 
-  // list of nodes (node: feature vector, indizies of neighbor nodes, weights of neighbor nodes, external label)
+  // list of nodes (node: std::byte* feature vector, uint32_t* indizies of neighbor nodes, float* weights of neighbor nodes, uint32_t external label)      
   std::unique_ptr<std::byte[]> nodes_;
   std::byte* nodes_memory_;
 
@@ -154,8 +154,8 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
   /**
    * Number of nodes in the graph
    */
-  const size_t size() const override {
-    return this->label_to_index_.size();
+  const uint32_t size() const override {
+    return (uint32_t) this->label_to_index_.size();
   }
 
   /**
@@ -266,8 +266,8 @@ public:
 
     auto node_memory = node_by_index(new_internal_index);
     std::memcpy(node_memory, feature_vector, feature_byte_size_);
-    std::fill_n(reinterpret_cast<uint32_t*>(node_memory + neighbor_indizies_offset_), this->edges_per_node_, new_internal_index);
-    std::fill_n(reinterpret_cast<float*>(node_memory + neighbor_weights_offset_), this->edges_per_node_, float(0));
+    std::fill_n(reinterpret_cast<uint32_t*>(node_memory + neighbor_indizies_offset_), this->edges_per_node_, new_internal_index); // temporary self loop
+    std::fill_n(reinterpret_cast<float*>(node_memory + neighbor_weights_offset_), this->edges_per_node_, float(0)); // 0 weight
     std::memcpy(node_memory + external_label_offset_, &external_label, sizeof(uint32_t));
 
     return new_internal_index;
@@ -530,7 +530,7 @@ public:
 /**
  * Load the graph
  */
-auto load_sizebounded_graph(const char* path_graph, const uint32_t new_max_size)
+auto load_sizebounded_graph(const char* path_graph, uint32_t new_max_size = 0)
 {
   std::error_code ec{};
   auto file_size = std::filesystem::file_size(path_graph, ec);
@@ -562,6 +562,11 @@ auto load_sizebounded_graph(const char* path_graph, const uint32_t new_max_size)
   uint8_t edges_per_node;
   ifstream.read(reinterpret_cast<char*>(&edges_per_node), sizeof(edges_per_node));
 
+  // if no new max size is set use the size of the graph from disk
+  if(new_max_size == 0) 
+    new_max_size = size;
+  
+  // if there is a max size is should be higher than the needed graph size from disk
   if(new_max_size < size) {
     fmt::print(stderr, "The graph in the {} file has {} nodes but the new max size is {}\n", path_graph, size, new_max_size);
     perror("");

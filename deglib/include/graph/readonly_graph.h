@@ -144,8 +144,8 @@ class ReadOnlyGraph : public deglib::search::SearchGraph {
   /**
    * Number of nodes in the graph
    */
-  const size_t size() const override {
-    return label_to_index_.size();
+  const uint32_t size() const override {
+    return (uint32_t) label_to_index_.size();
   }
 
   /**
@@ -210,7 +210,6 @@ public:
   }
 
   const bool saveGraph(const char* path_to_graph) const override {
-
     fmt::print(stderr, "Storing a readonly_graph {} is not possible\n", path_to_graph);
     perror("");
     abort();
@@ -219,7 +218,7 @@ public:
   /**
    * Add a new node. The neighbor indizies and feature vectors will be copied.
    */
-  void addNode(const uint32_t external_label, const float* feature_vector, const uint32_t* neighbor_indizies) {
+  void addNode(const uint32_t external_label, const std::byte* feature_vector, const uint32_t* neighbor_indizies) {
     const auto new_internal_index = static_cast<uint32_t>(label_to_index_.size());
     label_to_index_.emplace(external_label, new_internal_index);
 
@@ -287,7 +286,7 @@ public:
           path.emplace_back(next_node.getInternalIndex(), next_node.getDistance());
 
           auto last_node = trackback.find(next_node.getInternalIndex());
-          while(last_node != trackback.cend()) {
+          while(last_node != trackback.cend() && last_node->first != last_node->second.getInternalIndex()) {
             path.emplace_back(last_node->second.getInternalIndex(), last_node->second.getDistance());
             last_node = trackback.find(last_node->second.getInternalIndex());
           }
@@ -440,7 +439,7 @@ auto load_readonly_graph(const char* path_graph)
   auto file_size = std::filesystem::file_size(path_graph, ec);
   if (ec != std::error_code{})
   {
-    fmt::print(stderr, "error when accessing test file, size is: {} message: {} \n", file_size, ec.message());
+    fmt::print(stderr, "error when accessing graph file {}, size is: {} message: {} \n", path_graph, file_size, ec.message());
     perror("");
     abort();
   }
