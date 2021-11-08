@@ -84,13 +84,11 @@ class PQV : public std::vector<ObjectDistance> {
     }
 };
 
+// search result set containing node ids and distances
 typedef PQV<std::less<ObjectDistance>> ResultSet;
 
-// search result set containing node ids and distances
-//typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::less<ObjectDistance>> ResultSet;
-
 // set of unchecked node ids
-typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::greater<ObjectDistance>> UncheckedSet;
+typedef PQV<std::greater<ObjectDistance>> UncheckedSet;
 
 
 

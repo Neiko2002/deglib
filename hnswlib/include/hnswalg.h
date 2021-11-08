@@ -271,10 +271,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
         vl_type* visited_array = vl->mass;
         vl_type visited_array_tag = vl->curV;
 
-        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-            top_candidates;
-        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-            candidate_set;
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
 
         dist_t lowerBound;
         if (!has_deletions || !isMarkedDeleted(ep_id))
@@ -306,11 +304,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
             int* data = (int*)get_linklist0(current_node_id);
             size_t size = getListCount((linklistsizeint*)data);
             //                bool cur_node_deleted = isMarkedDeleted(current_node_id);
-            if (collect_metrics)
-            {
-                metric_hops++;
-                metric_distance_computations += size;
-            }
+            if (collect_metrics) 
+                this->metric_hops++;
 
 #ifdef USE_SSE
             // prefetch 2x "caches lines" of the visited array (cache line granularity is typically 64-bytes)
@@ -333,6 +328,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
 
                     char* currObj1 = (getDataByInternalId(candidate_id));
                     dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
+                    if (collect_metrics)
+                        this->metric_distance_computations++;
 
                     if (top_candidates.size() < ef || lowerBound > dist)
                     {
@@ -1192,8 +1189,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
 
                 data = (unsigned int*)get_linklist(currObj, level);
                 int size = getListCount(data);
-                metric_hops++;
-                metric_distance_computations += size;
+                this->metric_hops++;
+                
 
                 tableint* datal = (tableint*)(data + 1);
                 for (int i = 0; i < size; i++)
@@ -1201,6 +1198,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
                     tableint cand = datal[i];
                     if (cand < 0 || cand > max_elements_) throw std::runtime_error("cand error");
                     dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
+                    this->metric_distance_computations++;
 
                     if (d < curdist)
                     {
@@ -1212,8 +1210,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
             }
         }
 
-        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-            top_candidates;
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         if (has_deletions_)
         {
             top_candidates = searchBaseLayerST<true, true>(currObj, query_data, std::max(ef_, k));
@@ -1235,6 +1232,36 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
         }
         return result;
     };
+
+    std::priority_queue<std::pair<dist_t, labeltype>> searchKnn(const void* query_data, const tableint entry_node, size_t k) const
+    {
+        auto result = std::priority_queue<std::pair<dist_t, labeltype>>();
+        if (cur_element_count == 0) return result;
+
+        auto top_candidates = std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>();
+        if (has_deletions_)
+        {
+            top_candidates = searchBaseLayerST<true, true>(entry_node, query_data, std::max(ef_, k));
+        }
+        else
+        {
+            top_candidates = searchBaseLayerST<false, true>(entry_node, query_data, std::max(ef_, k));
+        }
+
+        while (top_candidates.size() > k)
+        {
+            top_candidates.pop();
+        }
+
+        while (top_candidates.size() > 0)
+        {
+            std::pair<dist_t, tableint> rez = top_candidates.top();
+            result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+            top_candidates.pop();
+        }
+
+        return result;
+    }
 
     void checkIntegrity()
     {

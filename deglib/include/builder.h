@@ -110,7 +110,7 @@ class EvenRegularGraphBuilder {
      * Convert the queue into a vector with ascending distance order
      **/
     static auto topListAscending(deglib::search::ResultSet& queue) {
-      const auto size = queue.size();
+      const auto size = (int32_t) queue.size();
       auto topList = std::vector<deglib::search::ObjectDistance>(size);
       for (int32_t i = size - 1; i >= 0; i--) {
         topList[i] = std::move(const_cast<deglib::search::ObjectDistance&>(queue.top()));
@@ -710,7 +710,8 @@ class EvenRegularGraphBuilder {
       const auto edge_per_node = this->graph_.getEdgesPerNode();
 
       // try to build an initial graph, containing the minium amount of nodes (edge_per_node + 1)
-      if(graph_.size() < edge_per_node + 1) {
+      const auto edge_per_node_p1 = (uint8_t)(edge_per_node + 1);
+      if(graph_.size() < edge_per_node_p1) {
 
         // graph should be empty to initialize
         if(this->graph_.size() > 0) {
@@ -720,12 +721,12 @@ class EvenRegularGraphBuilder {
         }
 
         // wait until enough new entries exists to build the initial graph
-        while(new_entry_queue_.size() < edge_per_node + 1)
+        while(new_entry_queue_.size() < edge_per_node_p1)
           std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
         // setup the initial graph
         auto initial_entries = std::vector<BuilderAddTask>();
-        while(initial_entries.size() < edge_per_node + 1) {
+        while(initial_entries.size() < edge_per_node_p1) {
           const auto& entry = this->new_entry_queue_.front();
           initial_entries.emplace_back(entry.label, std::move(entry.feature));
           this->new_entry_queue_.pop();
@@ -733,7 +734,7 @@ class EvenRegularGraphBuilder {
         initialGraph(std::move(initial_entries));
 
         // inform the callback about the initial graph
-        status.added += edge_per_node + 1;
+        status.added += edge_per_node_p1;
         callback(status);
       }
 

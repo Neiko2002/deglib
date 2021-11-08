@@ -355,10 +355,12 @@ public:
 
     // items to traverse next
     auto next_nodes = deglib::search::UncheckedSet();
+    next_nodes.reserve(k*this->edges_per_node_);
 
     // result set
     // TODO: custom priority queue with an internal Variable Length Array wrapped in a macro with linear-scan search and memcopy 
-    auto results = deglib::search::ResultSet();   
+    auto results = deglib::search::ResultSet();
+    results.reserve(k);
 
     // copy the initial entry nodes and their distances to the query into the three containers
     for (auto&& index : entry_node_indizies) {

@@ -10,22 +10,19 @@ namespace deglib::benchmark
 
 static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* ground_truth, const size_t ground_truth_size, const uint32_t ground_truth_dims, const size_t k)
 {
-    auto answers = std::vector<tsl::robin_set<uint32_t>>();
-    answers.reserve(ground_truth_size);
+    auto answers = std::vector<tsl::robin_set<uint32_t>>(ground_truth_size);
     for (int i = 0; i < ground_truth_size; i++)
     {
-        auto gt = tsl::robin_set<uint32_t>();
+        auto& gt = answers[i];
         gt.reserve(k);
         for (size_t j = 0; j < k; j++) 
             gt.insert(ground_truth[ground_truth_dims * i + j]);
-
-        answers.push_back(gt);
     }
 
     return answers;
 }
 
-static float test_approx(const deglib::search::SearchGraph& graph, const std::vector<uint32_t>& entry_node_indizies,
+static float test_approx_anns(const deglib::search::SearchGraph& graph, const std::vector<uint32_t>& entry_node_indizies,
                          const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& ground_truth, 
                          const float eps, const uint32_t k)
 {
@@ -36,8 +33,8 @@ static float test_approx(const deglib::search::SearchGraph& graph, const std::ve
         auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
         auto result_queue = graph.yahooSearch(entry_node_indizies, query, eps, k);
 
+        total += result_queue.size();
         const auto gt = ground_truth[i];
-        total += gt.size();
         while (result_queue.empty() == false)
         {
             const auto internal_index = result_queue.top().getInternalIndex();
@@ -50,26 +47,33 @@ static float test_approx(const deglib::search::SearchGraph& graph, const std::ve
     return 1.0f * correct / total;
 }
 
-static void test_vs_recall(const deglib::search::SearchGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const deglib::FeatureRepository& query_repository,
-                           const std::vector<tsl::robin_set<uint32_t>>& ground_truth, const uint32_t k, const uint32_t repreat)
-{
-    // try different eps values for the search radius
-    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };
-    for (float eps : eps_parameter)
-    {
-        StopW stopw = StopW();
-        float recall = 0;
-        for (size_t i = 0; i < repreat; i++)
-            recall = deglib::benchmark::test_approx(graph, entry_node_indizies, query_repository, ground_truth, eps, k);
-        uint64_t time_us_per_query = (stopw.getElapsedTimeMicro() / query_repository.size()) / repreat;
+static float test_approx_explore(const deglib::search::SearchGraph& graph, const std::vector<std::vector<uint32_t>>& entry_node_indizies, 
+                                 const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& ground_truth, 
+                                 const float eps, const uint32_t k)
+{    
+    size_t total = 0;
+    size_t correct = 0;
+    for (uint32_t i = 0; i < query_repository.size(); i++) {
+        const auto& entry_nodes = entry_node_indizies[i];
 
-        fmt::print("eps {} \t recall {} \t time_us_per_query {}us\n", eps, recall, time_us_per_query);
-        if (recall > 1.0)
-            break;
+        auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
+        auto result_queue = graph.yahooSearch(entry_nodes, query, eps, k);
+
+        total += k;
+        const auto& gt = ground_truth[i];
+        while (result_queue.empty() == false)
+        {
+            const auto internal_index = result_queue.top().getInternalIndex();
+            const auto external_id = graph.getExternalLabel(internal_index);
+            if (gt.find(external_id) != gt.end()) correct++;
+            result_queue.pop();
+        }
     }
+
+    return 1.0f * correct / total;
 }
 
-static void test_graph(const deglib::search::SearchGraph& graph, const deglib::FeatureRepository& query_repository, const uint32_t* ground_truth, const uint32_t ground_truth_dims, const uint32_t repeat)
+static void test_graph_anns(const deglib::search::SearchGraph& graph, const deglib::FeatureRepository& query_repository, const uint32_t* ground_truth, const uint32_t ground_truth_dims, const uint32_t repeat, const uint32_t k)
 {
     // reproduceable entry point for the graph search
     const uint32_t entry_node_id = 0;
@@ -77,11 +81,68 @@ static void test_graph(const deglib::search::SearchGraph& graph, const deglib::F
     fmt::print("internal id {} \n", graph.getInternalIndex(entry_node_id));
 
     // test ground truth
-    uint32_t k = 100;  // k at test time
     fmt::print("Parsing gt:\n");
-    auto answer = get_ground_truth(ground_truth, query_repository.size(), ground_truth_dims, k);
+    auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), ground_truth_dims, k);
     fmt::print("Loaded gt:\n");
-    deglib::benchmark::test_vs_recall(graph, entry_node_indizies, query_repository, answer, k, repeat);
+
+    // try different eps values for the search radius
+    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };
+    for (float eps : eps_parameter)
+    {
+        StopW stopw = StopW();
+        float recall = 0;
+
+        for (size_t i = 0; i < repeat; i++) 
+            recall = deglib::benchmark::test_approx_anns(graph, entry_node_indizies, query_repository, answer, eps, k);
+        uint64_t time_us_per_query = (stopw.getElapsedTimeMicro() / query_repository.size()) / repeat;
+
+        fmt::print("eps {} \t recall {} \t time_us_per_query {}us\n", eps, recall, time_us_per_query);
+        if (recall > 1.0)
+            break;
+    }
+
+    fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
+    fmt::print("Max memory usage: {} Mb\n", getPeakRSS() / 1000000);
+}
+
+static void test_graph_explore(const deglib::search::SearchGraph& graph, const deglib::FeatureRepository& query_repository, const uint32_t* ground_truth, const uint32_t ground_truth_dims, const uint32_t* entry_nodes, const uint32_t entry_node_size, const uint32_t repeat, const uint32_t k)
+{  fmt::print("Explore for {} neighbors\n", k);
+
+    if (ground_truth_dims < k)
+    {
+        fmt::print(stderr, "ground thruth data does not have enough dimensions, expected {} got {} \n", k, ground_truth_dims);
+        perror("");
+        abort();
+    }
+    
+    // test ground truth
+    fmt::print("Parsing gt:\n");
+    auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), ground_truth_dims, k);
+    fmt::print("Loaded gt:\n");
+
+    // reproduceable entry point for the graph search
+    auto entry_node_indizies = std::vector<std::vector<uint32_t>>();
+    for (size_t i = 0; i < query_repository.size(); i++) {
+        auto entry_node = std::vector<uint32_t>(entry_nodes + i * entry_node_size, entry_nodes + (i+1) * entry_node_size);
+        entry_node_indizies.emplace_back(entry_node);
+    }
+
+    // try different eps values for the search radius
+    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };
+    for (float eps : eps_parameter)
+    {
+        StopW stopw = StopW();
+        float recall = 0;
+
+        for (size_t i = 0; i < repeat; i++) 
+            recall = deglib::benchmark::test_approx_explore(graph, entry_node_indizies, query_repository, answer, eps, k);
+        uint64_t time_us_per_query = (stopw.getElapsedTimeMicro() / query_repository.size()) / repeat;
+
+        fmt::print("eps {} \t recall {} \t time_us_per_query {}us\n", eps, recall, time_us_per_query);
+        if (recall > 1.0)
+            break;
+    }
+
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
     fmt::print("Max memory usage: {} Mb\n", getPeakRSS() / 1000000);
 }
