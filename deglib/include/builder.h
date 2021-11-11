@@ -84,7 +84,7 @@ class EvenRegularGraphBuilder {
     /**
      * Provide the builder a new entry which it will append to the graph in the build() process.
      */ 
-    void addEntry(uint32_t label, std::vector<std::byte>& feature) {
+    void addEntry(const uint32_t label, const std::vector<std::byte>& feature) {
       auto time = std::chrono::system_clock::now();
       auto timestamp = uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count());
       new_entry_queue_.emplace(label, feature, timestamp);
@@ -93,7 +93,7 @@ class EvenRegularGraphBuilder {
     /**
      * Command the builder to remove a node from the graph as fast as possible.
      */ 
-    void removeEntry(uint32_t label) {
+    void removeEntry(const uint32_t label) {
       auto time = std::chrono::system_clock::now();
       auto timestamp = uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count());
       remove_entry_queue_.emplace(label, timestamp);
@@ -206,10 +206,11 @@ class EvenRegularGraphBuilder {
       }
 
       // find good neighbors for the new node
+      const auto new_node_feature = add_task.feature.data();
       const auto edges_per_node = graph.getEdgesPerNode();
       const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
       const std::vector<uint32_t> entry_node_indizies = { distrib(this->rnd_) };
-      auto top_list = graph.yahooSearch(entry_node_indizies, add_task.feature.data(), this->extend_eps_, std::max(this->extend_k_, edges_per_node));
+      auto top_list = graph.yahooSearch(entry_node_indizies, new_node_feature, this->extend_eps_, std::max(this->extend_k_, edges_per_node));
       const auto results = topListAscending(top_list);
 
       // their should always be enough neighbors (search results), otherwise the graph would be broken
@@ -220,12 +221,12 @@ class EvenRegularGraphBuilder {
       }
 
       // add an empty node to the graph (no neighbor information yet)
-      const auto internal_index = graph.addNode(external_label, add_task.feature.data());
+      const auto internal_index = graph.addNode(external_label, new_node_feature);
 
       // for computing distances to neighbors not in the result queue
       const auto dist_func = graph.getFeatureSpace().get_dist_func();
       const auto dist_func_param = graph.getFeatureSpace().get_dist_func_param();
-        
+     
       // remove the worst edge of the good neighbors and connect them with this new node
       auto new_neighbors = std::vector<std::pair<uint32_t, float>>();
       for (int i = 0; i < results.size() && new_neighbors.size() < edges_per_node; i++) {
@@ -236,38 +237,41 @@ class EvenRegularGraphBuilder {
         if(graph.hasEdge(result.getInternalIndex(), internal_index)) 
           continue;
 
-        // find the worst edge of the new neighbor
-        uint32_t bad_neighbor_index = 0;
-        float bad_neighbor_weight = 0;
-        const auto neighbor_weights = graph.getNeighborWeights(result.getInternalIndex());
-        const auto neighbor_indizies = graph.getNeighborIndizies(result.getInternalIndex());
-        for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-          const auto neighbor_index = neighbor_indizies[edge_idx];
-          const auto neighbor_weight = neighbor_weights[edge_idx];
+        // find the edge which improves the distortion the most: (distance_new_edge1 + distance_new_edge2) - distance_removed_edge
+        uint32_t best_neighbor_index = 0;
+        float best_neighbor_distance = 0;
+        {
+          float best_distortion = std::numeric_limits<float>::max();
+          const auto neighbor_indizies = graph.getNeighborIndizies(result.getInternalIndex());
+          const auto neighbor_weights = graph.getNeighborWeights(result.getInternalIndex());
+          for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
+            const auto neighbor_index = neighbor_indizies[edge_idx];
+            const auto neighbor_distance = dist_func(new_node_feature, graph.getFeatureVector(neighbor_index), dist_func_param);
 
-          // the suggest neighbors might already be in the edge list of the new node
-          // the weight of the neighbor might not be worst than the current worst one
-          if(bad_neighbor_weight < neighbor_weight && graph.hasEdge(neighbor_index, internal_index) == false) {
-            bad_neighbor_index = neighbor_index;
-            bad_neighbor_weight = neighbor_weight;
-          }          
+            // take the neighbor with the best distance to the new node, which might already be in its edge list
+            float distortion = (result.getDistance() + neighbor_distance) - neighbor_weights[edge_idx];
+            if(distortion < best_distortion && graph.hasEdge(neighbor_index, internal_index) == false) {
+              best_distortion = distortion;
+              best_neighbor_index = neighbor_index;
+              best_neighbor_distance = neighbor_distance;
+            }          
+          }
         }
 
         // this should not be possible, otherwise the new node is connected to every node in the neighbor-list of the result-node and still has space for more
-        if(bad_neighbor_weight == 0) {
+        if(best_neighbor_distance == 0) {
           fmt::print(stderr, "it was not possible to find a bad edge in the neighbor list of node {} which would connect to node {} \n", result.getInternalIndex(), internal_index);
           perror("");
           abort();
         }
 
         // place the new node in the edge list of the result-node
-        graph.changeEdge(result.getInternalIndex(), bad_neighbor_index, internal_index, result.getDistance());
+        graph.changeEdge(result.getInternalIndex(), best_neighbor_index, internal_index, result.getDistance());
         new_neighbors.emplace_back(result.getInternalIndex(), result.getDistance());
 
-        // place the new node in the edge list of the worst edge neighbor
-        const auto distance = dist_func(add_task.feature.data(), graph.getFeatureVector(bad_neighbor_index), dist_func_param);
-        graph.changeEdge(bad_neighbor_index, result.getInternalIndex(), internal_index, distance);
-        new_neighbors.emplace_back(bad_neighbor_index, distance);
+        // place the new node in the edge list of the best edge neighbor
+        graph.changeEdge(best_neighbor_index, result.getInternalIndex(), internal_index, best_neighbor_distance);
+        new_neighbors.emplace_back(best_neighbor_index, best_neighbor_distance);
       }
 
       // sort the neighbors by their neighbor indizies and store them in the new node
