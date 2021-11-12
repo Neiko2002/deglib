@@ -21,9 +21,8 @@ int main() {
     const auto explore = false;
     const auto data_path = std::filesystem::path(DATA_PATH);
 
-    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2.deg").string();                                   // add only 8min
-    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK20Eps0.02_Rnd3+3.deg").string();          // simple improve 12min
-    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02_Path10_Rnd3+3.deg").string();          // add only 8min
+    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2.deg").string();                                   // add only 8min
+    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd5+5.deg").string();          // fast 1h 43min
 
     // load an existing graph
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2.deg").string();                                                 // add only 8min

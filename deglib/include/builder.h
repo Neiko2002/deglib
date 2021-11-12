@@ -311,6 +311,9 @@ class EvenRegularGraphBuilder {
       auto& graph = this->graph_;
       const auto edges_per_node = graph.getEdgesPerNode();
 
+      
+
+      /*
       // 1. Find a edge for node2 which connects to the subgraph of node3 and node4. 
       //    Consider only nodes of the approximate nearest neighbor search. Since the 
       //    search started from node3 and node4 all nodes in the result list are in 
@@ -344,7 +347,7 @@ class EvenRegularGraphBuilder {
 
       // 2. All nodes are connected but the subgraph between node1/node2 and node3/node4 might just have one edge(node2, node3).
       //    Furthermore Node 3 has now to many edges, remove the worst one. Ignore the just added edge. 
-      //    FYI: If the new selected node3 is the same as the old node3, this process might cut its connection to node4 again.
+      //    FYI: If the just selected node3 is the same as the old node3, this process might cut its connection to node4 again.
       //    This will be fixed in the next step or until the recursion reaches max_path_length.
       float dist34 = 0;
       {
@@ -367,6 +370,56 @@ class EvenRegularGraphBuilder {
         node4 = bad_neighbor_index;
         dist34 = bad_neighbor_weight;
         total_gain += dist34;
+        graph.changeEdge(node3, node4, node2, dist23);
+        changes.emplace_back(node3, node4, dist34, node2, dist23);
+        graph.changeEdge(node4, node3, node4, 0.f);
+        changes.emplace_back(node4, node3, dist34, node4, 0.f);
+      }*/
+
+      
+      // 1. Find an edge for node2 which connects to the subgraph of node3 and node4. 
+      //    Consider only nodes of the approximate nearest neighbor search. Since the 
+      //    search started from node3 and node4 all nodes in the result list are in 
+      //    their subgraph and would therefore connect the two potential subgraphs.	
+      {
+        const auto node2_feature = graph.getFeatureVector(node2);
+        const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
+        auto top_list = graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*improve_extended_step_factor_);
+
+        // find a good new node3
+        float best_gain = total_gain;
+        float dist23 = -1;
+        float dist34 = -1;
+        for(auto&& result : topListDescending(top_list)) {
+          if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
+            uint32_t new_node3 = result.getInternalIndex();
+
+            const auto neighbor_weights = graph.getNeighborWeights(new_node3);
+            const auto neighbor_indizies = graph.getNeighborIndizies(new_node3);
+            for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
+              uint32_t new_node4 = neighbor_indizies[edge_idx];
+
+              // do not remove the edge which was just added
+              const auto gain = total_gain - result.getDistance() + neighbor_weights[edge_idx];
+              if(new_node4 != node2 && best_gain < gain) {
+                best_gain = gain;
+                node3 = new_node3;
+                node4 = new_node4;
+                dist23 = result.getDistance();
+                dist34 = neighbor_weights[edge_idx];    
+              }
+            }
+          }
+        }
+
+        // no new node3 was found
+        if(dist23 == -1)
+          return false;
+
+        // replace the temporary self-loop of node2 with a connection to node3. 
+        total_gain = (total_gain - dist23) + dist34;
+        graph.changeEdge(node2, node2, node3, dist23);
+        changes.emplace_back(node2, node2, 0.f, node3, dist23);
         graph.changeEdge(node3, node4, node2, dist23);
         changes.emplace_back(node3, node4, dist34, node2, dist23);
         graph.changeEdge(node4, node3, node4, 0.f);
@@ -534,6 +587,53 @@ class EvenRegularGraphBuilder {
       //    with the potential subgraph of node1. Consider only nodes of the approximate nearest neighbor
       //    search. If the search starts from node1 all nodes in the result list are in the subgraph 
       //    of node1 and would therefore connect the two potential subgraphs of node1 and node2.	
+      /*uint32_t node3 = 0, node4 = 0;
+      {
+        // find a good node3 to connect to node 2
+        const auto node2_feature = graph.getFeatureVector(node2);
+        const std::vector<uint32_t> entry_node_indizies = { node1 };
+        auto top_list = graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_);
+
+        // select one which ...
+        float best_gain = total_gain;
+        float dist23 = -1;
+        float dist34 = -1;
+        for(auto&& result : topListAscending(top_list)) {
+          if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
+            uint32_t new_node3 = result.getInternalIndex();
+
+            const auto neighbor_weights = graph.getNeighborWeights(new_node3);
+            const auto neighbor_indizies = graph.getNeighborIndizies(new_node3);
+            for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
+              uint32_t new_node4 = neighbor_indizies[edge_idx];
+
+              // do not remove the edge which was just added
+              const auto gain = total_gain - result.getDistance() + neighbor_weights[edge_idx];
+              if(new_node4 != node2 && best_gain < gain) {
+                best_gain = gain;
+                node3 = new_node3;
+                node4 = new_node4;
+                dist23 = result.getDistance();
+                dist34 = neighbor_weights[edge_idx];    
+              }
+            }
+          }
+        }
+
+        // no good node3 was found, stop this swap try
+        if(dist23 == -1) 
+          return false;
+
+        // replace the temporary self-loop of node2 with a connection to node3. 
+        total_gain = (total_gain - dist23) + dist34;
+        graph.changeEdge(node2, node2, node3, dist23);
+        changes.emplace_back(node2, node2, 0.f, node3, dist23);
+        graph.changeEdge(node3, node4, node2, dist23);
+        changes.emplace_back(node3, node4, dist34, node2, dist23);
+        graph.changeEdge(node4, node3, node4, 0.f);
+        changes.emplace_back(node4, node3, dist34, node4, 0.f);
+      }*/
+
       uint32_t node3 = 0;
       float dist23 = 0;
       {
@@ -579,7 +679,7 @@ class EvenRegularGraphBuilder {
         }
 
         // 3.2 Remove the worst edge of node3 to node4 and replace it with the connection to node2
-        //     Add a temporaty self-loop for node4 for the missing edge to node3
+        //     Add a temporary self-loop for node4 for the missing edge to node3
         node4 = bad_neighbor_index;
         dist34 = bad_neighbor_weight;
         total_gain += dist34;
@@ -595,7 +695,7 @@ class EvenRegularGraphBuilder {
         const auto dist_func = feature_space.get_dist_func();
         const auto dist_func_param = feature_space.get_dist_func_param();
 
-        // 4.1a Node1 and node4 might be the same. Quite rare case.
+        // 4.1a Node1 and node4 might be the same. This is quite the rare case, but would mean there are two edges missing.
         //     Proceed like extending the graph:
         //     Search for a good node to connect to, remove its worst edge and connect
         //     both nodes of the worst edge to the node4. Skip the any edge of the two
@@ -652,7 +752,7 @@ class EvenRegularGraphBuilder {
 
           // 4.1b If there is a way from node2 or node3, to node1 or node4 then:
 				  //      Try to connect node1 with node4
-          //      This case is much more likly than 4.1a 
+          //      This case is much more likely than 4.1a 
 				  if(graph.hasEdge(node1, node4) == false) {
 
             // Is the total of all changes still beneficial?
