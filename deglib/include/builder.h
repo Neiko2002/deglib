@@ -4,6 +4,7 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <functional>
 
 #include <fmt/core.h>
 
@@ -76,9 +77,9 @@ class EvenRegularGraphBuilder {
     EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, const uint8_t extend_k, const float extend_eps, const uint8_t improve_k, 
                             const float improve_eps, const uint8_t improve_extended_k, const float improve_extended_eps, const uint8_t improve_extended_step_factor,
                             const uint8_t max_path_length = 10, const uint32_t swap_tries = 3, const uint32_t additional_swap_tries = 3) 
-      : graph_(graph), extend_k_(extend_k), extend_eps_(extend_eps), improve_k_(improve_k), improve_eps_(improve_eps), 
+      : graph_(graph), rnd_(rnd), extend_k_(extend_k), extend_eps_(extend_eps), improve_k_(improve_k), improve_eps_(improve_eps), 
         improve_extended_k_(improve_extended_k), improve_extended_eps_(improve_extended_eps), improve_extended_step_factor_(improve_extended_step_factor),
-        max_path_length_(max_path_length), swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries), rnd_(rnd) {
+        max_path_length_(max_path_length), swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries) {
     }
 
     /**
@@ -229,7 +230,7 @@ class EvenRegularGraphBuilder {
      
       // remove the worst edge of the good neighbors and connect them with this new node
       auto new_neighbors = std::vector<std::pair<uint32_t, float>>();
-      for (int i = 0; i < results.size() && new_neighbors.size() < edges_per_node; i++) {
+      for (size_t i = 0; i < results.size() && new_neighbors.size() < edges_per_node; i++) {
         const auto& result = results[i];
 
         // check if the node is already in the edge list of the new node (added during a previous loop-run)
@@ -239,7 +240,7 @@ class EvenRegularGraphBuilder {
 
         // find the edge which improves the distortion the most: (distance_new_edge1 + distance_new_edge2) - distance_removed_edge
         uint32_t best_neighbor_index = 0;
-        float best_neighbor_distance = 0;
+        float best_neighbor_distance = -1;
         {
           float best_distortion = std::numeric_limits<float>::max();
           const auto neighbor_indizies = graph.getNeighborIndizies(result.getInternalIndex());
@@ -259,7 +260,7 @@ class EvenRegularGraphBuilder {
         }
 
         // this should not be possible, otherwise the new node is connected to every node in the neighbor-list of the result-node and still has space for more
-        if(best_neighbor_distance == 0) {
+        if(best_neighbor_distance == -1) {
           fmt::print(stderr, "it was not possible to find a bad edge in the neighbor list of node {} which would connect to node {} \n", result.getInternalIndex(), internal_index);
           perror("");
           abort();
@@ -276,11 +277,12 @@ class EvenRegularGraphBuilder {
 
       // sort the neighbors by their neighbor indizies and store them in the new node
       std::sort(new_neighbors.begin(), new_neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
-      auto neighbor_indizies = std::vector<uint32_t>();
-      auto neighbor_weights = std::vector<float>();
-      for (auto &&neighbor : new_neighbors) {
-        neighbor_indizies.emplace_back(neighbor.first);
-        neighbor_weights.emplace_back(neighbor.second);
+      auto neighbor_indizies = std::vector<uint32_t>(new_neighbors.size());
+      auto neighbor_weights = std::vector<float>(new_neighbors.size());
+      for (size_t i = 0; i < new_neighbors.size(); i++) {
+        const auto& neighbor = new_neighbors[i];
+        neighbor_indizies[i] = neighbor.first;
+        neighbor_weights[i] = neighbor.second;
       }
       graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());
     }
@@ -499,8 +501,8 @@ class EvenRegularGraphBuilder {
       float total_gain = 0;
 
       // 1. remove the worst edge of a random node 
-      uint32_t node1, node2;
-      float dist12;
+      uint32_t node1 = 0, node2 = 0;
+      float dist12 = 0;
       {
         // 1.1 select a random node
         const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));

@@ -7,6 +7,7 @@
 #include <fmt/core.h>
 #include <tsl/robin_map.h>
 
+#include "deglib.h"
 #include "distances.h"
 #include "search.h"
 
@@ -34,21 +35,21 @@ namespace deglib::graph
  */
 class ReadOnlyGraph : public deglib::search::SearchGraph {
 
-  using SEARCHFUNC = deglib::search::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k);
+  using SEARCHFUNC = deglib::search::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k);
 
-  inline static deglib::search::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float16Ext>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext4(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float4Ext>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext16Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext16Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float16ExtResiduals>(entry_node_indizies, query, eps, k);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) {
+  inline static deglib::search::ResultSet searchL2Ext4Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
     return graph.yahooSearchImpl<deglib::distances::L2Float4ExtResiduals>(entry_node_indizies, query, eps, k);
   }
 
@@ -231,7 +232,7 @@ public:
   /**
    * Performan a yahooSearch but stops when the to_node was found.
    */
-  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const override
+  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const uint32_t k) const override
   {
     const auto query = this->feature_by_index(to_node);
     const auto dist_func = this->feature_space_.get_dist_func();
@@ -337,7 +338,7 @@ public:
   /**
    * The result set contains internal indizies. 
    */
-  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const override
+  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) const override
   {
     return search_func_(*this, entry_node_indizies, query, eps, k);
   }
@@ -346,7 +347,7 @@ public:
    * The result set contains internal indizies. 
    */
   template <typename COMPARATOR>
-  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const
+  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
 

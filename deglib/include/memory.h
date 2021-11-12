@@ -1,7 +1,6 @@
 #pragma once
 
-#include <xmmintrin.h> 
-#include <mmintrin.h>
+#include "config.h"
 
 namespace deglib
 {
@@ -13,7 +12,5 @@ namespace deglib
         #endif
       }
   };
-
-
 
 }  // namespace deglib

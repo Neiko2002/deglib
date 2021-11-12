@@ -1,5 +1,7 @@
 #pragma once
 
+#include <config.h>
+
 namespace deglib {
     
     namespace distances {

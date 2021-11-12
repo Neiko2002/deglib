@@ -22,6 +22,8 @@ void create_graph(const std::string repository_file, const std::string graph_fil
     auto graph = deglib::graph::SizeBoundedGraph(max_node_count, edges_per_node, feature_space);
 
     // create a graph builder to add nodes to the new graph and improve its edges
+    // new best: k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02_Path10_Rnd5+5.deg
+    // new fast: k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path20_Rnd5+3.deg
     auto rnd = std::mt19937(7); 
     const uint8_t extend_k = 24; // should always be >= K
     const float extend_eps = 0.2;
@@ -113,7 +115,7 @@ int main() {
     const uint32_t test_k = 100;
     const auto data_path = std::filesystem::path(DATA_PATH);
     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02_Path10_Rnd3+3.deg").string();
+    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02_Path100_Rnd3+3.deg").string();
 
     // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
     create_graph(repository_file, graph_file);

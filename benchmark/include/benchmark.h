@@ -11,7 +11,7 @@ namespace deglib::benchmark
 static std::vector<tsl::robin_set<uint32_t>> get_ground_truth(const uint32_t* ground_truth, const size_t ground_truth_size, const uint32_t ground_truth_dims, const size_t k)
 {
     auto answers = std::vector<tsl::robin_set<uint32_t>>(ground_truth_size);
-    for (int i = 0; i < ground_truth_size; i++)
+    for (uint32_t i = 0; i < ground_truth_size; i++)
     {
         auto& gt = answers[i];
         gt.reserve(k);
@@ -28,7 +28,7 @@ static float test_approx_anns(const deglib::search::SearchGraph& graph, const st
 {
     size_t total = 0;
     size_t correct = 0;
-    for (int i = 0; i < query_repository.size(); i++)
+    for (uint32_t i = 0; i < uint32_t(query_repository.size()); i++)
     {
         auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
         auto result_queue = graph.yahooSearch(entry_node_indizies, query, eps, k);

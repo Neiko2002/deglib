@@ -22,4 +22,5 @@ main:
       long: Build deglib
       settings:
         DATA_PATH: ""
+        CMAKE_EXPORT_COMPILE_COMMAND: "on"
 

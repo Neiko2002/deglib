@@ -1,11 +1,11 @@
 #pragma once
 
 #include <queue>
+#include <distances.h>
 
 namespace deglib::search
 {
 
-#pragma pack(2)
 class ObjectDistance
 {
     uint32_t internal_index_;
@@ -46,7 +46,6 @@ class ObjectDistance
         }
     }
 };
-#pragma pack()
 
 
 
@@ -113,12 +112,12 @@ class SearchGraph
     /**
      * Performan a yahooSearch but stops when the to_node was found.
      */
-    virtual std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const = 0;
+    virtual std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const uint32_t k) const = 0;
 
     /**
      * Approximate nearest neighbor search based on yahoo's graph search algorithm
      */
-    virtual deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const int k) const = 0;
+    virtual deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) const = 0;
 };
 
 } // end namespace deglib::search

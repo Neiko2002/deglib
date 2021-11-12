@@ -16,16 +16,20 @@ int main() {
         fmt::print("use arch  ...\n");
     #endif
 
-    const uint32_t k = 1000; // ANNS = 100, Explore = 1000
+    const uint32_t k = 100; // ANNS = 100, Explore = 1000
     const uint32_t repeat_test = 3;
-    const auto explore = true;
+    const auto explore = false;
     const auto data_path = std::filesystem::path(DATA_PATH);
+
+    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2.deg").string();                                   // add only 8min
+    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK20Eps0.02_Rnd3+3.deg").string();          // simple improve 12min
+    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02_Path10_Rnd3+3.deg").string();          // add only 8min
 
     // load an existing graph
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2.deg").string();                                                 // add only 8min
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK20Eps0.02.deg").string();                               // simple improve 24min
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK20Eps0.02_ImproveExtK14-2StepEps0.01.deg").string();    // fast 1h 21min
-    const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02.deg").string();    // best 8h 15min
+    //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02.deg").string();    // best 8h 15min
     fmt::print("Load graph {} \n", graph_file);
     const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
 
