@@ -33,33 +33,17 @@ if(OPENMP_FOUND)
 endif()
 
 # setup compiler flags
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_compile_options(
     compile-options
-    INTERFACE -Ofast
-              -DNDEBUG
-              -DHAVE_CXX0X
+    INTERFACE -DNDEBUG
               -march=native
               -fpic
-              -ftree-vectorize
-              -fno-exceptions)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  target_compile_options(
-    compile-options
-    INTERFACE -Ofast
-              -lrt
-              -DNDEBUG
-              --DHAVE_CXX0X
-              -march=native
-              -fpic
-              -w
-              -fopenmp
-              -ftree-vectorize
-              -ftree-vectorizer-verbose=0
-              -fno-exceptions)
+              -fopenmp)
 elseif(MSVC)
   # https://stackoverflow.com/questions/54114287/visual-studio-not-recognizing-avx2-or-avx/54137338#54137338
-  target_compile_options(compile-options INTERFACE /fp:fast /GS- /W4)
+  # use /fsanitize=address if needed
+  target_compile_options(compile-options INTERFACE /W4)
 
   option(KEEP_DEBUG_SYMBOLS "Whether to compile with /Zi and /DEBUG" off)
   if(KEEP_DEBUG_SYMBOLS)

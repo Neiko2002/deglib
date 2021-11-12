@@ -10,9 +10,9 @@
 #include <tsl/robin_map.h>
 #include <tsl/robin_set.h>
 
-#include "search.h"
 #include "graph.h"
 #include "repository.h"
+#include "search.h"
 
 namespace deglib::graph
 {
@@ -83,14 +83,15 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
     if (alignment == 0)
       return arr.get();
     else {
-      auto unaliged_address = (uint64_t) arr.get();
-      auto aligned_address = ((unaliged_address + alignment - 1) / alignment) * alignment;
-      auto address_alignment = aligned_address - unaliged_address;
-      return arr.get() + address_alignment;
+      void* ptr = arr.get();
+      size_t space = std::numeric_limits<size_t>::max();
+      std::align(alignment, 0, ptr, space);
+      return static_cast<std::byte*>(ptr);
     }
   }
 
-  static const uint8_t object_alignment = 32; // alignment of node information in bytes
+  // alignment of node information in bytes (all feature vectors will be 256bit aligned for faster SIMD processing)
+  static const uint8_t object_alignment = 32; 
 
   const uint32_t max_node_count_;
   const uint8_t edges_per_node_;
@@ -125,7 +126,7 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
         neighbor_indizies_offset_(uint32_t(feature_space.get_data_size())),
         neighbor_weights_offset_(neighbor_indizies_offset_ + uint32_t(edges_per_node) * sizeof(uint32_t)),
         external_label_offset_(neighbor_weights_offset_ + uint32_t(edges_per_node) * sizeof(float)), 
-        nodes_(std::make_unique<std::byte[]>(max_node_count * byte_size_per_node_ + object_alignment)), 
+        nodes_(std::make_unique<std::byte[]>(size_t(max_node_count) * byte_size_per_node_ + object_alignment)), 
         nodes_memory_(compute_aligned_pointer(nodes_, object_alignment)), 
         label_to_index_(max_node_count) {
   }

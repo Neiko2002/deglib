@@ -42,7 +42,7 @@ namespace deglib {
             #if defined(USE_AVX512)
                 __m512 sum512 = _mm512_setzero_ps();
                 while (a < last) {
-                    __m512 v = _mm512_sub_ps(_mm512_load_ps(a), _mm512_load_ps(b));
+                    __m512 v = _mm512_sub_ps(_mm512_loadu_ps(a), _mm512_loadu_ps(b));
                     sum512 = _mm512_add_ps(sum512, _mm512_mul_ps(v, v));
                     a += 16;
                     b += 16;
@@ -54,11 +54,11 @@ namespace deglib {
                 __m256 sum256 = _mm256_setzero_ps();
                 __m256 v;
                 while (a < last) {
-                    v = _mm256_sub_ps(_mm256_load_ps(a), _mm256_load_ps(b));
+                    v = _mm256_sub_ps(_mm256_loadu_ps(a), _mm256_loadu_ps(b));
                     sum256 = _mm256_fmadd_ps(v, v, sum256);
                     a += 8;
                     b += 8;        
-                    v = _mm256_sub_ps(_mm256_load_ps(a), _mm256_load_ps(b));
+                    v = _mm256_sub_ps(_mm256_loadu_ps(a), _mm256_loadu_ps(b));
                     sum256 = _mm256_fmadd_ps(v, v, sum256);
                     a += 8;
                     b += 8;
@@ -68,19 +68,19 @@ namespace deglib {
                 __m128 sum128 = _mm_setzero_ps();
                 __m128 v;
                 while (a < last) {
-                    v = _mm_sub_ps(_mm_load_ps(a), _mm_load_ps(b));
+                    v = _mm_sub_ps(_mm_loadu_ps(a), _mm_loadu_ps(b));
                     sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
                     a += 4;
                     b += 4;
-                    v = _mm_sub_ps(_mm_load_ps(a), _mm_loadu_ps(b));
+                    v = _mm_sub_ps(_mm_loadu_ps(a), _mm_loadu_ps(b));
                     sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
                     a += 4;
                     b += 4;
-                    v = _mm_sub_ps(_mm_load_ps(a), _mm_load_ps(b));
+                    v = _mm_sub_ps(_mm_loadu_ps(a), _mm_loadu_ps(b));
                     sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
                     a += 4;
                     b += 4;
-                    v = _mm_sub_ps(_mm_load_ps(a), _mm_load_ps(b));
+                    v = _mm_sub_ps(_mm_loadu_ps(a), _mm_loadu_ps(b));
                     sum128 = _mm_add_ps(sum128, _mm_mul_ps(v, v));
                     a += 4;
                     b += 4;

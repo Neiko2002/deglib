@@ -79,14 +79,15 @@ class ReadOnlyGraph : public deglib::search::SearchGraph {
     if (alignment == 0)
       return arr.get();
     else {
-      auto unaliged_address = (uint64_t) arr.get();
-      auto aligned_address = ((unaliged_address + alignment - 1) / alignment) * alignment;
-      auto address_alignment = aligned_address - unaliged_address;
-      return arr.get() + address_alignment;
+      void* ptr = arr.get();
+      size_t space = std::numeric_limits<size_t>::max();
+      std::align(alignment, 0, ptr, space);
+      return static_cast<std::byte*>(ptr);
     }
   }
 
-  static const uint8_t object_alignment = 32; // alignment of node information in bytes
+  // alignment of node information in bytes (all feature vectors will be 256bit aligned for faster SIMD processing)
+  static const uint8_t object_alignment = 32; 
 
   const uint32_t max_node_count_;
   const uint8_t edges_per_node_;
@@ -111,11 +112,17 @@ class ReadOnlyGraph : public deglib::search::SearchGraph {
 
  public:
   ReadOnlyGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const deglib::L2Space feature_space)
-      : edges_per_node_(edges_per_node), max_node_count_(max_node_count), feature_byte_size_(uint16_t(feature_space.get_data_size())), 
+      : edges_per_node_(edges_per_node), 
+        max_node_count_(max_node_count), 
+        feature_space_(feature_space),
+        search_func_(getSearchFunction(feature_space.dim())),
+        feature_byte_size_(uint16_t(feature_space.get_data_size())), 
         byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, uint16_t(feature_space.get_data_size()), object_alignment)), 
-        neighbor_indizies_offset_(uint32_t(feature_space.get_data_size())), feature_space_(feature_space),
-        external_label_offset_(uint32_t(feature_space.get_data_size()) + uint32_t(edges_per_node) * sizeof(uint32_t)), search_func_(getSearchFunction(feature_space.dim())),
-        nodes_(std::make_unique<std::byte[]>(max_node_count * byte_size_per_node_ + object_alignment)), nodes_memory_(compute_aligned_pointer(nodes_, object_alignment)), label_to_index_(max_node_count) {
+        neighbor_indizies_offset_(uint32_t(feature_space.get_data_size())), 
+        external_label_offset_(neighbor_indizies_offset_ + uint32_t(edges_per_node) * sizeof(uint32_t)), 
+        nodes_(std::make_unique<std::byte[]>(size_t(max_node_count) * byte_size_per_node_ + object_alignment)), 
+        nodes_memory_(compute_aligned_pointer(nodes_, object_alignment)), 
+        label_to_index_(max_node_count) {
   }
 
   /**

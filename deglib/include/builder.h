@@ -5,6 +5,8 @@
 #include <thread>
 #include <algorithm>
 #include <functional>
+#include <span>
+#include <array>
 
 #include <fmt/core.h>
 
@@ -12,11 +14,22 @@
 
 namespace deglib::builder
 {
+/*
+struct C {
+  std::deque<float> a;
+  mutable std::mutex m;
+
+  size_t size() const noexcept {
+    std::scoped_lock l{m};
+    return a.size();
+  }
+};
+*/
 
 struct BuilderAddTask {
   uint32_t label;
-  std::vector<std::byte> feature;
   uint64_t timestamp;
+  std::vector<std::byte> feature;
 };
 
 struct BuilderRemoveTask {
@@ -66,7 +79,7 @@ class EvenRegularGraphBuilder {
     std::mt19937& rnd_;
     deglib::graph::MutableGraph& graph_;
 
-    std::queue<BuilderAddTask> new_entry_queue_;
+    std::deque<BuilderAddTask> new_entry_queue_;
     std::queue<BuilderRemoveTask> remove_entry_queue_;
 
     // should the build loop run until the stop method is called
@@ -85,10 +98,10 @@ class EvenRegularGraphBuilder {
     /**
      * Provide the builder a new entry which it will append to the graph in the build() process.
      */ 
-    void addEntry(const uint32_t label, const std::vector<std::byte>& feature) {
+    void addEntry(const uint32_t label, std::vector<std::byte> feature) {
       auto time = std::chrono::system_clock::now();
       auto timestamp = uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count());
-      new_entry_queue_.emplace(label, feature, timestamp);
+      new_entry_queue_.emplace_back(label, timestamp, std::move(feature));
     }
 
     /**
@@ -137,7 +150,7 @@ class EvenRegularGraphBuilder {
      * The initial graph contains of "edges-per-node + 1" nodes.
      * Every node in this graph is connected to all other nodes.
      */
-    void initialGraph(const std::vector<BuilderAddTask>& entries) {
+    void initialGraph(const std::span<const BuilderAddTask> entries) {
       auto& graph = this->graph_;
       const auto& feature_space = graph.getFeatureSpace();
       const auto& dist_func = feature_space.get_dist_func();
@@ -209,7 +222,7 @@ class EvenRegularGraphBuilder {
       // find good neighbors for the new node
       const auto new_node_feature = add_task.feature.data();
       const auto edges_per_node = graph.getEdgesPerNode();
-      const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
+      auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
       const std::vector<uint32_t> entry_node_indizies = { distrib(this->rnd_) };
       auto top_list = graph.yahooSearch(entry_node_indizies, new_node_feature, this->extend_eps_, std::max(this->extend_k_, edges_per_node));
       const auto results = topListAscending(top_list);
@@ -558,7 +571,7 @@ class EvenRegularGraphBuilder {
       float dist12 = 0;
       {
         // 1.1 select a random node
-        const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
+        auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
         node1 = distrib(this->rnd_);
 
         // 1.2 find the worst edge of this node
@@ -831,13 +844,12 @@ class EvenRegularGraphBuilder {
           std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
         // setup the initial graph
-        auto initial_entries = std::vector<BuilderAddTask>();
-        while(initial_entries.size() < edge_per_node_p1) {
-          const auto& entry = this->new_entry_queue_.front();
-          initial_entries.emplace_back(entry.label, std::move(entry.feature));
-          this->new_entry_queue_.pop();
+        {
+          std::array<BuilderAddTask, std::numeric_limits<uint8_t>::max()> initial_entries;
+          std::copy(new_entry_queue_.begin(), std::next(new_entry_queue_.begin(), edge_per_node_p1), initial_entries.begin());
+          new_entry_queue_.erase(new_entry_queue_.begin(), std::next(new_entry_queue_.begin(), edge_per_node_p1));
+          initialGraph({initial_entries.data(), edge_per_node_p1});
         }
-        initialGraph(std::move(initial_entries));
 
         // inform the callback about the initial graph
         status.added += edge_per_node_p1;
@@ -861,7 +873,7 @@ class EvenRegularGraphBuilder {
           if(add_task_timestamp < del_task_timestamp) {
             extendGraph(this->new_entry_queue_.front());
             status.added++;
-            this->new_entry_queue_.pop();
+            this->new_entry_queue_.pop_front();
           } else {
             shrinkGraph(this->remove_entry_queue_.front());
             status.deleted++;

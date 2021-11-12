@@ -63,12 +63,12 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
 
     if(top_list_count != graph_size) {
         fmt::print(stderr, "The number of elements in the TopList file is different than in the graph: {} vs {}\n", top_list_count, graph_size);
-        return false;
+        return;
     }
 
     if(top_list_dims < max_edges_per_node) {
         fmt::print(stderr, "Edges per node {} is higher than the TopList size = {} \n", max_edges_per_node, top_list_dims);
-        return false;
+        return;
     }
     
     // compute the graph quality
