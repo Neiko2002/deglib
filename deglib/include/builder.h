@@ -260,15 +260,17 @@ class EvenRegularGraphBuilder {
           const auto neighbor_weights = graph.getNeighborWeights(result.getInternalIndex());
           for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
             const auto neighbor_index = neighbor_indizies[edge_idx];
-            const auto neighbor_distance = dist_func(new_node_feature, graph.getFeatureVector(neighbor_index), dist_func_param);
+            if(graph.hasEdge(neighbor_index, internal_index) == false) {
+              const auto neighbor_distance = dist_func(new_node_feature, graph.getFeatureVector(neighbor_index), dist_func_param);
 
-            // take the neighbor with the best distance to the new node, which might already be in its edge list
-            float distortion = (result.getDistance() + neighbor_distance) - neighbor_weights[edge_idx];
-            if(distortion < best_distortion && graph.hasEdge(neighbor_index, internal_index) == false) {
-              best_distortion = distortion;
-              best_neighbor_index = neighbor_index;
-              best_neighbor_distance = neighbor_distance;
-            }          
+              // take the neighbor with the best distance to the new node, which might already be in its edge list
+              float distortion = (result.getDistance() + neighbor_distance) - neighbor_weights[edge_idx];
+              if(distortion < best_distortion) {
+                best_distortion = distortion;
+                best_neighbor_index = neighbor_index;
+                best_neighbor_distance = neighbor_distance;
+              }          
+            }
           }
         }
 
@@ -883,7 +885,7 @@ class EvenRegularGraphBuilder {
 
         //try to improve the graph
         if(improve_k_ > 0) {
-          for (int swap_try = 0; swap_try < int(this->swap_tries_); swap_try++) {
+          for (int64_t swap_try = 0; swap_try < int64_t(this->swap_tries_); swap_try++) {
             status.tries++;
 
             if(this->improve()) {

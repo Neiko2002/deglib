@@ -30,3 +30,8 @@ add_executable(deglib_graph_stats ${PROJECT_SOURCE_DIR}/src/deglib_graph_stats.c
 target_link_libraries(deglib_graph_stats PUBLIC DEG_LIB compile-options
                                                 fmt::fmt-header-only tsl::robin_map)
 target_compile_definitions(deglib_graph_stats PUBLIC "DATA_PATH=\"${DATA_PATH}\"")
+
+add_executable(deglib_knng_bench ${PROJECT_SOURCE_DIR}/src/deglib_knng_bench.cpp)
+target_link_libraries(deglib_knng_bench PUBLIC DEG_LIB compile-options
+                                                fmt::fmt-header-only tsl::robin_map)
+target_compile_definitions(deglib_knng_bench PUBLIC "DATA_PATH=\"${DATA_PATH}\"")

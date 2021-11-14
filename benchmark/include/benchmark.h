@@ -86,7 +86,7 @@ static void test_graph_anns(const deglib::search::SearchGraph& graph, const degl
     fmt::print("Loaded gt:\n");
 
     // try different eps values for the search radius
-    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };
+    std::vector<float> eps_parameter = { 0.01f, 0.05f, 0.1f, 0.12f, 0.14f, 0.16f, 0.18f, 0.2f };
     for (float eps : eps_parameter)
     {
         StopW stopw = StopW();
@@ -128,7 +128,7 @@ static void test_graph_explore(const deglib::search::SearchGraph& graph, const d
     }
 
     // try different eps values for the search radius
-    std::vector<float> eps_parameter = { 0.01, 0.05, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };
+    std::vector<float> eps_parameter = { 0.01f, 0.05f, 0.1f, 0.12f, 0.14f, 0.16f, 0.18f, 0.2f };
     for (float eps : eps_parameter)
     {
         StopW stopw = StopW();

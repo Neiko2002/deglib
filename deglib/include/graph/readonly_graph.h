@@ -35,35 +35,41 @@ namespace deglib::graph
  */
 class ReadOnlyGraph : public deglib::search::SearchGraph {
 
-  using SEARCHFUNC = deglib::search::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k);
 
-  inline static deglib::search::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float16Ext>(entry_node_indizies, query, eps, k);
+  using SEARCHFUNC = deglib::search::ResultSet (*)(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count);
+
+  template <bool use_max_distance_count = false>
+  inline static deglib::search::ResultSet searchL2Ext16(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.yahooSearchImpl<deglib::distances::L2Float16Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float4Ext>(entry_node_indizies, query, eps, k);
+  template <bool use_max_distance_count = false>
+  inline static deglib::search::ResultSet searchL2Ext4(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.yahooSearchImpl<deglib::distances::L2Float4Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext16Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float16ExtResiduals>(entry_node_indizies, query, eps, k);
+  template <bool use_max_distance_count = false>
+  inline static deglib::search::ResultSet searchL2Ext16Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.yahooSearchImpl<deglib::distances::L2Float16ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
-  inline static deglib::search::ResultSet searchL2Ext4Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float4ExtResiduals>(entry_node_indizies, query, eps, k);
+  template <bool use_max_distance_count = false>
+  inline static deglib::search::ResultSet searchL2Ext4Residual(const ReadOnlyGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.yahooSearchImpl<deglib::distances::L2Float4ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
-  static SEARCHFUNC getSearchFunction(const size_t dim) {
+  template <bool use_max_distance_count = false>
+  inline static SEARCHFUNC getSearchFunction(const size_t dim) {
     if (dim % 16 == 0)
-      return deglib::graph::ReadOnlyGraph::searchL2Ext16;
+      return deglib::graph::ReadOnlyGraph::searchL2Ext16<use_max_distance_count>;
     else if (dim % 4 == 0)
-      return deglib::graph::ReadOnlyGraph::searchL2Ext4;
+      return deglib::graph::ReadOnlyGraph::searchL2Ext4<use_max_distance_count>;
     else if (dim > 16)
-      return deglib::graph::ReadOnlyGraph::searchL2Ext16Residual;
+      return deglib::graph::ReadOnlyGraph::searchL2Ext16Residual<use_max_distance_count>;
     else if (dim > 4)
-      return deglib::graph::ReadOnlyGraph::searchL2Ext4Residual;
+      return deglib::graph::ReadOnlyGraph::searchL2Ext4Residual<use_max_distance_count>;
     else
-      return deglib::graph::ReadOnlyGraph::searchL2Ext16;
+      return deglib::graph::ReadOnlyGraph::searchL2Ext16<use_max_distance_count>;
   }
 
   static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size, const uint8_t alignment) {
@@ -345,18 +351,24 @@ public:
   /**
    * The result set contains internal indizies. 
    */
-  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) const override
+  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const override
   {
-    return search_func_(*this, entry_node_indizies, query, eps, k);
+    if(max_distance_computation_count == 0)
+      return search_func_(*this, entry_node_indizies, query, eps, k, 0);
+    else {
+      const auto limited_search_func = getSearchFunction<true>(this->feature_space_.dim());
+      return limited_search_func(*this, entry_node_indizies, query, eps, k, max_distance_computation_count);
+    }
   }
 
   /**
    * The result set contains internal indizies. 
    */
-  template <typename COMPARATOR>
-  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k) const
+  template <typename COMPARATOR, bool use_max_distance_count>
+  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
+    uint32_t distance_computation_count = 0;
 
     // set of checked node ids
     auto checked_ids = std::vector<bool>(this->size());
@@ -378,6 +390,10 @@ public:
       const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
       next_nodes.emplace(index, distance);
       results.emplace(index, distance);
+
+      // early stop after to many computations
+      if(use_max_distance_count && distance_computation_count++ >= max_distance_computation_count)
+        return results;
     }
 
     // search radius
@@ -431,6 +447,10 @@ public:
             }
           }
         }
+
+        // early stop after to many computations
+        if(use_max_distance_count && distance_computation_count++ >= max_distance_computation_count)
+          return results;
       }
     }
 
