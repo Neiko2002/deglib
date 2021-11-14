@@ -353,6 +353,111 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
         return top_candidates;
     }
 
+    
+    template <bool has_deletions, bool collect_metrics = false>
+    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
+    exploreBaseLayerST(const tableint ep_id, const uint32_t ef, const uint32_t max_distance_computation_count) const
+    {
+        const auto data_point = getDataByInternalId(ep_id);
+        uint32_t distance_computation_count = 0;
+        VisitedList* vl = visited_list_pool_->getFreeVisitedList();
+        vl_type* visited_array = vl->mass;
+        vl_type visited_array_tag = vl->curV;
+
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
+
+        dist_t lowerBound;
+        if (!has_deletions || !isMarkedDeleted(ep_id))
+        {
+            dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
+            distance_computation_count++;
+            if (collect_metrics)
+                this->metric_distance_computations++;
+            lowerBound = dist;
+            top_candidates.emplace(dist, ep_id);
+            candidate_set.emplace(-dist, ep_id);
+        }
+        else
+        {
+            lowerBound = std::numeric_limits<dist_t>::max();
+            candidate_set.emplace(-lowerBound, ep_id);
+        }
+
+        visited_array[ep_id] = visited_array_tag;
+
+        while (!candidate_set.empty())
+        {
+            std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
+
+            if ((-current_node_pair.first) > lowerBound)
+            {
+                break;
+            }
+            candidate_set.pop();
+
+            tableint current_node_id = current_node_pair.second;
+            int* data = (int*)get_linklist0(current_node_id);
+            size_t size = getListCount((linklistsizeint*)data);
+            //                bool cur_node_deleted = isMarkedDeleted(current_node_id);
+            if (collect_metrics) 
+                this->metric_hops++;
+
+#ifdef USE_SSE
+            // prefetch 2x "caches lines" of the visited array (cache line granularity is typically 64-bytes)
+            _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);                                      // *(data + 1) == neighbor id
+            _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);                                 // a mistake? visited_array uses unsigned short and a pointer jump of 64 means 128 bytes
+            _mm_prefetch(data_level0_memory_ + (*(data + 1)) * size_data_per_element_ + offsetData_, _MM_HINT_T0);  // 64 bytes of data of the first neighbor
+            _mm_prefetch((char *) (data + 2), _MM_HINT_T0);                                                         // 64 bytes of neigbor ids if the second node, skipping the first, because it get used in the next code line
+#endif
+            // iterate over all neighbor ids
+            for (size_t j = 1; j <= size; j++) {
+                int candidate_id = *(data + j);
+#ifdef USE_SSE
+                _mm_prefetch((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);                                          // prefetch visited array information of the next neighbor
+                _mm_prefetch(data_level0_memory_ + (*(data + j + 1)) * size_data_per_element_ + offsetData_, _MM_HINT_T0);      // prefetch data information of the next neighbor
+#endif
+                if (!(visited_array[candidate_id] == visited_array_tag))
+                {
+                    visited_array[candidate_id] = visited_array_tag;
+
+                    char* currObj1 = (getDataByInternalId(candidate_id));
+                    dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
+                    distance_computation_count++;
+                    if (collect_metrics)
+                        this->metric_distance_computations++;
+
+                    if (top_candidates.size() < ef || lowerBound > dist)
+                    {
+                        candidate_set.emplace(-dist, candidate_id);
+#ifdef USE_SSE
+                        _mm_prefetch(data_level0_memory_ + candidate_set.top().second * size_data_per_element_ + offsetLevel0_, _MM_HINT_T0); // prefetch all information of the next possible candidate
+#endif
+
+                        if (!has_deletions || !isMarkedDeleted(candidate_id)) {
+                            top_candidates.emplace(dist, candidate_id);
+                        }
+
+                        if (top_candidates.size() > ef) 
+                            top_candidates.pop();
+
+                        if (!top_candidates.empty()) 
+                            lowerBound = top_candidates.top().first;
+                    }
+
+                    // early stop after to many computations
+                    if(distance_computation_count >= max_distance_computation_count) {
+                        visited_list_pool_->releaseVisitedList(vl);
+                        return top_candidates;
+                    }
+                }
+            }
+        }
+
+        visited_list_pool_->releaseVisitedList(vl);
+        return top_candidates;
+    }
+
     void getNeighborsByHeuristic2(
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>&
             top_candidates,
@@ -1246,6 +1351,36 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
         else
         {
             top_candidates = searchBaseLayerST<false, true>(entry_node, query_data, std::max(ef_, k));
+        }
+
+        while (top_candidates.size() > k)
+        {
+            top_candidates.pop();
+        }
+
+        while (top_candidates.size() > 0)
+        {
+            std::pair<dist_t, tableint> rez = top_candidates.top();
+            result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+            top_candidates.pop();
+        }
+
+        return result;
+    }
+
+    std::priority_queue<std::pair<dist_t, labeltype>> explore(const tableint entry_node, const size_t k, const uint32_t max_distance_count) const
+    {
+        auto result = std::priority_queue<std::pair<dist_t, labeltype>>();
+        if (cur_element_count == 0) return result;
+
+        auto top_candidates = std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>();
+        if (has_deletions_)
+        {
+            top_candidates = this->exploreBaseLayerST<true, true>(entry_node, (uint32_t)std::max(ef_, k), max_distance_count);
+        }
+        else
+        {
+            top_candidates = this->exploreBaseLayerST<false, true>(entry_node, (uint32_t)std::max(ef_, k), max_distance_count);
         }
 
         while (top_candidates.size() > k)

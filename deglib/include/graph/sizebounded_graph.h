@@ -43,22 +43,22 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
 
   template <bool use_max_distance_count = false>
   inline static deglib::search::ResultSet searchL2Ext16(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float16Ext>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+    return graph.searchImpl<deglib::distances::L2Float16Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
   inline static deglib::search::ResultSet searchL2Ext4(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float4Ext>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+    return graph.searchImpl<deglib::distances::L2Float4Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
   inline static deglib::search::ResultSet searchL2Ext16Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float16ExtResiduals>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+    return graph.searchImpl<deglib::distances::L2Float16ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
   inline static deglib::search::ResultSet searchL2Ext4Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) {
-    return graph.yahooSearchImpl<deglib::distances::L2Float4ExtResiduals>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+    return graph.searchImpl<deglib::distances::L2Float4ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
@@ -73,6 +73,38 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
       return deglib::graph::SizeBoundedGraph::searchL2Ext4Residual<use_max_distance_count>;
     else
       return deglib::graph::SizeBoundedGraph::searchL2Ext16<use_max_distance_count>;
+  }
+
+
+  using EXPLOREFUNC = deglib::search::ResultSet (*)(const SizeBoundedGraph& graph, const uint32_t entry_node_index, const uint32_t k, const uint32_t max_distance_computation_count);
+
+  inline static deglib::search::ResultSet exploreL2Ext16(const SizeBoundedGraph& graph, const uint32_t entry_node_index,  const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.exploreImpl<deglib::distances::L2Float16Ext>(entry_node_index, k, max_distance_computation_count);
+  }
+
+  inline static deglib::search::ResultSet exploreL2Ext4(const SizeBoundedGraph& graph, const uint32_t entry_node_index,  const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.exploreImpl<deglib::distances::L2Float4Ext>(entry_node_index, k, max_distance_computation_count);
+  }
+
+  inline static deglib::search::ResultSet exploreL2Ext16Residual(const SizeBoundedGraph& graph, const uint32_t entry_node_index,  const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.exploreImpl<deglib::distances::L2Float16ExtResiduals>(entry_node_index, k, max_distance_computation_count);
+  }
+
+  inline static deglib::search::ResultSet exploreL2Ext4Residual(const SizeBoundedGraph& graph, const uint32_t entry_node_index,  const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.exploreImpl<deglib::distances::L2Float4ExtResiduals>(entry_node_index, k, max_distance_computation_count);
+  }
+
+  inline static EXPLOREFUNC getExploreFunction(const size_t dim) {
+    if (dim % 16 == 0)
+      return deglib::graph::SizeBoundedGraph::exploreL2Ext16;
+    else if (dim % 4 == 0)
+      return deglib::graph::SizeBoundedGraph::exploreL2Ext4;
+    else if (dim > 16)
+      return deglib::graph::SizeBoundedGraph::exploreL2Ext16Residual;
+    else if (dim > 4)
+      return deglib::graph::SizeBoundedGraph::exploreL2Ext4Residual;
+    else
+      return deglib::graph::SizeBoundedGraph::exploreL2Ext16;
   }
 
   static uint32_t compute_aligned_byte_size_per_node(const uint8_t edges_per_node, const uint16_t feature_byte_size, const uint8_t alignment) {
@@ -116,8 +148,9 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
 
   // internal search function with embedded distances function
   const SEARCHFUNC search_func_;
+  const EXPLOREFUNC explore_func_;
 
-    // distance calculation function between feature vectors of two graph nodes
+  // distance calculation function between feature vectors of two graph nodes
   const deglib::L2Space feature_space_;
 
  public:
@@ -125,7 +158,7 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
       : edges_per_node_(edges_per_node), 
         max_node_count_(max_node_count), 
         feature_space_(feature_space),
-        search_func_(getSearchFunction(feature_space.dim())),
+        search_func_(getSearchFunction(feature_space.dim())), explore_func_(getExploreFunction(feature_space.dim())),
         feature_byte_size_(uint16_t(feature_space.get_data_size())), 
         byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, uint16_t(feature_space.get_data_size()), object_alignment)), 
         neighbor_indizies_offset_(uint32_t(feature_space.get_data_size())),
@@ -333,7 +366,7 @@ public:
   }
 
   /**
-   * Performan a yahooSearch but stops when the to_node was found.
+   * Performan a search but stops when the to_node was found.
    */
   std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const uint32_t k) const override
   {
@@ -443,7 +476,7 @@ public:
   /**
    * The result set contains internal indizies. 
    */
-  deglib::search::ResultSet yahooSearch(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const override
+  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const override
   {
     if(max_distance_computation_count == 0)
       return search_func_(*this, entry_node_indizies, query, eps, k, 0);
@@ -456,8 +489,8 @@ public:
   /**
    * The result set contains internal indizies. 
    */
-  template <typename COMPARATOR>
-  deglib::search::ResultSet yahooSearchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  template <typename COMPARATOR, bool use_max_distance_count>
+  deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
     uint32_t distance_computation_count = 0;
@@ -484,8 +517,10 @@ public:
       results.emplace(index, distance);
 
       // early stop after to many computations
-      if(distance_computation_count++ >= max_distance_computation_count)
-        return results;
+      if constexpr (use_max_distance_count) {
+        if(distance_computation_count++ >= max_distance_computation_count)
+          return results;
+      }
     }
 
     // search radius
@@ -542,12 +577,134 @@ public:
       }
 
       // early stop after to many computations
-      if(distance_computation_count++ >= max_distance_computation_count)
-        return results;
+      if constexpr (use_max_distance_count) {
+        if(distance_computation_count++ >= max_distance_computation_count)
+          return results;
+      }
     }
 
     return results;
   }
+
+  /**
+   * The result set contains internal indizies. 
+   */
+  deglib::search::ResultSet explore(const uint32_t entry_node_index, const uint32_t k, const uint32_t max_distance_computation_count) const override
+  {
+    return explore_func_(*this, entry_node_index, k, max_distance_computation_count);
+  }
+
+  /**
+   * The result set contains internal indizies. 
+   */
+  template <typename COMPARATOR>
+  deglib::search::ResultSet exploreImpl(const uint32_t entry_node_index, const uint32_t k, const uint32_t max_distance_computation_count) const
+  {
+    uint32_t distance_computation_count = 0;
+    const auto dist_func_param = this->feature_space_.get_dist_func_param();
+    const auto query = this->feature_by_index(entry_node_index);
+
+    // set of checked node ids
+    auto checked_ids = std::vector<bool>(this->size());
+
+    // items to traverse next
+    auto next_nodes = deglib::search::UncheckedSet();
+    next_nodes.reserve(k*this->edges_per_node_);
+
+    // result set
+    auto results = deglib::search::ResultSet();   
+    results.reserve(k);
+
+    // add the entry node index to the nodes which gets checked next and ignore it for further checks
+    {
+      checked_ids[entry_node_index] = true;
+      next_nodes.emplace(entry_node_index, 0);
+
+      const auto neighbor_indizies = this->neighbors_by_index(entry_node_index);
+      const auto neighbor_weights = this->weights_by_index(entry_node_index);
+      for (uint8_t i = 0; i < this->edges_per_node_; i++) {
+        checked_ids[neighbor_indizies[i]] = true;
+        next_nodes.emplace(neighbor_indizies[i], neighbor_weights[i]);
+        results.emplace(neighbor_indizies[i], neighbor_weights[i]);
+        
+        // early stop after to many computations
+        if(distance_computation_count++ >= max_distance_computation_count)
+          return results;
+      }
+    }
+
+    // search radius
+    auto r = std::numeric_limits<float>::max();
+
+    // our eps replacement parameter
+    const auto eps = std::log10(float(max_distance_computation_count)/k);
+
+    // iterate as long as good elements are in the next_nodes queue and max_calcs is not yet reached
+    auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
+    while (next_nodes.empty() == false)
+    {
+      // next node to check
+      const auto next_node = next_nodes.top();
+      next_nodes.pop();
+
+      // if no weight of this neighbor would survive the distance estimation check, stop here
+      if (next_node.getDistance() > r * (1 + eps))
+        break;
+
+      uint8_t good_neighbor_count = 0;
+      {
+        const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
+        const auto neighbor_weights = this->weights_by_index(next_node.getInternalIndex());
+        MemoryCache::prefetch(reinterpret_cast<const char*>(neighbor_indizies));
+        MemoryCache::prefetch(reinterpret_cast<const char*>(neighbor_weights));
+        for (uint8_t i = 0; i < this->edges_per_node_; i++) {
+          const auto neighbor_index = neighbor_indizies[i];
+
+          if (checked_ids[neighbor_index] == false)  {
+            checked_ids[neighbor_index] = true;
+
+            // distance estimation check: allow only edges with a worst case distance < r
+            // this produces slighly better results and brings the sizebound graph on par with the readonly graph when comparing speed vs quality
+            if(next_node.getDistance() + neighbor_weights[i] < r * (1 + eps))
+              good_neighbors[good_neighbor_count++] = neighbor_index;
+          }
+        }
+      }
+
+      if (good_neighbor_count == 0)
+        continue;
+
+      MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[0])));
+      for (uint8_t i = 0; i < good_neighbor_count; i++) {
+        MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+
+        const auto neighbor_index = good_neighbors[i];
+        const auto neighbor_feature_vector = this->feature_by_index(neighbor_index);
+        const auto neighbor_distance = COMPARATOR::compare(query, neighbor_feature_vector, dist_func_param);
+
+        if (neighbor_distance < r) {
+
+          // check the neighborhood of this node later
+          next_nodes.emplace(neighbor_index, neighbor_distance);
+
+          // remember the node, if its better than the worst in the result list
+          results.emplace(neighbor_index, neighbor_distance);
+
+          // update the search radius
+          if (results.size() > k) {
+            results.pop();
+            r = results.top().getDistance();
+          }
+        }
+
+        // early stop after to many computations
+        if(distance_computation_count++ >= max_distance_computation_count)
+          return results;
+      }
+    }
+
+    return results;
+  }  
 };
 
 /**

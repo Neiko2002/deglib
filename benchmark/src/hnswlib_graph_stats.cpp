@@ -9,45 +9,6 @@
 #include "hnsw/utils.h"
 #include "stopwatch.h"
 
-static auto read_top_list(const char* fname, size_t& d_out, size_t& n_out)
-{
-    std::error_code ec{};
-    auto file_size = std::filesystem::file_size(fname, ec);
-    if (ec != std::error_code{})
-    {
-        fmt::print(stderr, "error when accessing top list file {}, size is: {} message: {} \n", fname, file_size, ec.message());
-        perror("");
-        abort();
-    }
-
-    auto ifstream = std::ifstream(fname, std::ios::binary);
-    if (!ifstream.is_open())
-    {
-        fmt::print(stderr, "could not open {}\n", fname);
-        perror("");
-        abort();
-    }
-
-    uint32_t dims;
-    ifstream.read(reinterpret_cast<char*>(&dims), sizeof(int));
-    assert((dims > 0 && dims < 1000000) || !"unreasonable dimension");
-    assert((file_size - 4) % ((dims + 1) * 4) == 0 || !"weird file size");
-    size_t n = (file_size - 4) / ((dims + 1) * 4);
-
-    d_out = dims;
-    n_out = n;
-
-    auto x = std::make_unique<uint32_t[]>(n * (dims + 1));
-    ifstream.read(reinterpret_cast<char*>(x.get()), n * (dims + 1) * sizeof(uint32_t));
-    if (!ifstream) assert(ifstream.gcount() == static_cast<int>(n * (dims + 1)) || !"could not read whole file");
-
-    // shift array to remove row headers
-    for (size_t i = 0; i < n; i++) memmove(&x[i * dims], &x[1 + i * (dims + 1)], dims * sizeof(uint32_t));
-
-    ifstream.close();
-    return x;
-}
-
 static void compute_stats(const char* graph_file, const char* top_list_file) {
     fmt::print("Compute graph stats of {}\n", graph_file);
 
@@ -58,7 +19,7 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
 
     size_t top_list_dims;
     size_t top_list_count;
-    const auto all_top_list = read_top_list(top_list_file, top_list_dims, top_list_count);
+    const auto all_top_list = ivecs_read(top_list_file, top_list_dims, top_list_count);
     fmt::print("Load TopList from file {} with {} elements and k={}\n", top_list_file, top_list_count, top_list_dims);
 
     if(top_list_count != graph_size) {
@@ -80,7 +41,7 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
         auto neighbor_indizies = (tableint*)(linklist_data + 1);
 
         // get top list of this node
-        auto top_list = all_top_list.get() + n * top_list_dims;
+        auto top_list = all_top_list + n * top_list_dims;
         if(top_list_dims < edges_per_node) {
             fmt::print("TopList for {} is not long enough has {} elements has {}\n", n, edges_per_node, top_list_dims);
             edges_per_node = (uint16_t) top_list_dims;
@@ -162,8 +123,8 @@ int main() {
     #endif
 
     const auto data_path = std::filesystem::path(DATA_PATH);
-    const auto top_list_file = (data_path / "SIFT1M/sift_base_top200_p0.998.ivecs").string();
-    const auto graph_file = (data_path / "hnsw" / "sift1m_ef_500_M_24.bin").string(); // GQ 0.36056197, avg degree 29.743711, min_out 1, max_out 48, min_in 0, max_in 182, zero in nodes 3
+    const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+    const auto graph_file = (data_path / "hnsw" / "sift1m_ef_500_M_24.hnsw").string(); // GQ 0.36056197, avg degree 29.743711, min_out 1, max_out 48, min_in 0, max_in 182, zero in nodes 3
 
     compute_stats(graph_file.c_str(), top_list_file.c_str());
 

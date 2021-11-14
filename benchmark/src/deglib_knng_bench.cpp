@@ -163,7 +163,7 @@ static void store_top_list(const deglib::search::SearchGraph& graph, const degli
     for (uint32_t i = 0; i < repository.size(); i++)
     {
         auto query = reinterpret_cast<const std::byte*>(repository.getFeature(i));
-        auto result_queue = graph.yahooSearch(entry_node_indizies, query, eps, (k + 1)); // +1 for self reference
+        auto result_queue = graph.search(entry_node_indizies, query, eps, (k + 1)); // +1 for self reference
         auto sorted_result = topListAscending(result_queue);
 
         topList.push_back(k);                                   // size of the vector
@@ -525,7 +525,7 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
         for (int i = 0; i < query_repository.size(); i++)
         {
             auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
-            auto result_queue = graph.yahooSearch(entry_node_indizies, query, eps, k, max_distance_count);
+            auto result_queue = graph.search(entry_node_indizies, query, eps, k, max_distance_count);
 
             const auto gt = answer[i];
             total += result_queue.size();

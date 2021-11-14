@@ -6,46 +6,6 @@
 #include "benchmark.h"
 #include "deglib.h"
 
-
-static auto read_top_list(const char* fname, size_t& d_out, size_t& n_out)
-{
-    std::error_code ec{};
-    auto file_size = std::filesystem::file_size(fname, ec);
-    if (ec != std::error_code{})
-    {
-        fmt::print(stderr, "error when accessing top list file, size is: {} message: {} \n", fname, file_size, ec.message());
-        perror("");
-        abort();
-    }
-
-    auto ifstream = std::ifstream(fname, std::ios::binary);
-    if (!ifstream.is_open())
-    {
-        fmt::print(stderr, "could not open {}\n", fname);
-        perror("");
-        abort();
-    }
-
-    uint32_t dims;
-    ifstream.read(reinterpret_cast<char*>(&dims), sizeof(int));
-    assert((dims > 0 && dims < 1000000) || !"unreasonable dimension");
-    assert((file_size - 4) % ((dims + 1) * 4) == 0 || !"weird file size");
-    size_t n = (file_size - 4) / ((dims + 1) * 4);
-
-    d_out = dims;
-    n_out = n;
-
-    auto x = std::make_unique<uint32_t[]>(n * (dims + 1));
-    ifstream.read(reinterpret_cast<char*>(x.get()), n * (dims + 1) * sizeof(uint32_t));
-    if (!ifstream) assert(ifstream.gcount() == static_cast<int>(n * (dims + 1)) || !"could not read whole file");
-
-    // shift array to remove row headers
-    for (size_t i = 0; i < n; i++) memmove(&x[i * dims], &x[1 + i * (dims + 1)], dims * sizeof(uint32_t));
-
-    ifstream.close();
-    return x;
-}
-
 static void compute_stats(const char* graph_file, const char* top_list_file) {
     fmt::print("Compute graph stats of {}\n", graph_file);
 
@@ -55,7 +15,8 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
 
     size_t top_list_dims;
     size_t top_list_count;
-    const auto all_top_list = read_top_list(top_list_file, top_list_dims, top_list_count);
+    const auto ground_truth_f = deglib::fvecs_read(top_list_file, top_list_dims, top_list_count);
+    const auto all_top_list = (uint32_t*)ground_truth_f.get(); // not very clean, works as long as sizeof(int) == sizeof(float)
     fmt::print("Load TopList from file {} with {} elements and k={}\n", top_list_file, top_list_count, top_list_dims);
 
     if(top_list_count != graph_size) {
@@ -71,7 +32,7 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
     auto perfect_neighbor_count = 0;
     for (uint32_t n = 0; n < graph_size; n++) {
         auto neighbor_indizies = graph.getNeighborIndizies(n);
-        auto top_list = all_top_list.get() + n * top_list_dims;
+        auto top_list = all_top_list + n * top_list_dims;
 
         // check if every neighbor is from the perfect neighborhood
         for (uint32_t e = 0; e < edges_per_node; e++) {
@@ -103,10 +64,15 @@ int main() {
     #endif
 
     const auto data_path = std::filesystem::path(DATA_PATH);
-    const auto top_list_file = (data_path / "SIFT1M/sift_base_top200_p0.998.ivecs").string();
+    const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+
+    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k40nns_128D_L2_AddK40Eps0.1_ImproveK40Eps0.02_ImproveExtK40-2StepEps0.02_Path12_Rnd5+5.deg").string();  // GQ=0.5232597
+    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd5+5.deg").string();  // GQ=0.51845485
+    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd15+15.deg").string();  // GQ=0.52803755
+
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02.deg").string(); // best with GQ=0.48901713
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2_ImproveK20Eps0.02_ImproveExtK12-2StepEps0.02.deg").string(); // fast with GQ=0.51287943
-    const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02.deg").string(); // simple improve only with GQ=0.48969483
+    //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02.deg").string(); // simple improve only with GQ=0.48969483
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2.deg").string(); // build only with GQ=0.4492762
 
     compute_stats(graph_file.c_str(), top_list_file.c_str());

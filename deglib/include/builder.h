@@ -224,7 +224,7 @@ class EvenRegularGraphBuilder {
       const auto edges_per_node = graph.getEdgesPerNode();
       auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
       const std::vector<uint32_t> entry_node_indizies = { distrib(this->rnd_) };
-      auto top_list = graph.yahooSearch(entry_node_indizies, new_node_feature, this->extend_eps_, std::max(this->extend_k_, edges_per_node));
+      auto top_list = graph.search(entry_node_indizies, new_node_feature, this->extend_eps_, std::max(this->extend_k_, edges_per_node));
       const auto results = topListAscending(top_list);
 
       // their should always be enough neighbors (search results), otherwise the graph would be broken
@@ -337,7 +337,7 @@ class EvenRegularGraphBuilder {
       {
         const auto node2_feature = graph.getFeatureVector(node2);
         const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
-        auto top_list = graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*improve_extended_step_factor_);
+        auto top_list = graph.search(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*improve_extended_step_factor_);
 
         // find a good new node3
         for(auto&& result : topListDescending(top_list)) {
@@ -399,7 +399,7 @@ class EvenRegularGraphBuilder {
       {
         const auto node2_feature = graph.getFeatureVector(node2);
         const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
-        auto top_list = graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*improve_extended_step_factor_);
+        auto top_list = graph.search(entry_node_indizies, node2_feature, this->improve_extended_eps_, this->improve_extended_k_ - steps*improve_extended_step_factor_);
 
         // find a good new node3
         float best_gain = total_gain;
@@ -457,7 +457,7 @@ class EvenRegularGraphBuilder {
           // find a good (not yet connected) node for node1/node4
           const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
           const auto node4_feature = graph.getFeatureVector(node4);
-          auto top_list = graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_);
+          auto top_list = graph.search(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_);
 
           for(auto&& result : topListAscending(top_list)) {
             const auto good_node = result.getInternalIndex();
@@ -607,7 +607,7 @@ class EvenRegularGraphBuilder {
         // find a good node3 to connect to node 2
         const auto node2_feature = graph.getFeatureVector(node2);
         const std::vector<uint32_t> entry_node_indizies = { node1 };
-        auto top_list = graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_);
+        auto top_list = graph.search(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_);
 
         // select one which ...
         float best_gain = total_gain;
@@ -655,7 +655,7 @@ class EvenRegularGraphBuilder {
         // find a good node3 to connect to node 2
         const std::vector<uint32_t> entry_node_indizies = { node1 };
         const auto node2_feature = graph.getFeatureVector(node2);
-        auto top_list = graph.yahooSearch(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_);
+        auto top_list = graph.search(entry_node_indizies, node2_feature, this->improve_eps_, this->improve_k_);
         for(auto&& result : topListAscending(top_list)) {
 
           if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
@@ -720,7 +720,7 @@ class EvenRegularGraphBuilder {
           // find a good (not yet connected) node for node1/node4
           const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
           const auto node4_feature = graph.getFeatureVector(node4);
-          auto top_list = graph.yahooSearch(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_);
+          auto top_list = graph.search(entry_node_indizies, node4_feature, this->improve_eps_, this->improve_k_);
 
           for(auto&& result : topListAscending(top_list)) {
             const auto good_node = result.getInternalIndex();
