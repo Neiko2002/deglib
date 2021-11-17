@@ -64,8 +64,8 @@ namespace deglib::analysis
      * Compute the graph quality be
      */
     static float calc_graph_quality(const deglib::graph::MutableGraph& graph) {
-        float total_distance = 0;
-        uint32_t count = 0;
+        double total_distance = 0;
+        uint64_t count = 0;
 
         const auto edges_per_node = graph.getEdgesPerNode();
         const auto node_count = graph.size();
@@ -77,7 +77,35 @@ namespace deglib::analysis
         }
         
         total_distance /= count;
-        return total_distance;
+        return (float) total_distance;
+    }
+
+    /**
+     * Check if the weights of the graph are still the same to the distance of the nodes
+     */
+    static float check_graph_weights(const deglib::graph::MutableGraph& graph) {
+        const auto& feature_space = graph.getFeatureSpace();
+        const auto dist_func = feature_space.get_dist_func();
+        const auto dist_func_param = feature_space.get_dist_func_param();
+        const auto edges_per_node = graph.getEdgesPerNode();
+        const auto node_count = graph.size();
+
+        for (uint32_t n = 0; n < node_count; n++) {
+            const auto fv1 = graph.getFeatureVector(n);
+            const auto neighborIds = graph.getNeighborIndizies(n); 
+            const auto neighborWeights = graph.getNeighborWeights(n); 
+            for (uint32_t e = 0; e < edges_per_node; e++) {
+                const auto fv2 = graph.getFeatureVector(neighborIds[e]);
+                const auto dist = dist_func(fv1, fv2, dist_func_param);
+
+                if(neighborWeights[e] != dist) {
+                    fmt::print(stderr, "Node {} at edge index {} has a weight of {} to node {} but its distance is {} \n", n, e, neighborWeights[e], neighborIds[e], dist);
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**

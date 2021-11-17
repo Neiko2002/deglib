@@ -508,13 +508,13 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
                 distortion += dist;
             }
         }
-        distortion /= size * edges_per_node;
+        distortion /= uint64_t(size) * edges_per_node;
     }
 
     float best_precision = 0;
     float best_eps = 0;
 
-    std::vector<float> eps_parameter = { 1.5 };
+    std::vector<float> eps_parameter = { 0.2 };
     //std::vector<float> eps_parameter = { 1.5, 2.0, 2.25, 2.5, 2.75, 3, 3.5, 4 };
     //td::vector<float> eps_parameter = { 0.05, 0.06, 0.07, 0.075, 0.08, 0.085, 0.09, 0.095, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22, 0.24, 0.26, 0.28, 0.3, 0.35, 0.4, 0.5, 0.6, 0.8, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3, 3.5, 4 };
     for (float eps : eps_parameter)
@@ -563,13 +563,13 @@ static void test_limit_distance_computation_knng(const std::filesystem::path& kn
 
 static void test_limit_distance_computation_deg(const std::filesystem::path& deg_dir, const uint32_t deg_size_max, const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& answer, const uint32_t max_distance_count,  const uint32_t k) {
 
-    for (uint32_t deg_size = 4; deg_size <= deg_size_max; deg_size+=2) {
+    for (uint32_t deg_size = 30; deg_size <= deg_size_max; deg_size+=10) {
 
         // some k values have special eps
         auto eps_build = 0.2f;
-        auto it = deg_k_to_eps.find(deg_size);
-        if(it != deg_k_to_eps.end()) 
-            eps_build = it->second;
+        // auto it = deg_k_to_eps.find(deg_size);
+        // if(it != deg_k_to_eps.end()) 
+        //     eps_build = it->second;
 
         const auto graph_file = (deg_dir / fmt::format("k{}nns_128D_L2_AddK{}Eps{}.deg", deg_size, deg_size, eps_build)).string();    
         test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k);
@@ -581,12 +581,12 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
     auto rnd = std::mt19937(7);
     auto graph = deglib::graph::load_sizebounded_graph(initial_graph_file);
     auto edges_per_node = graph.getEdgesPerNode();
-    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, edges_per_node, 0.2, 24, 0.02f, 24, 0.02f, 2, 10, 1, 0);
+    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, edges_per_node, 0.2f, edges_per_node, 0.02f, edges_per_node, 0.02f, 2, edges_per_node/2, 1, 0);
 
     fmt::print("Improve and test graph {}\n", initial_graph_file);
     test_limit_distance_computation(initial_graph_file, query_repository, answer, max_distance_count, k_test);
 
-    const uint32_t log_after = 10000000;
+    const uint32_t log_after = 100000;
     const auto start = std::chrono::system_clock::now();
     auto last_status = deglib::builder::BuilderStatus{};
     const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
@@ -596,7 +596,7 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
             auto duration = uint32_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count());
             auto avg_improv = uint32_t((status.improved - last_status.improved) / log_after);
             auto avg_tries = uint32_t((status.tries - last_status.tries) / log_after);
-            fmt::print("{:7} elements, in {:5}s, with {:8} / {:8} improvements (avg {:2}/{:3}), quality {:4.2f}, connected {} \n", status.added, duration, status.improved, status.tries, avg_improv, avg_tries, quality, connected);
+            fmt::print("{:7} elements, in {:5}s, with {:8} / {:8} improvements (avg {:2}/{:3}), quality {:6.2f}, connected {} \n", status.added, duration, status.improved, status.tries, avg_improv, avg_tries, quality, connected);
 
             // check the graph from time to time
             auto valid = deglib::analysis::check_graph_validation(graph, uint32_t(status.added - status.deleted), true);
@@ -606,7 +606,7 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
             } 
 
             // test the graph quality
-            const auto graph_file = (deg_dir / fmt::format("deg24_128D_L2_AddK24Eps0.2_ImproveK20Eps0.02_ImproveExtK12-2StepEps0.02_Path10_Rnd3+3_it{}m.deg", status.tries)).string();
+            const auto graph_file = (deg_dir / fmt::format("deg{}_128D_L2_AddK{}Eps0.2_Improve{}Eps0.02_ImproveExt{}-2StepEps0.02_Path{}_it{}m.deg", edges_per_node, edges_per_node, edges_per_node, edges_per_node, edges_per_node/2, status.tries/1000000)).string();
             graph.saveGraph(graph_file.c_str());
             test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k_test);
 
@@ -614,7 +614,7 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
         }
     };
 
-    builder.build(improvement_callback);
+    builder.build(improvement_callback, true);
 }
 
 static void randomize_and_test_knng(const char* initial_graph_file, const std::filesystem::path& knng_dir, const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& answer, const uint32_t max_distance_count, const uint32_t k_test) {
@@ -735,7 +735,6 @@ int main() {
         //const float eps = 0.2f;
         //const uint32_t max_distance_count = 20000;
 
-
         const uint32_t k = 100;
         const uint32_t max_distance_count = 5000;
 
@@ -753,13 +752,14 @@ int main() {
         fmt::print("{} ground truth {} dimensions \n", ground_truth_count, ground_truth_dims);
 
         // test_limit_distance_computation_knng((data_path / "knng"), 200, query_repository, answer, max_distance_count, k);  
-        test_limit_distance_computation_deg((data_path / "deg/best_distortion_decisions/add_only"), 100, query_repository, answer, max_distance_count, k); 
+        //test_limit_distance_computation_deg((data_path / "deg/best_distortion_decisions/add_only"), 100, query_repository, answer, max_distance_count, k); 
 
-        //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02.deg").string();
+        const auto graph_file = (data_path / "deg/best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15.deg").string();
         //test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k);  // DEG file
 
-        //const auto graph_file = (data_path / "deg/add_only/k24nns_128D_L2_AddK24Eps0.2.deg").string();
-        //improve_and_test_deg(graph_file.c_str(), (data_path / "deg/improve"), query_repository, answer, max_distance_count, k);
+        //const auto graph_file = (data_path / "deg/best_distortion_decisions/improve/deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it80m.deg").string();
+        //const auto graph_file = (data_path / "deg/best_distortion_decisions/add_only/k30nns_128D_L2_AddK30Eps0.2.deg").string();
+        improve_and_test_deg(graph_file.c_str(), (data_path / "deg/best_distortion_decisions/improve1"), query_repository, answer, max_distance_count, k);
 
         //const auto graph_file = (data_path / "knng/knng_24.deg").string();
         //randomize_and_test_knng(graph_file.c_str(), (data_path / "knng/rnd"), query_repository, answer, max_distance_count, k);

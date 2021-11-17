@@ -173,7 +173,7 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
    *  Load from file
    */
   SizeBoundedGraph(const uint32_t max_node_count, const uint8_t edges_per_node, const deglib::L2Space feature_space, std::ifstream& ifstream, const uint32_t size)
-      : SizeBoundedGraph(max_node_count, edges_per_node, feature_space) {
+      : SizeBoundedGraph(max_node_count, edges_per_node, std::move(feature_space)) {
 
     // copy the old data over
     uint32_t file_byte_size_per_node = compute_aligned_byte_size_per_node(this->edges_per_node_, this->feature_byte_size_, 0);

@@ -123,8 +123,8 @@ static void test_graph_explore(const deglib::search::SearchGraph& graph, const u
 
     // try different k values
     uint32_t steps = 100;
-    for (uint32_t i = 2; i <= steps; i++) {
-        const auto max_distance_count = k + (k/1 * i);
+    for (uint32_t i = 0; i <= steps; i++) {
+        const auto max_distance_count = k + (k/10 * i);
 
         StopW stopw = StopW();
         float recall = 0;

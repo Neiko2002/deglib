@@ -241,7 +241,7 @@ class EvenRegularGraphBuilder {
       const auto dist_func = graph.getFeatureSpace().get_dist_func();
       const auto dist_func_param = graph.getFeatureSpace().get_dist_func_param();
      
-      // remove the worst edge of the good neighbors and connect them with this new node
+      // remove an edge of the good neighbors and connect them with this new node
       auto new_neighbors = std::vector<std::pair<uint32_t, float>>();
       for (size_t i = 0; i < results.size() && new_neighbors.size() < edges_per_node; i++) {
         const auto& result = results[i];
@@ -251,7 +251,7 @@ class EvenRegularGraphBuilder {
         if(graph.hasEdge(result.getInternalIndex(), internal_index)) 
           continue;
 
-        // find the edge which improves the distortion the most: (distance_new_edge1 + distance_new_edge2) - distance_removed_edge
+        //find the edge which improves the distortion the most: (distance_new_edge1 + distance_new_edge2) - distance_removed_edge
         uint32_t best_neighbor_index = 0;
         float best_neighbor_distance = -1;
         {
@@ -288,6 +288,40 @@ class EvenRegularGraphBuilder {
         // place the new node in the edge list of the best edge neighbor
         graph.changeEdge(best_neighbor_index, result.getInternalIndex(), internal_index, best_neighbor_distance);
         new_neighbors.emplace_back(best_neighbor_index, best_neighbor_distance);
+
+        // // This is an alternative version: good for small graphs with low distance count limit at ANNS
+        // // find the worst edge of the new neighbor
+        // uint32_t bad_neighbor_index = 0;
+        // float bad_neighbor_weight = -1;
+        // const auto neighbor_weights = graph.getNeighborWeights(result.getInternalIndex());
+        // const auto neighbor_indizies = graph.getNeighborIndizies(result.getInternalIndex());
+        // for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
+        //   const auto neighbor_index = neighbor_indizies[edge_idx];
+        //   const auto neighbor_weight = neighbor_weights[edge_idx];
+
+        //   // the suggest neighbors might already be in the edge list of the new node
+        //   // the weight of the neighbor might not be worst than the current worst one
+        //   if(bad_neighbor_weight < neighbor_weight && graph.hasEdge(neighbor_index, internal_index) == false) {
+        //     bad_neighbor_index = neighbor_index;
+        //     bad_neighbor_weight = neighbor_weight;
+        //   }          
+        // }
+
+        // // this should not be possible, otherwise the new node is connected to every node in the neighbor-list of the result-node and still has space for more
+        // if(bad_neighbor_weight == -1) {
+        //   fmt::print(stderr, "it was not possible to find a bad edge in the neighbor list of node {} which would connect to node {} \n", result.getInternalIndex(), internal_index);
+        //   perror("");
+        //   abort();
+        // }
+
+        // // place the new node in the edge list of the result-node
+        // graph.changeEdge(result.getInternalIndex(), bad_neighbor_index, internal_index, result.getDistance());
+        // new_neighbors.emplace_back(result.getInternalIndex(), result.getDistance());
+
+        // // place the new node in the edge list of the worst edge neighbor
+        // const auto distance = dist_func(add_task.feature.data(), graph.getFeatureVector(bad_neighbor_index), dist_func_param);
+        // graph.changeEdge(bad_neighbor_index, result.getInternalIndex(), internal_index, distance);
+        // new_neighbors.emplace_back(bad_neighbor_index, distance);
       }
 
       // sort the neighbors by their neighbor indizies and store them in the new node
@@ -405,18 +439,33 @@ class EvenRegularGraphBuilder {
         float best_gain = total_gain;
         float dist23 = -1;
         float dist34 = -1;
+        auto old_node4 = node4;
         for(auto&& result : topListDescending(top_list)) {
+
+          // node1 and node2 got tested in the recursive call before and node4 got just disconnected from node2
+          // TODO There are a lot of loop/circle changes because new node 3 could be the old node 4. But those changes will not be enough to finish 
+          //      this recurive step positiv because the last check will always fail if it failed in the recursive step before "(total_gain - dist14) > 0"
           if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
+          // if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && node4 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
+          // if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && old_node4 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
             uint32_t new_node3 = result.getInternalIndex();
 
+            // 1.1 When node2 and the new node 3 gets connected full graph connectivity is assured again, 
+            //     but the subgraph between node1/node2 and node3/node4 might just have one edge(node2, node3).
+            //     Furthermore Node 3 has now to many edges, find an good edge to remove to improve the overall graph distortion. 
+            //     FYI: If the just selected node3 is the same as the old node3, this process might cut its connection to node4 again.
+            //     This will be fixed in the next step or until the recursion reaches max_path_length.
             const auto neighbor_weights = graph.getNeighborWeights(new_node3);
             const auto neighbor_indizies = graph.getNeighborIndizies(new_node3);
             for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
               uint32_t new_node4 = neighbor_indizies[edge_idx];
 
-              // do not remove the edge which was just added
+              // compute the gain of the graph distortion if this change would be applied
               const auto gain = total_gain - result.getDistance() + neighbor_weights[edge_idx];
+
+              // do not remove the edge which was just added
               if(new_node4 != node2 && best_gain < gain) {
+              // if(new_node4 != node2 && best_gain < gain && old_node4 != new_node4) {
                 best_gain = gain;
                 node3 = new_node3;
                 node4 = new_node4;
@@ -435,11 +484,16 @@ class EvenRegularGraphBuilder {
         total_gain = (total_gain - dist23) + dist34;
         graph.changeEdge(node2, node2, node3, dist23);
         changes.emplace_back(node2, node2, 0.f, node3, dist23);
+
+        // 1.2 Remove the worst edge of node3 to node4 and replace it with the connection to node2
+        //     Add a temporaty self-loop for node4 for the missing edge to node3
         graph.changeEdge(node3, node4, node2, dist23);
         changes.emplace_back(node3, node4, dist34, node2, dist23);
         graph.changeEdge(node4, node3, node4, 0.f);
         changes.emplace_back(node4, node3, dist34, node4, 0.f);
       }
+
+      // There is no step 2, since step 1 and 2 got combined in the method above with better heuristic
 
       // 3. Try to connect node1 with node4
       {
@@ -466,6 +520,52 @@ class EvenRegularGraphBuilder {
             if(node4 != good_node && graph.hasEdge(node4, good_node) == false) {
               const auto good_node_dist = result.getDistance();
 
+              float best_gain = 0;
+              auto best_selected_neighbor = 0;
+              float best_old_neighbor_dist = 0;
+              float best_new_neighbor_dist = 0;
+
+              // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
+              const auto neighbors_indizies = graph.getNeighborIndizies(good_node);
+              const auto neighbor_weights = graph.getNeighborWeights(good_node);
+              for (size_t i = 0; i < edges_per_node; i++) {
+                const auto selected_neighbor = neighbors_indizies[i];
+
+                // ignore edges where the second node is already connect to node4
+                if(node4 != selected_neighbor && graph.hasEdge(node4, selected_neighbor) == false) {
+                  const auto old_neighbor_dist = neighbor_weights[i];
+                  const auto new_neighbor_dist = dist_func(node4_feature, graph.getFeatureVector(selected_neighbor), dist_func_param);
+
+                  // do all the changes improve the graph?
+                  float new_gain = (total_gain + old_neighbor_dist) - (good_node_dist + new_neighbor_dist);
+								  if(best_gain < new_gain) {
+                    best_gain = new_gain;
+                    best_selected_neighbor = selected_neighbor;
+                    best_old_neighbor_dist = old_neighbor_dist;
+                    best_new_neighbor_dist = new_neighbor_dist;
+                  }
+                }
+              }
+
+              if(best_gain > 0) {
+
+                // replace the two self-loops of node4/node1 with a connection to the good node and its selected neighbor
+                graph.changeEdge(node4, node4, good_node, good_node_dist);
+                changes.emplace_back(node4, node4, 0.f, good_node, good_node_dist);
+                graph.changeEdge(node4, node4, best_selected_neighbor, best_new_neighbor_dist);
+                changes.emplace_back(node4, node4, 0.f, best_selected_neighbor, best_new_neighbor_dist);
+
+                // replace from good node the connection to the selected neighbor with one to node4
+                graph.changeEdge(good_node, best_selected_neighbor, node4, good_node_dist);
+                changes.emplace_back(good_node, best_selected_neighbor, best_old_neighbor_dist, node4, good_node_dist);
+
+                // replace from the selected neighbor the connection to the good node with one to node4
+                graph.changeEdge(best_selected_neighbor, good_node, node4, best_new_neighbor_dist);
+                changes.emplace_back(best_selected_neighbor, good_node, best_old_neighbor_dist, node4, best_new_neighbor_dist);
+
+                return true;
+              }
+/*
               // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
               const auto neighbors_indizies = graph.getNeighborIndizies(good_node);
               const auto neighbor_weights = graph.getNeighborWeights(good_node);
@@ -498,6 +598,7 @@ class EvenRegularGraphBuilder {
                   }
                 }
               }
+*/
             }
           }
         } else {
@@ -529,25 +630,31 @@ class EvenRegularGraphBuilder {
         }
       }
 
-      // 4. early stop
-      if(total_gain < 0) {
-        //fmt::print("Current swap path is degenerating the graph. Rollback.");
-        return false;
-      }
+
       
-      // 5. Maximum path length
+      // 4. Maximum path length
       if(steps >= this->max_path_length_ || (this->improve_extended_k_ - (steps+1)*improve_extended_step_factor_) <= 1) {
         //fmt::print("Reached maxiumum path length without improvements. Rollback.");	
         return false;
       }
       
-      // 6. swap node1 and node4 every second round, to give each a fair chance
+      // 5. swap node1 and node4 every second round, to give each a fair chance
       if(steps % 2 == 0) {
         uint32_t b = node1;
         node1 = node4;
         node4 = b;
       }
 
+      // 6. early stop
+      // TODO Since an edge is missing the total gain should always be higher zero. A better heuristic would be total_gain+<current worst edge of node4>.
+      // In the next iteration we try to find a good edge for node 4 which is probably better than the current worst edge of node 4.
+      // But since the total gain could already be so bad that even if the new edge is better, the overall gain would still be negative, we should stop here.
+      if(total_gain < 0) {
+        //fmt::print("Current swap path is degenerating the graph. Rollback.");
+        return false;
+      }
+
+      
       return improveExtended(changes, node1, node4, node2, node3, total_gain, steps + 1);
     }
 
@@ -598,11 +705,9 @@ class EvenRegularGraphBuilder {
         changes.emplace_back(node2, node1, dist12, node2, 0.f);
       }
 
-      // 2. Find a replacement edge for node2. This edge should connect the potential subgraph of node2
-      //    with the potential subgraph of node1. Consider only nodes of the approximate nearest neighbor
-      //    search. If the search starts from node1 all nodes in the result list are in the subgraph 
-      //    of node1 and would therefore connect the two potential subgraphs of node1 and node2.	
-      /*uint32_t node3 = 0, node4 = 0;
+/*
+      // Combined version of step 2 and 3
+      uint32_t node3 = 0, node4 = 0;
       {
         // find a good node3 to connect to node 2
         const auto node2_feature = graph.getFeatureVector(node2);
@@ -647,8 +752,13 @@ class EvenRegularGraphBuilder {
         changes.emplace_back(node3, node4, dist34, node2, dist23);
         graph.changeEdge(node4, node3, node4, 0.f);
         changes.emplace_back(node4, node3, dist34, node4, 0.f);
-      }*/
+      }
+*/
 
+      // 2. Find a replacement edge for node2. This edge should connect the potential subgraph of node2
+      //    with the potential subgraph of node1. Consider only nodes of the approximate nearest neighbor
+      //    search. If the search starts from node1 all nodes in the result list are in the subgraph 
+      //    of node1 and would therefore connect the two potential subgraphs of node1 and node2.	
       uint32_t node3 = 0;
       float dist23 = 0;
       {
@@ -729,6 +839,12 @@ class EvenRegularGraphBuilder {
             if(node4 != good_node && graph.hasEdge(node4, good_node) == false) {
               const auto good_node_dist = result.getDistance();
 
+/*
+              float best_gain = 0;
+              auto best_selected_neighbor = 0;
+              float best_old_neighbor_dist = 0;
+              float best_new_neighbor_dist = 0;
+
               // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
               const auto neighbors_indizies = graph.getNeighborIndizies(good_node);
               const auto neighbor_weights = graph.getNeighborWeights(good_node);
@@ -741,7 +857,48 @@ class EvenRegularGraphBuilder {
                   const auto new_neighbor_dist = dist_func(node4_feature, graph.getFeatureVector(selected_neighbor), dist_func_param);
 
                   // do all the changes improve the graph?
-								  if((total_gain + old_neighbor_dist) - (good_node_dist + new_neighbor_dist) > 0) {
+                  float new_gain = (total_gain + old_neighbor_dist) - (good_node_dist + new_neighbor_dist);
+								  if(best_gain < new_gain) {
+                    best_gain = new_gain;
+                    best_selected_neighbor = selected_neighbor;
+                    best_old_neighbor_dist = old_neighbor_dist;
+                    best_new_neighbor_dist = new_neighbor_dist;
+                  }
+                }
+              }
+
+              if(best_gain > 0) {
+
+                // replace the two self-loops of node4/node1 with a connection to the good node and its selected neighbor
+                graph.changeEdge(node4, node4, good_node, good_node_dist);
+                changes.emplace_back(node4, node4, 0.f, good_node, good_node_dist);
+                graph.changeEdge(node4, node4, best_selected_neighbor, best_new_neighbor_dist);
+                changes.emplace_back(node4, node4, 0.f, best_selected_neighbor, best_new_neighbor_dist);
+
+                // replace from good node the connection to the selected neighbor with one to node4
+                graph.changeEdge(good_node, best_selected_neighbor, node4, good_node_dist);
+                changes.emplace_back(good_node, best_selected_neighbor, best_old_neighbor_dist, node4, good_node_dist);
+
+                // replace from the selected neighbor the connection to the good node with one to node4
+                graph.changeEdge(best_selected_neighbor, good_node, node4, best_new_neighbor_dist);
+                changes.emplace_back(best_selected_neighbor, good_node, best_old_neighbor_dist, node4, best_new_neighbor_dist);
+                
+                return true;
+              }
+*/
+              // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
+              const auto neighbors_indizies = graph.getNeighborIndizies(good_node);
+              const auto neighbor_weights = graph.getNeighborWeights(good_node);
+              for (size_t i = 0; i < edges_per_node; i++) {
+                const auto selected_neighbor = neighbors_indizies[i];
+
+                // ignore edges where the second node is already connect to node4
+                if(node4 != selected_neighbor && graph.hasEdge(node4, selected_neighbor) == false) {
+                  const auto old_neighbor_dist = neighbor_weights[i];
+                  const auto new_neighbor_dist = dist_func(node4_feature, graph.getFeatureVector(selected_neighbor), dist_func_param);
+
+                  // do all the changes improve the graph?
+                  if((total_gain + old_neighbor_dist) - (good_node_dist + new_neighbor_dist) > 0) {
 
                     // replace the two self-loops of node4/node1 with a connection to the good node and its selected neighbor
                     graph.changeEdge(node4, node4, good_node, good_node_dist);
@@ -753,7 +910,7 @@ class EvenRegularGraphBuilder {
                     graph.changeEdge(good_node, selected_neighbor, node4, good_node_dist);
                     changes.emplace_back(good_node, selected_neighbor, old_neighbor_dist, node4, good_node_dist);
 
-                     // replace from the selected neighbor the connection to the good node with one to node4
+                    // replace from the selected neighbor the connection to the good node with one to node4
                     graph.changeEdge(selected_neighbor, good_node, node4, new_neighbor_dist);
                     changes.emplace_back(selected_neighbor, good_node, old_neighbor_dist, node4, new_neighbor_dist);
 
@@ -856,6 +1013,10 @@ class EvenRegularGraphBuilder {
         // inform the callback about the initial graph
         status.added += edge_per_node_p1;
         callback(status);
+      } 
+      else 
+      {
+        status.added = graph_.size();
       }
 
       // run a loop to add, delete and improve the graph
