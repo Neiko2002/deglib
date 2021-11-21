@@ -549,7 +549,7 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
         }
     }
 
-    fmt::print("{} with avg distance {:0.1f}, precision of {:0.4f} using eps {}\n", graph_file, distortion, best_precision, best_eps);
+    fmt::print("{} with avg edge weight {:0.1f}, precision of {:0.4f} using eps {}\n", graph_file, distortion, best_precision, best_eps);
 }
 
 
@@ -563,13 +563,13 @@ static void test_limit_distance_computation_knng(const std::filesystem::path& kn
 
 static void test_limit_distance_computation_deg(const std::filesystem::path& deg_dir, const uint32_t deg_size_max, const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& answer, const uint32_t max_distance_count,  const uint32_t k) {
 
-    for (uint32_t deg_size = 30; deg_size <= deg_size_max; deg_size+=10) {
+    for (uint32_t deg_size = 4; deg_size <= deg_size_max; deg_size+=2) {
 
         // some k values have special eps
         auto eps_build = 0.2f;
-        // auto it = deg_k_to_eps.find(deg_size);
-        // if(it != deg_k_to_eps.end()) 
-        //     eps_build = it->second;
+        auto it = deg_k_to_eps.find(deg_size);
+        if(it != deg_k_to_eps.end()) 
+            eps_build = it->second;
 
         const auto graph_file = (deg_dir / fmt::format("k{}nns_128D_L2_AddK{}Eps{}.deg", deg_size, deg_size, eps_build)).string();    
         test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k);
@@ -649,7 +649,6 @@ static void randomize_and_test_knng(const char* initial_graph_file, const std::f
     auto rnd = std::mt19937(7);
     const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
     for (uint8_t i = 0; i < edges_per_node; i++) {
-
         for (uint32_t n = 0; n < size; n++, replace_count++) {
             const auto bad_edge_index = all_sorted_edges[n][i].first;
 
@@ -663,8 +662,8 @@ static void randomize_and_test_knng(const char* initial_graph_file, const std::f
             graph.changeEdge(n, bad_edge_index, rnd_edge_index, rnd_edge_weight);
             
             // test the new graph from time to time
-            if(replace_count % 100000 == 0) {
-                const auto graph_file = (knng_dir / fmt::format("knng_24_rndEdge{}.deg", replace_count)).string();
+            if(replace_count % 1000000 == 0) {
+                const auto graph_file = (knng_dir / fmt::format("knng_30_rndEdge{}.deg", replace_count)).string();
                 graph.saveGraph(graph_file.c_str());
                 test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k_test);
             }
@@ -711,15 +710,15 @@ int main() {
     //     create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_node_file.c_str(),100);
     // }
 
-    // create KNN graph with the help of database top list
+    // // create KNN graph with the help of database top list
     // {
     //     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
     //     const auto repository = deglib::load_static_repository(repository_file.c_str());
-    //     create_deg_add_only(repository, (data_path / "deg/best_distortion_decisions/add_only"), 100);
+    //     // create_deg_add_only(repository, (data_path / "deg/best_distortion_decisions/add_only"), 100);
     //     //for (uint8_t k = 4; k <= 4; k+=2) 
     //     //    create_deg_add_only_perfect(repository, (data_path / "deg/add_perfect_only"), k);
-    //     //const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-    //     //create_knng(repository, top_list_file.c_str(), (data_path / "knng"), 30);
+    //     const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+    //     create_knng(repository, top_list_file.c_str(), (data_path / "knng"), 200);
     // }
 
     // test the KNN graph with limited distance compution numbers
@@ -754,15 +753,15 @@ int main() {
         // test_limit_distance_computation_knng((data_path / "knng"), 200, query_repository, answer, max_distance_count, k);  
         //test_limit_distance_computation_deg((data_path / "deg/best_distortion_decisions/add_only"), 100, query_repository, answer, max_distance_count, k); 
 
-        const auto graph_file = (data_path / "deg/best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15.deg").string();
+        // const auto graph_file = (data_path / "deg/best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15.deg").string();
         //test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k);  // DEG file
 
         //const auto graph_file = (data_path / "deg/best_distortion_decisions/improve/deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it80m.deg").string();
         //const auto graph_file = (data_path / "deg/best_distortion_decisions/add_only/k30nns_128D_L2_AddK30Eps0.2.deg").string();
-        improve_and_test_deg(graph_file.c_str(), (data_path / "deg/best_distortion_decisions/improve1"), query_repository, answer, max_distance_count, k);
+        // improve_and_test_deg(graph_file.c_str(), (data_path / "deg/best_distortion_decisions/improve1"), query_repository, answer, max_distance_count, k);
 
-        //const auto graph_file = (data_path / "knng/knng_24.deg").string();
-        //randomize_and_test_knng(graph_file.c_str(), (data_path / "knng/rnd"), query_repository, answer, max_distance_count, k);
+        const auto graph_file = (data_path / "knng/knng_30.deg").string();
+        randomize_and_test_knng(graph_file.c_str(), (data_path / "knng/rnd"), query_repository, answer, max_distance_count, k);
     }
 
     fmt::print("Test OK\n");
