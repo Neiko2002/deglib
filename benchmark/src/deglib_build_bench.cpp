@@ -29,10 +29,11 @@ void create_graph(const std::string repository_file, const std::string graph_fil
 
     // create a new graph
     const uint8_t edges_per_node = 30;
+    const deglib::Metric metric = deglib::Metric::InnerProduct;
     auto repository = deglib::load_static_repository(repository_file.c_str());
     const auto dims = repository.dims();
     const uint32_t max_node_count = uint32_t(repository.size());
-    const auto feature_space = deglib::L2Space(dims);
+    const auto feature_space = deglib::FloatSpace(dims, metric);
     auto graph = deglib::graph::SizeBoundedGraph(max_node_count, edges_per_node, feature_space);
 
     // create a graph builder to add nodes to the new graph and improve its edges
@@ -124,10 +125,11 @@ int main() {
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15-rerun2.deg").string();
 
     const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
-    const auto graph_file = (data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2_distx1000.deg").string();
+    const auto graph_file = (data_path / "deg" / "k30nns_100D_IP_AddK30Eps0.2.deg").string();
+    //const auto graph_file = (data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2.deg").string();
 
     // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
-    //create_graph(repository_file, graph_file);
+    create_graph(repository_file, graph_file);
 
     // loads the graph from the drive and test it against the SIFT query data
     test_graph(data_path, graph_file, repeat_test, test_k);

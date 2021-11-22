@@ -215,7 +215,7 @@ static bool create_knng(const deglib::FeatureRepository& repository, const char*
         return false;
     }
 
-    const auto feature_space = deglib::L2Space(128);
+    const auto feature_space = deglib::FloatSpace(128, deglib::Metric::L2);
     const auto dist_func = feature_space.get_dist_func();
     const auto dist_func_param = feature_space.get_dist_func_param();
 
@@ -304,7 +304,7 @@ static bool create_deg_add_only(const deglib::FeatureRepository& repository, con
         
         // create the graph and its builder object
         auto rnd = std::mt19937(7);
-        const auto feature_space = deglib::L2Space(dims);
+        const auto feature_space = deglib::FloatSpace(dims, deglib::Metric::L2);
         auto graph = deglib::graph::SizeBoundedGraph(max_node_count, k, feature_space);
         auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, k, eps, 0, 0.f, 0, 0.f, 1, 0, 0, 0);
 
@@ -383,7 +383,7 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
     fmt::print("Build and store DEG add only graph using a perfect top list\n");
 
     const auto dims = repository.dims();
-    const auto feature_space = deglib::L2Space(dims);
+    const auto feature_space = deglib::FloatSpace(dims, deglib::Metric::L2);
     const auto dist_func = feature_space.get_dist_func();
     const auto dist_func_param = feature_space.get_dist_func_param();
 
@@ -494,7 +494,7 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
     // compute graph distortion
     auto distortion = 0.;
     {
-        const auto feature_space = deglib::L2Space(128);
+        const auto feature_space = deglib::FloatSpace(128, deglib::Metric::L2);
         const auto dist_func = feature_space.get_dist_func();
         const auto dist_func_param = feature_space.get_dist_func_param();
         const auto edges_per_node = graph.getEdgesPerNode();
@@ -623,7 +623,7 @@ static void randomize_and_test_knng(const char* initial_graph_file, const std::f
     const auto size = graph.size();
     const auto edges_per_node = graph.getEdgesPerNode();
 
-    const auto feature_space = deglib::L2Space(128);
+    const auto feature_space = deglib::FloatSpace(128, deglib::Metric::L2);
     const auto dist_func = feature_space.get_dist_func();
     const auto dist_func_param = feature_space.get_dist_func_param();
 
