@@ -49,7 +49,8 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
                            const std::vector<tsl::robin_set<size_t>>& ground_truth, const size_t query_dims,
                            const size_t k)
 {
-    std::vector<size_t> efs = { 100, 140, 171, 206, 249 }; // sift1m_ef_500_M_24 = 100, 140, 171, 206, 249
+    //std::vector<size_t> efs = { 100, 140, 171, 206, 249 }; // sift1m_ef_500_M_24 = 100, 140, 171, 206, 249
+    std::vector<size_t> efs = { 400, 500, 750, 1000, 1500, 2000, 2500, 3000 }; // glove-100_ef_2500_M_2 = 400, 500, 750, 1000, 1500, 2000, 2500, 3000
     for (size_t ef : efs)
     {
         appr_alg.setEf(ef);
@@ -92,6 +93,7 @@ int main()
     const auto explore = false;
     const size_t k = 100;  // k at test time
 
+    // GloVe
     const int efConstruction = 2500;
     const int M = 25;
 

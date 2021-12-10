@@ -293,7 +293,7 @@ static bool create_deg_add_only(const deglib::FeatureRepository& repository, con
     const auto dims = repository.dims();
 
     // create graphs with different states of randomness
-    for (uint8_t k = 4; k <= k_target; k+=2) {
+    for (uint8_t k = 24; k <= k_target; k+=10) {
         fmt::print("Build DEG {}\n", k);
         auto eps = 0.2f;
 
@@ -304,9 +304,10 @@ static bool create_deg_add_only(const deglib::FeatureRepository& repository, con
         
         // create the graph and its builder object
         auto rnd = std::mt19937(7);
+        const auto highLID = true;
         const auto feature_space = deglib::FloatSpace(dims, deglib::Metric::L2);
         auto graph = deglib::graph::SizeBoundedGraph(max_node_count, k, feature_space);
-        auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, k, eps, 0, 0.f, 0, 0.f, 1, 0, 0, 0);
+        auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, k, eps, highLID, 0, 0.f, false, 0, 0.f, false, 1, 0, 0, 0);
 
         // provide all features to the graph builder at once. In an online system this will be called 
         for (uint32_t label = 0; label < repository.size(); label++) {
@@ -341,7 +342,7 @@ static bool create_deg_add_only(const deglib::FeatureRepository& repository, con
         builder.build(improvement_callback, false);
 
         // store the graph
-        const auto filename = fmt::format("k{}nns_128D_L2_AddK{}Eps{}.deg", k, k, eps);
+        const auto filename = fmt::format("k{}nns_{}D_L2_AddK{}Eps{}{}.deg", k, dims, k, eps, highLID ? "High" : "Low");
         const auto graph_file = (deg_dir / filename).string();
         graph.saveGraph(graph_file.c_str());
         fmt::print("Write graph {} \n\n", filename);
@@ -710,59 +711,60 @@ int main() {
     //     create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_node_file.c_str(),100);
     // }
 
-    // // create KNN graph with the help of database top list
-    // {
-    //     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    //     const auto repository = deglib::load_static_repository(repository_file.c_str());
-    //     // create_deg_add_only(repository, (data_path / "deg/best_distortion_decisions/add_only"), 100);
-    //     //for (uint8_t k = 4; k <= 4; k+=2) 
-    //     //    create_deg_add_only_perfect(repository, (data_path / "deg/add_perfect_only"), k);
-    //     const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-    //     create_knng(repository, top_list_file.c_str(), (data_path / "knng"), 200);
-    // }
-
-    // test the KNN graph with limited distance compution numbers
+    // create KNN graph with the help of database top list
     {
-        // limit the amount of distance computations, gives a perfect KNN graph problems to reach to good regions in a graph
-        // Graphs which have same random edges have better navigation properties
-        //const uint32_t k = 50;
-        //const float eps = 0.2f;
-        //const uint32_t max_distance_count = 2000;
-
-        // only when the same graph has a lot of freedom (more distance computations) better results can be found
-        //const uint32_t k = 50;
-        //const float eps = 0.2f;
-        //const uint32_t max_distance_count = 20000;
-
-        const uint32_t k = 100;
-        const uint32_t max_distance_count = 5000;
-
-        const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
-        const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
-        fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
-
-        const auto path_query_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
-        size_t ground_truth_dims;
-        size_t ground_truth_count;
-        auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), ground_truth_dims, ground_truth_count);
-        const auto ground_truth = (uint32_t*) ground_truth_f.release(); // not very clean, works as long as sizeof(int) == sizeof(float)
-        const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), (uint32_t)ground_truth_dims, k);
-        delete ground_truth;
-        fmt::print("{} ground truth {} dimensions \n", ground_truth_count, ground_truth_dims);
-
-        // test_limit_distance_computation_knng((data_path / "knng"), 200, query_repository, answer, max_distance_count, k);  
-        //test_limit_distance_computation_deg((data_path / "deg/best_distortion_decisions/add_only"), 100, query_repository, answer, max_distance_count, k); 
-
-        // const auto graph_file = (data_path / "deg/best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15.deg").string();
-        //test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k);  // DEG file
-
-        //const auto graph_file = (data_path / "deg/best_distortion_decisions/improve/deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it80m.deg").string();
-        //const auto graph_file = (data_path / "deg/best_distortion_decisions/add_only/k30nns_128D_L2_AddK30Eps0.2.deg").string();
-        // improve_and_test_deg(graph_file.c_str(), (data_path / "deg/best_distortion_decisions/improve1"), query_repository, answer, max_distance_count, k);
-
-        const auto graph_file = (data_path / "knng/knng_30.deg").string();
-        randomize_and_test_knng(graph_file.c_str(), (data_path / "knng/rnd"), query_repository, answer, max_distance_count, k);
+        const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
+        // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
+        const auto repository = deglib::load_static_repository(repository_file.c_str());
+        create_deg_add_only(repository, (data_path / "deg"), 150);
+        //for (uint8_t k = 4; k <= 4; k+=2) 
+        //    create_deg_add_only_perfect(repository, (data_path / "deg/add_perfect_only"), k);
+        // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+        // create_knng(repository, top_list_file.c_str(), (data_path / "knng"), 200);
     }
+
+    // // test the KNN graph with limited distance compution numbers
+    // {
+    //     // limit the amount of distance computations, gives a perfect KNN graph problems to reach to good regions in a graph
+    //     // Graphs which have same random edges have better navigation properties
+    //     //const uint32_t k = 50;
+    //     //const float eps = 0.2f;
+    //     //const uint32_t max_distance_count = 2000;
+
+    //     // only when the same graph has a lot of freedom (more distance computations) better results can be found
+    //     //const uint32_t k = 50;
+    //     //const float eps = 0.2f;
+    //     //const uint32_t max_distance_count = 20000;
+
+    //     const uint32_t k = 100;
+    //     const uint32_t max_distance_count = 5000;
+
+    //     const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
+    //     const auto path_query_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
+    //     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
+    //     fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
+
+    //     size_t ground_truth_dims;
+    //     size_t ground_truth_count;
+    //     auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), ground_truth_dims, ground_truth_count);
+    //     const auto ground_truth = (uint32_t*) ground_truth_f.release(); // not very clean, works as long as sizeof(int) == sizeof(float)
+    //     const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), (uint32_t)ground_truth_dims, k);
+    //     delete ground_truth;
+    //     fmt::print("{} ground truth {} dimensions \n", ground_truth_count, ground_truth_dims);
+
+    //     // test_limit_distance_computation_knng((data_path / "knng"), 200, query_repository, answer, max_distance_count, k);  
+    //     //test_limit_distance_computation_deg((data_path / "deg/best_distortion_decisions/add_only"), 100, query_repository, answer, max_distance_count, k); 
+
+    //     // const auto graph_file = (data_path / "deg/best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15.deg").string();
+    //     //test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k);  // DEG file
+
+    //     //const auto graph_file = (data_path / "deg/best_distortion_decisions/improve/deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it80m.deg").string();
+    //     //const auto graph_file = (data_path / "deg/best_distortion_decisions/add_only/k30nns_128D_L2_AddK30Eps0.2.deg").string();
+    //     // improve_and_test_deg(graph_file.c_str(), (data_path / "deg/best_distortion_decisions/improve1"), query_repository, answer, max_distance_count, k);
+
+    //     const auto graph_file = (data_path / "knng/knng_30.deg").string();
+    //     randomize_and_test_knng(graph_file.c_str(), (data_path / "knng/rnd"), query_repository, answer, max_distance_count, k);
+    // }
 
     fmt::print("Test OK\n");
     return 0;

@@ -62,6 +62,10 @@ namespace deglib {
                 __m256 sum256 = _mm256_add_ps(_mm512_extractf32x8_ps(sum512, 0), _mm512_extractf32x8_ps(sum512, 1));
                 __m128 sum128 = _mm_add_ps(_mm256_extractf128_ps(sum256, 0), _mm256_extractf128_ps(sum256, 1));
             #elif defined(USE_AVX)
+                
+                // TODO two sum and v's to increase throughput
+                // newer CPUs have reciprocal throughput less than its latency -> performance can be improved if multiple instructions are executed in parallel
+                // https://stackoverflow.com/questions/65818232/improving-performance-of-floating-point-dot-product-of-an-array-with-simd/65827668#65827668
                 __m256 sum256 = _mm256_setzero_ps();
                 __m256 v;
                 while (a < last) {
@@ -74,6 +78,19 @@ namespace deglib {
                     a += 8;
                     b += 8;
                 }
+
+                // TODO cast faster then extract?
+                //__m128 sum128 = _mm_add_ps(_mm256_castps256_ps128(sum256), _mm256_extractf128_ps(sum256, 1));
+                //sum128 = _mm_add_ps(sum128, _mm_unpackhi_ps(sum128, sum128));
+
+                // TODO horizontal add faster?
+                // https://doc.rust-lang.org/core/arch/x86/fn._mm256_hadd_ps.html
+                // https://stackoverflow.com/questions/51274287/computing-8-horizontal-sums-of-eight-avx-single-precision-floating-point-vectors/51275249#51275249
+                // _mm256_hadd_ps(sum256)
+
+                // TODO down to a single number 
+                // https://www.py4u.net/discuss/73145
+
                 __m128 sum128 = _mm_add_ps(_mm256_extractf128_ps(sum256, 0), _mm256_extractf128_ps(sum256, 1));
             #elif defined(USE_SSE)
                 __m128 sum128 = _mm_setzero_ps();
@@ -391,7 +408,6 @@ namespace deglib {
     class SpaceInterface
     {
     public:
-
         virtual const size_t dim() const = 0;
         virtual const deglib::Metric metric() const = 0;
         virtual const size_t get_data_size() const = 0;
@@ -435,6 +451,10 @@ namespace deglib {
                     distfunc = deglib::distances::InnerProductFloat::compare;
                 #endif
             }
+
+            // TODO add cosine but convert to a distance = 2 - (cosine + 1)
+            // https://www.kaggle.com/cdabakoglu/word-vectors-cosine-similarity
+            // https://github.com/yahoojapan/NGT/blob/master/lib/NGT/PrimitiveComparator.h#L431
 
             return distfunc;
         }

@@ -122,19 +122,22 @@ static void test_graph_explore(const deglib::search::SearchGraph& graph, const u
     const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_count, ground_truth_dims, k);
 
     // try different k values
-    uint32_t steps = 100;
-    for (uint32_t i = 0; i <= steps; i++) {
-        const auto max_distance_count = k + (k/10 * i);
+    float k_factor = 0.1f;
+    for (uint32_t f = 0; f <= 3; f++) {
+        k_factor *= 10;
+        for (uint32_t i = (f == 0) ? 0 : 1; i < 10; i++) {
+            const auto max_distance_count = k + uint32_t(k*k_factor * i);
 
-        StopW stopw = StopW();
-        float recall = 0;
-        for (size_t r = 0; r < repeat; r++) 
-            recall = deglib::benchmark::test_approx_explore(graph, entry_node_indizies, answer, k, max_distance_count);
-        uint64_t time_us_per_query = stopw.getElapsedTimeMicro() / (query_count * repeat);
+            StopW stopw = StopW();
+            float recall = 0;
+            for (size_t r = 0; r < repeat; r++) 
+                recall = deglib::benchmark::test_approx_explore(graph, entry_node_indizies, answer, k, max_distance_count);
+            uint64_t time_us_per_query = stopw.getElapsedTimeMicro() / (query_count * repeat);
 
-        fmt::print("max_distance_count {}, k {}, recall {}, time_us_per_query {}us\n", max_distance_count, k, recall, time_us_per_query);
-        if (recall > 1.0)
-            break;
+            fmt::print("max_distance_count {}, k {}, recall {}, time_us_per_query {}us\n", max_distance_count, k, recall, time_us_per_query);
+            if (recall > 1.0)
+                break;
+        }
     }
 
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
