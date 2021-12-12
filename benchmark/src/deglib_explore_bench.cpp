@@ -16,19 +16,19 @@ int main() {
         fmt::print("use arch  ...\n");
     #endif
 
-    const uint32_t k = 1000; 
+    const uint32_t k = 500; 
     const uint32_t repeat_test = 1;
     const auto data_path = std::filesystem::path(DATA_PATH);
 
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "add_only" / "k60nns_128D_L2_AddK60Eps0.2.deg").string(); 
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k40nns_128D_L2_AddK40Eps0.1_ImproveK40Eps0.02_ImproveExtK40-2StepEps0.02_Path12_Rnd5+5.deg").string();    // best 7h 29min
 
-    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "add_only" / "k30nns_128D_L2_AddK30Eps0.2.deg").string();                                                    // add only 9min
+    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "add_only" / "k30nns_128D_L2_AddK30Eps0.2.deg").string();                                                    // add only 9min
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd10+10.deg").string();  // best 10h 46min
 
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2.deg").string();                                                               // add only 8min
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd5+5.deg").string();    // fast 1h 43min
-    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd15+15.deg").string();  // best 6h 31min
+    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd15+15.deg").string();  // best 6h 31min
 
     // load an existing graph
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2.deg").string();                                               // add only 8min

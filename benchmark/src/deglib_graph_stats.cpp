@@ -38,7 +38,7 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
         for (uint32_t e = 0; e < edges_per_node; e++) {
             auto neighbor_index = neighbor_indizies[e];
 
-            // find in the neighbor ini the first few elements of the top list
+            // find in the neighbor in the first few elements of the top list
             for (uint32_t i = 0; i < edges_per_node; i++) {
                 if(neighbor_index == top_list[i]) {
                     perfect_neighbor_count++;

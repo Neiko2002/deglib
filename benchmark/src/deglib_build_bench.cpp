@@ -14,22 +14,19 @@
 void create_graph(const std::string repository_file, const std::string graph_file) {
     
     auto rnd = std::mt19937(7); 
-    const uint8_t extend_k = 24; // should always be >= edges_per_node
+    const uint8_t extend_k = 30; // should be greater equals edges_per_node
     const float extend_eps = 0.2f;
     const bool extend_highLID = true;
-    const uint8_t improve_k = 24;
+    const uint8_t improve_k = 30;
     const float improve_eps = 0.02f;
     const bool improve_highLID = false;
-    const uint8_t improve_extended_k = 24;
-    const float improve_extended_eps = 0.02f;
-    const bool improve_extended_highLID = false;
-    const uint8_t improve_extended_step_factor = 2;
+    const uint8_t improve_step_factor = 2;
     const uint8_t max_path_length = 10; 
-    const uint32_t swap_tries = 1;
-    const uint32_t additional_swap_tries = 1;
+    const uint32_t swap_tries = 5;
+    const uint32_t additional_swap_tries = 5;
 
     // create a new graph
-    const uint8_t edges_per_node = 24;
+    const uint8_t edges_per_node = 30;
     const deglib::Metric metric = deglib::Metric::L2;
     auto repository = deglib::load_static_repository(repository_file.c_str());
     const auto dims = repository.dims();
@@ -38,7 +35,7 @@ void create_graph(const std::string repository_file, const std::string graph_fil
     auto graph = deglib::graph::SizeBoundedGraph(max_node_count, edges_per_node, feature_space);
 
     // create a graph builder to add nodes to the new graph and improve its edges
-    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_extended_k, improve_extended_eps, improve_extended_highLID, improve_extended_step_factor, max_path_length, swap_tries, additional_swap_tries);
+    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
     
     // provide all features to the graph builder at once. In an online system this will be called 
     for (uint32_t label = 0; label < repository.size(); label++) {
@@ -89,10 +86,10 @@ void create_graph(const std::string repository_file, const std::string graph_fil
  * Load the graph from the drive and test it against the SIFT query data.
  */
 void test_graph(const std::filesystem::path data_path, const std::string graph_file, const uint32_t repeat, const uint32_t k) {
-    const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
-    const auto path_query_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
-    // const auto path_query_repository = (data_path / "glove-100/glove-100_query.fvecs").string();
-    // const auto path_query_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
+    const auto path_query_repository = (data_path / "glove-100/glove-100_query.fvecs").string();
+    const auto path_query_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
 
     // load an existing graph
     fmt::print("Load graph {} \n", graph_file);
@@ -124,11 +121,11 @@ int main() {
     const uint32_t repeat_test = 1;
     const uint32_t test_k = 100;
     const auto data_path = std::filesystem::path(DATA_PATH);
-    const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd1+1-rerun2.deg").string();
+    // const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd5+5_improve_non_perfect_new_edges.deg").string();
     
-    // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
-    // const auto graph_file = (data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd5+5.deg").string();
+    const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
+    const auto graph_file = (data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd5+5-rerun.deg").string();
 
     // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
     create_graph(repository_file, graph_file);

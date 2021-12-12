@@ -626,17 +626,19 @@ public:
 
     // copy the initial entry nodes and their distances to the query into the three containers
     for (auto&& index : entry_node_indizies) {
-      checked_ids[index] = true;
+      if(checked_ids[index] == false) {
+        checked_ids[index] = true;
 
-      const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
-      const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
-      next_nodes.emplace(index, distance);
-      results.emplace(index, distance);
+        const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
+        const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
+        next_nodes.emplace(index, distance);
+        results.emplace(index, distance);
 
-      // early stop after to many computations
-      if constexpr (use_max_distance_count) {
-        if(distance_computation_count++ >= max_distance_computation_count)
-          return results;
+        // early stop after to many computations
+        if constexpr (use_max_distance_count) {
+          if(distance_computation_count++ >= max_distance_computation_count)
+            return results;
+        }
       }
     }
 
