@@ -17,7 +17,7 @@ int main() {
     #endif
 
     const uint32_t k = 100; 
-    const uint32_t repeat_test = 3;
+    const uint32_t repeat_test = 1;
     const auto data_path = std::filesystem::path(DATA_PATH);
 
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "add_only" / "k40nns_128D_L2_AddK40Eps0.2.deg").string(); 
@@ -25,7 +25,7 @@ int main() {
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k40nns_128D_L2_AddK40Eps0.1_ImproveK40Eps0.02_ImproveExtK40-2StepEps0.02_Path12_Rnd5+5.deg").string();        // best 7h 29min
 
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "add_only" / "k30nns_128D_L2_AddK30Eps0.2.deg").string(); 
-    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High.deg").string();    // best 10h 46min
+    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High.deg").string();    // best 10h 46min
 
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2.deg").string();                                                               // add only 8min
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd5+5.deg").string();    // fast 1h 43min
@@ -36,12 +36,17 @@ int main() {
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK20Eps0.02.deg").string();                               // simple improve 24min
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK20Eps0.02_ImproveExtK14-2StepEps0.01.deg").string();    // fast 1h 21min
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02.deg").string();    // best 8h 15min
+    const auto graph_file = (data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High.deg").string();                                        
+
+    
     fmt::print("Load graph {} \n", graph_file);
     const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
 
     // load the test data and run several ANNS on the graph
-    const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
-    const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth.ivecs").string();    
+    // const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth.ivecs").string();    
+    const auto path_query_repository = (data_path / "glove-100/glove-100_query.fvecs").string();
+    const auto path_query_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
     fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
 

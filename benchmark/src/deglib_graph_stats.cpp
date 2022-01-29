@@ -29,7 +29,8 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
         return;
     }
     
-    auto perfect_neighbor_count = 0;
+    uint64_t perfect_neighbor_count = 0;
+    uint64_t graph_quality_count = 0;
     for (uint32_t n = 0; n < graph_size; n++) {
         auto neighbor_indizies = graph.getNeighborIndizies(n);
         auto top_list = all_top_list + n * top_list_dims;
@@ -41,6 +42,10 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
             // find in the neighbor in the first few elements of the top list
             for (uint32_t i = 0; i < edges_per_node; i++) {
                 if(neighbor_index == top_list[i]) {
+
+                    if(i == 0)
+                        graph_quality_count++;
+
                     perfect_neighbor_count++;
                     break;
                 }
@@ -49,7 +54,8 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
     }
 
     auto perfect_neighbor_ratio = (float) perfect_neighbor_count / (graph_size * edges_per_node);
-    fmt::print("Graph quality is {}\n", perfect_neighbor_ratio);
+    auto graph_quality = (float) graph_quality_count / graph_size;
+    fmt::print("Graph quality is {} and Perfect Neighbor Ratio is {}\n", graph_quality, perfect_neighbor_ratio);
 }
 
 static void compute_edge_histogram(const char* graph_file, const uint32_t steps, const float interval) {
@@ -112,17 +118,35 @@ int main() {
     // const auto graph_file = (data_path / "deg" / "best_distortion_decisions/improve" / "deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it1m.deg").string();  // GQ=0.50627613
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions/improve" / "deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it20m.deg").string();  // GQ=0.5304048
 
-    graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
-    graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd0+0.deg").string());  
+    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2Low.deg").string());
+    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd2+2_realHighLows_improveNonPerfectEdges.deg").string());
+    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd5+5_realHighLows_improveNonPerfectEdges.deg").string());
 
-    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd15+15.deg").string());  
-    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd1+1-rerun.deg").string());  
+    // graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
+    // graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd0+0.deg").string());  
 
-    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24Eps0.02Low_ImproveExtK24-2StepEps0.02Low_Path10_Rnd1+1.deg").string());  
-    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24Eps0.02Low_ImproveExtK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd15+15.deg").string());  
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd1+1-rerun.deg").string());  
+
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24Eps0.02Low_ImproveExtK24-2StepEps0.02Low_Path10_Rnd1+1.deg").string());  
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24Eps0.02Low_ImproveExtK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
 
 
     // GloVe
+    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd0+0_improveNonPerfectEdges.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd0+0_realHighLow_improveNonPerfectEdges.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow-rerun.deg").string());
+
+    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.05High_ImproveK60-2StepEps0.001Low_Path10_Rnd0+0_realHighLow_improveNonPerfectEdges.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.05High_ImproveK60-2StepEps0.001Low_Path10_Rnd3+3_realHighLow.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.2High.deg").string());
+
+
+    
+    
+    
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30Eps0.02Low_ImproveExtK30-2StepEps0.02Low_Path10_Rnd4+4.deg").string());    // HighLowLow
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30Eps0.02High_ImproveExtK30-2StepEps0.02High_Path10_Rnd2+2.deg").string());  // HighHighHigh
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2Low_ImproveK30Eps0.02Low_ImproveExtK30-2StepEps0.02Low_Path20_Rnd10+3.deg").string());    // LowLowLow
@@ -146,10 +170,11 @@ int main() {
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02.deg").string(); // simple improve only with GQ=0.48969483
     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2.deg").string(); // build only with GQ=0.4492762
 
-    // compute_graph_quality(graph_file.c_str(), top_list_file.c_str());
-    for (auto &&graph_file : graph_files)
-        compute_edge_histogram(graph_file.c_str(), 50, 10000); // SIFT
+    for (auto &&graph_file : graph_files) {
+        compute_graph_quality(graph_file.c_str(), top_list_file.c_str());
+        // compute_edge_histogram(graph_file.c_str(), 50, 10000); // SIFT
         // compute_edge_histogram(graph_file.c_str(), 50, 4); // GloVe
+    }
 
     fmt::print("Test OK\n");
     return 0;

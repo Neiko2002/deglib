@@ -80,6 +80,34 @@ namespace deglib::analysis
         return (float) total_distance;
     }
 
+    static auto calc_edge_weight_histogram(const deglib::graph::MutableGraph& graph, const bool sorted) {
+ 
+        const auto edges_per_node = graph.getEdgesPerNode();
+        const auto node_count = graph.size();
+        auto all_edge_weights = std::vector<float>();
+        all_edge_weights.reserve(edges_per_node*node_count);
+        for (uint32_t n = 0; n < node_count; n++) {
+            const auto weights = graph.getNeighborWeights(n);
+            for (size_t e = 0; e < edges_per_node; e++)
+                all_edge_weights.push_back(weights[e]);
+        }
+
+        if(sorted)
+            std::sort(all_edge_weights.begin(), all_edge_weights.end());
+
+        auto bin_count = 10;
+        auto bin_size = all_edge_weights.size() / bin_count;
+        auto avg_edge_weights = std::vector<float>(10);
+        for (size_t bin = 0; bin < bin_count; bin++) {
+            float weight_sum = 0;
+            for (size_t n = 0; n < bin_size; n++) 
+                weight_sum += all_edge_weights[bin_size * bin + n];
+            avg_edge_weights[bin] = weight_sum / bin_size;
+        }
+        
+        return avg_edge_weights;
+    }
+
     /**
      * Check if the weights of the graph are still the same to the distance of the nodes
      */

@@ -328,44 +328,43 @@ class EvenRegularGraphBuilder {
       }
 
       // sort the neighbors by their neighbor indizies and store them in the new node
-      std::sort(new_neighbors.begin(), new_neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
-      auto neighbor_indizies = std::vector<uint32_t>(new_neighbors.size());
-      auto neighbor_weights = std::vector<float>(new_neighbors.size());
-      for (size_t i = 0; i < new_neighbors.size(); i++) {
-        const auto& neighbor = new_neighbors[i];
-        neighbor_indizies[i] = neighbor.first;
-        neighbor_weights[i] = neighbor.second;
+      {
+        std::sort(new_neighbors.begin(), new_neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
+        auto neighbor_indizies = std::vector<uint32_t>(new_neighbors.size());
+        auto neighbor_weights = std::vector<float>(new_neighbors.size());
+        for (size_t i = 0; i < new_neighbors.size(); i++) {
+          const auto& neighbor = new_neighbors[i];
+          neighbor_indizies[i] = neighbor.first;
+          neighbor_weights[i] = neighbor.second;
+        }
+        graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());  
       }
-      graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());  
 
+      // try to improve some of the non-perfect edges
+      {
+        auto nonperfect_neighbors = std::vector<std::pair<uint32_t, float>>();
+        for (size_t i = 0; i < new_neighbors.size(); i++) {
+          const auto& neighbor = new_neighbors[i];
 
-      // Idea: if alternating edge updates are disabled, we try to create good edge right from the beginning
-      // Result: bad for hard data sets
-      // if(this->swap_tries_ == 0) {
-      //   for (size_t i = 0; i < new_neighbors.size(); i++) {
-      //     const auto& neighbor = new_neighbors[i];
+          bool perfect = false;
+          for (size_t r = 0; r < results.size(); r++) {
+            const auto& result = results[r];
+            if(result.getInternalIndex() == neighbor.first) {
+              perfect = true;
+              break;
+            }
+          }
 
-      //     bool perfect = false;
-      //     for (size_t r = 0; r < results.size(); r++) {
-      //       const auto& result = results[r];
-      //       if(result.getInternalIndex() == neighbor.first) {
-      //         perfect = true;
-      //         break;
-      //       }
-      //     }
+          if(perfect == false && graph.hasEdge(internal_index, neighbor.first)) 
+            nonperfect_neighbors.emplace_back(neighbor.first, neighbor.second);
+        }
 
-      //     if(perfect == false && graph.hasEdge(internal_index, neighbor.first)) 
-      //       improveEdges(internal_index, neighbor.first, neighbor.second);
-      //   }
-      // }
-
-      // std::sort(new_neighbors.begin(), new_neighbors.end(), [](const auto& x, const auto& y){return x.second < y.second;});
-      // for (size_t i = new_neighbors.size()/2; i < new_neighbors.size(); i++) {
-      //   const auto& neighbor = new_neighbors[i];
-      //   if(graph.hasEdge(internal_index, neighbor.first))
-      //     improveEdges(internal_index, neighbor.first, neighbor.second);
-      // }
-
+        std::sort(nonperfect_neighbors.begin(), nonperfect_neighbors.end(), [](const auto& x, const auto& y){return x.second < y.second;});
+        // for (size_t i = 0; i < nonperfect_neighbors.size(); i++) // all non perfect edges
+        for (size_t i = 0; i < nonperfect_neighbors.size() / 2; i++) // first half of non perfect edges
+          if(graph.hasEdge(internal_index, nonperfect_neighbors[i].first)) 
+            improveEdges(internal_index, nonperfect_neighbors[i].first, nonperfect_neighbors[i].second);
+      }
     }
 
     /**
@@ -388,19 +387,17 @@ class EvenRegularGraphBuilder {
      * 
      * @return true if a good sequences of changes has been found
      */
-    bool improveEdges(std::vector<deglib::builder::BuilderChange>& changes, uint32_t node1, uint32_t node2, uint32_t node3, uint32_t node4, float total_gain, const uint8_t steps, const bool previous_circle) {
+    bool improveEdges(std::vector<deglib::builder::BuilderChange>& changes, uint32_t node1, uint32_t node2, uint32_t node3, uint32_t node4, float total_gain, const uint8_t steps) {
       auto& graph = this->graph_;
       const auto edges_per_node = graph.getEdgesPerNode();
       
       // the settings are the same for the first two iterations
       const auto high_variance_swaps = this->improve_highLID_;
-      const auto search_eps = this->improve_eps_;
+      const auto search_eps = this->improve_eps_; 
       const auto search_k = this->improve_k_ - (uint8_t) std::max(0, (steps-1)*this->improve_step_factor_);
 
-      
-      bool circle = false;
-      if(steps == 0 || high_variance_swaps) {
-
+      if(high_variance_swaps) {
+    
         // 1. Find a edge for node2 which connects to the subgraph of node3 and node4. 
         //    Consider only nodes of the approximate nearest neighbor search. Since the 
         //    search started from node3 and node4 all nodes in the result list are in 
@@ -480,19 +477,13 @@ class EvenRegularGraphBuilder {
           float best_gain = total_gain;
           float dist23 = -1;
           float dist34 = -1;
-          auto old_node4 = node4;
 
           // We use the descending order to find the worst swap combination with the best gain
           // Sometimes the gain between the two best combinations is the same, its better to use one with the bad edges to make later improvements easier
           for(auto&& result : topListDescending(top_list)) {
 
             // node1 and node2 got tested in the recursive call before and node4 got just disconnected from node2
-            // TODO There are a lot of loop/circle changes because new node 3 could be the old node 4. But those changes will not be enough to finish 
-            //      this recurive step positiv because the last check will always fail if it failed in the recursive step before "(total_gain - dist14) > 0"
-            //      A circle change is fine since current node1 will be node2 in the next recursive step. But repeated looping should be forbidden.
-            // if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
-            // if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && node4 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
-            if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && (previous_circle == false || old_node4 != result.getInternalIndex()) && graph.hasEdge(node2, result.getInternalIndex()) == false) {
+            if(node1 != result.getInternalIndex() && node2 != result.getInternalIndex() && graph.hasEdge(node2, result.getInternalIndex()) == false) {
               uint32_t new_node3 = result.getInternalIndex();
 
               // 1.1 When node2 and the new node 3 gets connected full graph connectivity is assured again, 
@@ -509,8 +500,7 @@ class EvenRegularGraphBuilder {
                 const auto gain = total_gain - result.getDistance() + neighbor_weights[edge_idx];
 
                 // do not remove the edge which was just added
-                // if(new_node4 != node2 && best_gain < gain) {
-                if(new_node4 != node2 && best_gain < gain && (previous_circle == false || old_node4 != new_node4)) {
+                if(new_node4 != node2 && best_gain < gain) {
                   best_gain = gain;
                   node3 = new_node3;
                   node4 = new_node4;
@@ -520,12 +510,6 @@ class EvenRegularGraphBuilder {
               }
             }
           }
-
-          if(old_node4 == node4 || old_node4 == node3)
-             circle = true;
-
-          // if(circle && previous_circle)
-          //   return false;
 
           // no new node3 was found
           if(dist23 == -1)
@@ -691,7 +675,7 @@ class EvenRegularGraphBuilder {
             if((total_gain - dist14) > 0) {
 
               const std::vector<uint32_t> entry_node_indizies = { node2, node3 }; 
-              if(graph.hasPath(entry_node_indizies, node1, improve_eps_, improve_k_).size() > 0 || graph.hasPath(entry_node_indizies, node4, improve_eps_, improve_k_).size() > 0) {
+              if(graph.hasPath(entry_node_indizies, node1, this->improve_eps_, this->improve_k_).size() > 0 || graph.hasPath(entry_node_indizies, node4, this->improve_eps_, improve_k_).size() > 0) {
                 
                 // replace the the self-loops of node1 with a connection to the node4
                 graph.changeEdge(node1, node1, node4, dist14);
@@ -732,7 +716,7 @@ class EvenRegularGraphBuilder {
         return false;
       }
 
-      return improveEdges(changes, node1, node4, node2, node3, total_gain, steps + 1, circle);
+      return improveEdges(changes, node1, node4, node2, node3, total_gain, steps + 1);
     }
 
     bool improveEdges() {
@@ -771,7 +755,7 @@ class EvenRegularGraphBuilder {
       graph.changeEdge(node2, node1, node2, 0.f);
       changes.emplace_back(node2, node1, dist12, node2, 0.f);
 
-      if(improveEdges(changes, node1, node2, node1, node1, dist12, 0, false) == false) {
+      if(improveEdges(changes, node1, node2, node1, node1, dist12, 0) == false) {
 
         // undo all changes, in reverse order
         const auto size = changes.size();

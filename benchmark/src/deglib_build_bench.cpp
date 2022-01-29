@@ -18,15 +18,15 @@ void create_graph(const std::string repository_file, const std::string graph_fil
     const float extend_eps = 0.2f;
     const bool extend_highLID = true;
     const uint8_t improve_k = 30;
-    const float improve_eps = 0.02f;
+    const float improve_eps = 0.001f;
     const bool improve_highLID = false;
-    const uint8_t improve_step_factor = 2;
-    const uint8_t max_path_length = 10; 
-    const uint32_t swap_tries = 5;
-    const uint32_t additional_swap_tries = 5;
+    const uint8_t improve_step_factor = 0;
+    const uint8_t max_path_length = 5; 
+    const uint32_t swap_tries = 8;
+    const uint32_t additional_swap_tries = 8;
 
     // create a new graph
-    const uint8_t edges_per_node = 30;
+    const uint8_t edges_per_node = 22;
     const deglib::Metric metric = deglib::Metric::L2;
     auto repository = deglib::load_static_repository(repository_file.c_str());
     const auto dims = repository.dims();
@@ -53,13 +53,13 @@ void create_graph(const std::string repository_file, const std::string graph_fil
 
         if(status.added % log_after == 0) {
             auto quality = deglib::analysis::calc_graph_quality(graph);
+            auto weight_histogram_sorted = deglib::analysis::calc_edge_weight_histogram(graph, true);
+            auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(graph, false);
             auto valid_weights = deglib::analysis::check_graph_weights(graph);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
             auto duration = uint32_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count());
-            auto avg_improv = uint32_t((status.improved - last_status.improved) / log_after);
-            auto avg_tries = uint32_t((status.tries - last_status.tries) / log_after);
-            fmt::print("{:7} elements, in {:5}s, with {:8} / {:8} improvements (avg {:2}/{:3}), quality {:4.2f}, connected {}, valid weights {}\n", 
-                        status.added, duration, status.improved, status.tries, avg_improv, avg_tries, quality, connected, valid_weights);
+            fmt::print("{:7} nodes, {:5}s, {:8} / {:8} improv, Q: {:4.2f} -> Sorted:{:.1f}, InOrder:{:.1f}, {} connected & {}\n", 
+                        status.added, duration, status.improved, status.tries, quality, fmt::join(weight_histogram_sorted, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid");
         }
 
         // check the graph from time to time
@@ -86,14 +86,25 @@ void create_graph(const std::string repository_file, const std::string graph_fil
  * Load the graph from the drive and test it against the SIFT query data.
  */
 void test_graph(const std::filesystem::path data_path, const std::string graph_file, const uint32_t repeat, const uint32_t k) {
-    // const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
-    // const auto path_query_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
-    const auto path_query_repository = (data_path / "glove-100/glove-100_query.fvecs").string();
-    const auto path_query_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
+    const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
+    const auto path_query_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "glove-100/glove-100_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
+
 
     // load an existing graph
     fmt::print("Load graph {} \n", graph_file);
     const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
+    
+    // generall graph stats
+    {
+        const auto mutable_graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
+        auto graph_memory = graph.getEdgesPerNode() * graph.size() * 8 / 1000000; // 4 bytes node id and 4 bytes for the weight
+        auto avg_weight = deglib::analysis::calc_graph_quality(mutable_graph);
+        auto weight_histogram_ordered = deglib::analysis::calc_edge_weight_histogram(mutable_graph, true);
+        auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(mutable_graph, false);
+        fmt::print("Graph memory {}mb during build, avg weight {:.2f} (every 10%, Sorted: {:.1f}, InOrder: {:.1f})\n", graph_memory, avg_weight, fmt::join(weight_histogram_ordered, " "), fmt::join(weight_histogram, " ")); 
+    }
 
     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
     fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
@@ -119,16 +130,18 @@ int main() {
     #endif
 
     const uint32_t repeat_test = 1;
-    const uint32_t test_k = 100;
+    const uint32_t test_k = 10;
     const auto data_path = std::filesystem::path(DATA_PATH);
-    // const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd5+5_improve_non_perfect_new_edges.deg").string();
+    const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.3High_ImproveK30-0StepEps0.02Low_Path5_Rnd2+2_realHighLows_improveTheBetterHalfOfTheNonPerfectEdges_noLoopDetection.deg").string();
+    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd2+2_realHighLows_improveNonPerfectEdges.deg").string();
+
     
-    const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
-    const auto graph_file = (data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd5+5-rerun.deg").string();
+    // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
+    // const auto graph_file = (data_path / "deg" / "100D_L2_K22_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd8+8_realHighLows_improveNonPerfectEdges_noLoopDetection.deg").string();
 
     // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
-    create_graph(repository_file, graph_file);
+    // create_graph(repository_file, graph_file);
 
     // loads the graph from the drive and test it against the SIFT query data
     test_graph(data_path, graph_file, repeat_test, test_k);
