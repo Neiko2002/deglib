@@ -1,7 +1,6 @@
 #pragma once
 
 #include <fmt/core.h>
-#include <tsl/robin_set.h>
 
 #include "search.h"
 #include "graph.h"
@@ -10,9 +9,9 @@ namespace deglib::analysis
 {
     /**
      * Check if the number of nodes and edges is consistent. 
-     * The edges of a node should only contain unique neighbor indizies in ascending order and not a self-loop to the node.
+     * The edges of a node should only contain unique neighbor indizies in ascending order and not a self-loop.
      * 
-     * @param check_back_link checks if all the neighbors have the node in their neighbor-list (quite expensive)
+     * @param check_back_link checks if all edges are undirected (quite expensive)
      */
     static bool check_graph_validation(const deglib::search::SearchGraph& graph, const uint32_t expected_nodes, const bool check_back_link = false) {
 
@@ -63,7 +62,7 @@ namespace deglib::analysis
     /**
      * Compute the graph quality be
      */
-    static float calc_graph_quality(const deglib::graph::MutableGraph& graph) {
+    static float calc_avg_edge_weight(const deglib::graph::MutableGraph& graph) {
         double total_distance = 0;
         uint64_t count = 0;
 
@@ -144,14 +143,13 @@ namespace deglib::analysis
         const auto edges_per_node = graph.getEdgesPerNode();
 
         // already checked nodes
-        auto checked_nodes = tsl::robin_set<uint32_t>();
-        checked_nodes.reserve(node_count);
+        auto checked_ids = std::vector<bool>(node_count);
 
         // node the check
         auto check = std::vector<uint32_t>();
 
         // start with the first node
-        checked_nodes.emplace(0);
+        checked_ids[0] = true;
         check.emplace_back(0);
 
         // repeat as long as we have nodes to check
@@ -166,15 +164,23 @@ namespace deglib::analysis
                 for (size_t e = 0; e < edges_per_node; e++) {
                     auto neighbor_index = neighbor_indizes[e];
 
-                    if(checked_nodes.emplace(neighbor_index).second)
+                    if(checked_ids[neighbor_index] == false) {
+                        checked_ids[neighbor_index] = true;
                         check_next.emplace_back(neighbor_index);
+                    }
                 }
             }
 
             check = std::move(check_next);
         }
 
-        return checked_nodes.size() == node_count;
+        // how many nodes have been checked
+        uint32_t checked_node_count = 0;
+        for (size_t i = 0; i < node_count; i++)
+            if(checked_ids[i])
+                checked_node_count++;
+
+        return checked_node_count == node_count;
     }
     
 } // end namespace deglib::analysis

@@ -30,7 +30,6 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
     }
     
     uint64_t perfect_neighbor_count = 0;
-    uint64_t graph_quality_count = 0;
     for (uint32_t n = 0; n < graph_size; n++) {
         auto neighbor_indizies = graph.getNeighborIndizies(n);
         auto top_list = all_top_list + n * top_list_dims;
@@ -42,10 +41,6 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
             // find in the neighbor in the first few elements of the top list
             for (uint32_t i = 0; i < edges_per_node; i++) {
                 if(neighbor_index == top_list[i]) {
-
-                    if(i == 0)
-                        graph_quality_count++;
-
                     perfect_neighbor_count++;
                     break;
                 }
@@ -54,8 +49,8 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
     }
 
     auto perfect_neighbor_ratio = (float) perfect_neighbor_count / (graph_size * edges_per_node);
-    auto graph_quality = (float) graph_quality_count / graph_size;
-    fmt::print("Graph quality is {} and Perfect Neighbor Ratio is {}\n", graph_quality, perfect_neighbor_ratio);
+    auto connected = deglib::analysis::check_graph_connectivity(graph);
+    fmt::print("Graph quality is {}, edges per node {}, graph size {}, connected {}\n", perfect_neighbor_ratio, edges_per_node, graph_size, connected);
 }
 
 static void compute_edge_histogram(const char* graph_file, const uint32_t steps, const float interval) {
@@ -110,7 +105,8 @@ int main() {
     #endif
 
     const auto data_path = std::filesystem::path(DATA_PATH);
-    const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+    // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+    const auto top_list_file  = (data_path / "glove-100" / "glove_base_top1000.ivecs").string(); 
     auto graph_files = std::vector<std::string>();
 
     // SIFT1M
@@ -118,9 +114,9 @@ int main() {
     // const auto graph_file = (data_path / "deg" / "best_distortion_decisions/improve" / "deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it1m.deg").string();  // GQ=0.50627613
     //const auto graph_file = (data_path / "deg" / "best_distortion_decisions/improve" / "deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it20m.deg").string();  // GQ=0.5304048
 
-    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2Low.deg").string());
-    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd2+2_realHighLows_improveNonPerfectEdges.deg").string());
-    graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd5+5_realHighLows_improveNonPerfectEdges.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2Low.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd2+2_realHighLows_improveNonPerfectEdges.deg").string());
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd5+5_realHighLows_improveNonPerfectEdges.deg").string());
 
     // graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
     // graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd0+0.deg").string());  
@@ -132,12 +128,32 @@ int main() {
     // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24Eps0.02Low_ImproveExtK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
 
 
+
+
+
+
     // GloVe
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High.deg").string());
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd0+0_improveNonPerfectEdges.deg").string());
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd0+0_realHighLow_improveNonPerfectEdges.deg").string());
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow.deg").string());
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow-rerun.deg").string());
+
+    // // Graph quality is 0.23271069, edges per node 30, graph size 1183514, connected true
+    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdges.deg").string());
+
+    // // Graph quality is 0.23340161, edges per node 30, graph size 1183514, connected true
+    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov.deg").string());
+
+    // // Graph quality is 0.23545972, edges per node 30, graph size 1183514, connected true
+    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.3High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov.deg").string()); // 30 best
+
+    // // Graph quality is 0.23538786, edges per node 30, graph size 1183514, connected true
+    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.3High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov_noLoopDetection.deg").string());
+
+    // // Graph quality is 0.23036574, edges per node 60, graph size 1183514, connected true
+    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.2High_ImproveK60Eps0.02Low_ImproveExtK60-3StepEps0.02Low_Path10_Rnd2+2.deg").string()); // 60 best
+
 
     // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.05High_ImproveK60-2StepEps0.001Low_Path10_Rnd0+0_realHighLow_improveNonPerfectEdges.deg").string());
     // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.05High_ImproveK60-2StepEps0.001Low_Path10_Rnd3+3_realHighLow.deg").string());
@@ -146,6 +162,11 @@ int main() {
 
     
     
+
+
+
+
+
     
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30Eps0.02Low_ImproveExtK30-2StepEps0.02Low_Path10_Rnd4+4.deg").string());    // HighLowLow
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30Eps0.02High_ImproveExtK30-2StepEps0.02High_Path10_Rnd2+2.deg").string());  // HighHighHigh

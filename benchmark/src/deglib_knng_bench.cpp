@@ -307,7 +307,7 @@ static bool create_deg_add_only(const deglib::FeatureRepository& repository, con
         const auto highLID = true;
         const auto feature_space = deglib::FloatSpace(dims, deglib::Metric::L2);
         auto graph = deglib::graph::SizeBoundedGraph(max_node_count, k, feature_space);
-        auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, k, eps, highLID, 0, 0.f, false, 0, 0.f, false, 1, 0, 0, 0);
+        auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, k, eps, highLID, 0, 0.f, false, 2, 10, 0, 0);
 
         // provide all features to the graph builder at once. In an online system this will be called 
         for (uint32_t label = 0; label < repository.size(); label++) {
@@ -322,7 +322,7 @@ static bool create_deg_add_only(const deglib::FeatureRepository& repository, con
         const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
 
             if(status.added % log_after == 0) {
-                auto quality = deglib::analysis::calc_graph_quality(graph);
+                auto quality = deglib::analysis::calc_avg_edge_weight(graph);
                 auto connected = deglib::analysis::check_graph_connectivity(graph);
                 auto duration = uint32_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count());
                 fmt::print("{:7} elements, in {:5}s, quality {:4.2f}, connected {} \n", status.added, duration, quality, connected);
@@ -472,7 +472,7 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
         graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());
 
         if(label % 10000 == 0) {
-            auto quality = deglib::analysis::calc_graph_quality(graph);
+            auto quality = deglib::analysis::calc_avg_edge_weight(graph);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
             auto duration = uint32_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count());
             fmt::print("{:7} elements, in {:5}s, quality {:4.2f}, connected {} \n", label, duration, quality, connected);
@@ -592,7 +592,7 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
     auto last_status = deglib::builder::BuilderStatus{};
     const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
         if(status.tries % log_after == 0) {
-            auto quality = deglib::analysis::calc_graph_quality(graph);
+            auto quality = deglib::analysis::calc_avg_edge_weight(graph);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
             auto duration = uint32_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count());
             auto avg_improv = uint32_t((status.improved - last_status.improved) / log_after);
@@ -694,11 +694,14 @@ int main() {
     //     //const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
     //     //const auto repository = deglib::load_static_repository(repository_file.c_str());
     //     //const auto top_list_file = (data_path / "SIFT1M/sift_base_top200_p0.998.ivecs").string();
-    //     //store_top_list(graph, repository, top_list_file.c_str(), 200, 0.2f);
 
-    //     //const auto numpy_file = (data_path / "SIFT1M" / "sift_base_top1001.npd").string();
-    //     //const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-    //     //store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1000000);
+    // const auto numpy_file = (data_path / "SIFT1M" / "sift_base_top1001.npd").string();
+    // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+    // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1000000);
+
+    const auto numpy_file = (data_path / "glove-100" / "glove_base_top1001.npd").string();
+    const auto top_list_file = (data_path / "glove-100" / "glove_base_top1000.ivecs").string();
+    store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1183514);
 
         
     //     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
@@ -712,16 +715,16 @@ int main() {
     // }
 
     // create KNN graph with the help of database top list
-    {
-        const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-        // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
-        const auto repository = deglib::load_static_repository(repository_file.c_str());
-        create_deg_add_only(repository, (data_path / "deg"), 150);
-        //for (uint8_t k = 4; k <= 4; k+=2) 
-        //    create_deg_add_only_perfect(repository, (data_path / "deg/add_perfect_only"), k);
-        // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-        // create_knng(repository, top_list_file.c_str(), (data_path / "knng"), 200);
-    }
+    // {
+    //     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
+    //     // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
+    //     const auto repository = deglib::load_static_repository(repository_file.c_str());
+    //     create_deg_add_only(repository, (data_path / "deg"), 150);
+    //     //for (uint8_t k = 4; k <= 4; k+=2) 
+    //     //    create_deg_add_only_perfect(repository, (data_path / "deg/add_perfect_only"), k);
+    //     // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+    //     // create_knng(repository, top_list_file.c_str(), (data_path / "knng"), 200);
+    // }
 
     // // test the KNN graph with limited distance compution numbers
     // {

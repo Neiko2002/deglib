@@ -41,6 +41,8 @@ int main() {
     
     fmt::print("Load graph {} \n", graph_file);
     const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
+    fmt::print("Graph with {} nodes \n", graph.size());
+
 
     // load the test data and run several ANNS on the graph
     // const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.19)
 
 project(benchmark)
 include_directories(${PROJECT_SOURCE_DIR}/include)
-set(DATA_PATH "" CACHE PATH "Path to data")
+set(DATA_PATH "" CACHE PATH "Path to data sets")
 
 # build HNSW benchmark files
 add_executable(hnswlib_anns_bench ${PROJECT_SOURCE_DIR}/src/hnswlib_anns_bench.cpp)

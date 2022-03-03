@@ -52,14 +52,14 @@ void create_graph(const std::string repository_file, const std::string graph_fil
     const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
 
         if(status.added % log_after == 0) {
-            auto quality = deglib::analysis::calc_graph_quality(graph);
+            auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph);
             auto weight_histogram_sorted = deglib::analysis::calc_edge_weight_histogram(graph, true);
             auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(graph, false);
             auto valid_weights = deglib::analysis::check_graph_weights(graph);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
             auto duration = uint32_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count());
             fmt::print("{:7} nodes, {:5}s, {:8} / {:8} improv, Q: {:4.2f} -> Sorted:{:.1f}, InOrder:{:.1f}, {} connected & {}\n", 
-                        status.added, duration, status.improved, status.tries, quality, fmt::join(weight_histogram_sorted, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid");
+                        status.added, duration, status.improved, status.tries, avg_edge_weight, fmt::join(weight_histogram_sorted, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid");
         }
 
         // check the graph from time to time
@@ -94,13 +94,14 @@ void test_graph(const std::filesystem::path data_path, const std::string graph_f
 
     // load an existing graph
     fmt::print("Load graph {} \n", graph_file);
-    const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
+    // const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
+    const auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
     
     // generall graph stats
     {
         const auto mutable_graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
         auto graph_memory = graph.getEdgesPerNode() * graph.size() * 8 / 1000000; // 4 bytes node id and 4 bytes for the weight
-        auto avg_weight = deglib::analysis::calc_graph_quality(mutable_graph);
+        auto avg_weight = deglib::analysis::calc_avg_edge_weight(mutable_graph);
         auto weight_histogram_ordered = deglib::analysis::calc_edge_weight_histogram(mutable_graph, true);
         auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(mutable_graph, false);
         fmt::print("Graph memory {}mb during build, avg weight {:.2f} (every 10%, Sorted: {:.1f}, InOrder: {:.1f})\n", graph_memory, avg_weight, fmt::join(weight_histogram_ordered, " "), fmt::join(weight_histogram, " ")); 
@@ -130,11 +131,11 @@ int main() {
     #endif
 
     const uint32_t repeat_test = 1;
-    const uint32_t test_k = 10;
+    const uint32_t test_k = 100;
     const auto data_path = std::filesystem::path(DATA_PATH);
     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.3High_ImproveK30-0StepEps0.02Low_Path5_Rnd2+2_realHighLows_improveTheBetterHalfOfTheNonPerfectEdges_noLoopDetection.deg").string();
-    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd2+2_realHighLows_improveNonPerfectEdges.deg").string();
+    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.3High_ImproveK30-0StepEps0.02Low_Path5_Rnd2+2_realHighLows_improveTheBetterHalfOfTheNonPerfectEdges_noLoopDetection.deg").string();
+    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd2+2_realHighLows_improveNonPerfectEdges.deg").string();
 
     
     // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();

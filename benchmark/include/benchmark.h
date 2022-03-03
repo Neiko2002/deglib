@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <unordered_set>
 
 #include "deglib.h"
 #include "stopwatch.h"
@@ -33,15 +34,27 @@ static float test_approx_anns(const deglib::search::SearchGraph& graph, const st
         auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
         auto result_queue = graph.search(entry_node_indizies, query, eps, k);
 
+        if (result_queue.size() != k) {
+            fmt::print(stderr, "ANNS with k={} got only {} results \n", k, result_queue.size());
+            abort();
+        }
+
         total += result_queue.size();
         const auto gt = ground_truth[i];
+        // auto checked_ids = std::unordered_set<uint32_t>(); // additional check
         while (result_queue.empty() == false)
         {
             const auto internal_index = result_queue.top().getInternalIndex();
             const auto external_id = graph.getExternalLabel(internal_index);
             if (gt.find(external_id) != gt.end()) correct++;
             result_queue.pop();
+            // checked_ids.insert(internal_index);
         }
+
+        // if (checked_ids.size() != k) {
+        //     fmt::print(stderr, "ANNS with k={} got only {} unique ids \n", k, checked_ids.size());
+        //     abort();
+        // }
     }
 
     return 1.0f * correct / total;

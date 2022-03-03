@@ -8,7 +8,6 @@
 #include <fmt/core.h>
 #include <tsl/robin_hash.h>
 #include <tsl/robin_map.h>
-#include <tsl/robin_set.h>
 
 #include "graph.h"
 #include "repository.h"
@@ -603,11 +602,231 @@ public:
     }
   }
 
+  
   /**
    * The result set contains internal indizies. 
    */
   template <typename COMPARATOR, bool use_max_distance_count>
   deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  {
+    const auto dist_func_param = this->feature_space_.get_dist_func_param();
+    uint32_t distance_computation_count = 0;
+
+    // set of checked node ids
+    auto checked_ids = std::vector<bool>(this->size());
+
+    // items to traverse next
+    auto next_nodes = deglib::search::UncheckedSet();
+    next_nodes.reserve(k*this->edges_per_node_);
+
+    // result set
+    // TODO: custom priority queue with an internal Variable Length Array wrapped in a macro with linear-scan search and memcopy 
+    auto results = deglib::search::ResultSet();   
+    results.reserve(k);
+
+    // copy the initial entry nodes and their distances to the query into the three containers
+    for (auto&& index : entry_node_indizies) {
+      if(checked_ids[index] == false) {
+        checked_ids[index] = true;
+
+        const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
+        const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
+        next_nodes.emplace(index, distance);
+        results.emplace(index, distance);
+
+        // early stop after to many computations
+        if constexpr (use_max_distance_count) {
+          if(distance_computation_count++ >= max_distance_computation_count)
+            return results;
+        }
+      }
+    }
+
+    // search radius
+    auto r = std::numeric_limits<float>::max();
+
+    // iterate as long as good elements are in the next_nodes queue     
+    auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
+    auto good_neighbors_weights = std::array<float, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
+
+    while (next_nodes.empty() == false)
+    {
+      // next node to check
+      const auto next_node = next_nodes.top();
+      next_nodes.pop();
+
+      // max distance reached
+      if (next_node.getDistance() > r * (1 + eps)) 
+        break;
+
+      size_t good_neighbor_count = 0;
+      const auto neighbor_weights = this->weights_by_index(next_node.getInternalIndex());
+      const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
+      for (size_t i = 0; i < this->edges_per_node_; i++) {
+        const auto neighbor_index = neighbor_indizies[i];
+        if (checked_ids[neighbor_index] == false)  {
+          checked_ids[neighbor_index] = true;
+          good_neighbors_weights[good_neighbor_count] = neighbor_weights[i];
+          good_neighbors[good_neighbor_count++] = neighbor_index;
+        }
+      }
+
+      if (good_neighbor_count == 0)
+        continue;
+
+      float maxDist = 0;
+      float minDist = std::numeric_limits<float>::max();
+      size_t minDistIndex = 0;
+      MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[0])));
+      for (size_t i = 0; i < good_neighbor_count; i++) {
+        MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+
+        const auto neighbor_index = good_neighbors[i];
+        const auto neighbor_feature_vector = this->feature_by_index(neighbor_index);
+        const auto neighbor_distance = COMPARATOR::compare(query, neighbor_feature_vector, dist_func_param);
+
+        maxDist = std::max(neighbor_distance, maxDist);
+             
+        // check the neighborhood of this node later, if its good enough
+        if (neighbor_distance <= r * (1 + eps)) {
+          next_nodes.emplace(neighbor_index, neighbor_distance);
+
+          if(neighbor_distance < minDist)
+            minDistIndex = i;
+          minDist = std::min(neighbor_distance, minDist);
+
+
+          // remember the node, if its better than the worst in the result list
+          if (neighbor_distance < r) {
+            results.emplace(neighbor_index, neighbor_distance);
+
+            // update the search radius
+            if (results.size() > k) {
+              results.pop();
+              r = results.top().getDistance();
+            }
+          }
+        }
+      }
+
+      // no neighbor is better than the current node
+      // before we backtrack to an older nodes
+      // we try distance estimation with the help of edge weights
+      if(minDistIndex > 0 && next_node.getDistance() < minDist) {
+        const auto neighbor_index = good_neighbors[minDistIndex];
+        const auto neighbor_weight = good_neighbors_weights[minDistIndex];
+        const auto neighbor_neighbor_weights = this->weights_by_index(neighbor_index);
+        const auto neighbor_neighbor_indizies = this->neighbors_by_index(neighbor_index);
+
+        // check the neighbors of the good neighbors
+        for (size_t i = 0; i < this->edges_per_node_; i++) {
+          const auto neighbor_neighbor_index = neighbor_neighbor_indizies[i];
+          const auto neighbor_neighbor_weight = neighbor_neighbor_weights[i];
+
+          // form a small path from current node, to one of its neighbors, to one of their neighbors
+          // if the sum of the weights in the path is shorter than the longest edge of the current node
+          // check the node at the ende of the path
+          // if(checked_ids[neighbor_neighbor_index] == false) {   
+          // if(checked_ids[neighbor_neighbor_index] == false && neighbor_neighbor_weight < 0) { 
+          if(checked_ids[neighbor_neighbor_index] == false && neighbor_neighbor_weight <= r * (1 + eps)) { 
+          // if(checked_ids[neighbor_neighbor_index] == false && neighbor_neighbor_weight > minDist) {   
+          // if(checked_ids[neighbor_neighbor_index] == false && neighbor_weight + neighbor_neighbor_weight < (minDist + maxDist)/2) {              
+          // if(checked_ids[neighbor_neighbor_index] == false && neighbor_neighbor_weight < maxDist) {    
+          // if(checked_ids[neighbor_neighbor_index] == false && neighbor_index + neighbor_neighbor_weight < maxDist) {  
+            checked_ids[neighbor_neighbor_index] = true;
+            const auto neighbor_neighbor_feature_vector = this->feature_by_index(neighbor_neighbor_index);
+            const auto neighbor_neighbor_distance = COMPARATOR::compare(query, neighbor_neighbor_feature_vector, dist_func_param);
+
+            // check the neighborhood of this node later, if its good enough
+            if (neighbor_neighbor_distance <= r * (1 + eps)) {
+              next_nodes.emplace(neighbor_neighbor_index, neighbor_neighbor_distance);
+
+              // remember the node, if its better than the worst in the result list
+              if (neighbor_neighbor_distance < r) {
+                results.emplace(neighbor_neighbor_index, neighbor_neighbor_distance);
+
+                // update the search radius
+                if (results.size() > k) {
+                  results.pop();
+                  r = results.top().getDistance();
+                }
+              }
+            }
+          }
+        }
+      }
+
+      
+
+      // no neighbor is better than the current node
+      // before we backtrack to an older nodes
+      // we try distance estimation with the help of edge weights
+      // find potential nodes in the broder neighborhood of the current node which path is short regarding the weights
+      // if(next_node.getDistance() < minDist) {
+
+      //   // for (size_t n = 0; n < this->edges_per_node_; n++) {
+      //   //   const auto neighbor_index = neighbor_indizies[n];
+      //   //   const auto neighbor_weight = neighbor_weights[n];
+
+      //   // good_neighbors is better than all neighbors
+      //   for (size_t n = 0; n < good_neighbor_count; n++) {
+      //     const auto neighbor_index = good_neighbors[n];
+      //     const auto neighbor_weight = good_neighbors_weights[n];
+      //     const auto neighbor_neighbor_weights = this->weights_by_index(neighbor_index);
+      //     const auto neighbor_neighbor_indizies = this->neighbors_by_index(neighbor_index);
+
+      //     // check the neighbors of the good neighbors
+      //     for (size_t i = 0; i < this->edges_per_node_; i++) {
+      //       const auto neighbor_neighbor_index = neighbor_neighbor_indizies[i];
+      //       const auto neighbor_neighbor_weight = neighbor_neighbor_weights[i];
+
+      //       // form a small path from current node, to one of its neighbors, to one of their neighbors
+      //       // if the sum of the weights in the path is shorter than the longest edge of the current node
+      //       // check the node at the ende of the path
+      //       // if(checked_ids[neighbor_neighbor_index] == false && neighbor_neighbor_weight < 0) {   
+      //       if(checked_ids[neighbor_neighbor_index] == false && neighbor_neighbor_weight < minDist) {   
+      //       // if(checked_ids[neighbor_neighbor_index] == false && neighbor_weight + neighbor_neighbor_weight < (minDist + maxDist)/2) {              
+      //       // if(checked_ids[neighbor_neighbor_index] == false && neighbor_neighbor_weight < maxDist) {    
+      //       // if(checked_ids[neighbor_neighbor_index] == false && neighbor_index + neighbor_neighbor_weight < maxDist) {   // this mistake gives even better results for SIFT1M
+      //         checked_ids[neighbor_neighbor_index] = true;
+      //         const auto neighbor_neighbor_feature_vector = this->feature_by_index(neighbor_neighbor_index);
+      //         const auto neighbor_neighbor_distance = COMPARATOR::compare(query, neighbor_neighbor_feature_vector, dist_func_param);
+
+      //         // check the neighborhood of this node later, if its good enough
+      //         if (neighbor_neighbor_distance <= r * (1 + eps)) {
+      //           next_nodes.emplace(neighbor_neighbor_index, neighbor_neighbor_distance);
+
+      //           // remember the node, if its better than the worst in the result list
+      //           if (neighbor_neighbor_distance < r) {
+      //             results.emplace(neighbor_neighbor_index, neighbor_neighbor_distance);
+
+      //             // update the search radius
+      //             if (results.size() > k) {
+      //               results.pop();
+      //               r = results.top().getDistance();
+      //             }
+      //           }
+      //         }
+      //       }
+      //     }
+      //   }
+      // }
+
+      // early stop after to many computations
+      if constexpr (use_max_distance_count) {
+        if(distance_computation_count++ >= max_distance_computation_count)
+          return results;
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * The result set contains internal indizies. 
+   */
+  template <typename COMPARATOR, bool use_max_distance_count>
+  deglib::search::ResultSet searchImplOld(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
     uint32_t distance_computation_count = 0;

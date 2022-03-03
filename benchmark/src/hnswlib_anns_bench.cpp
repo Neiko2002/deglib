@@ -94,29 +94,29 @@ int main()
     const auto explore = false;
     const size_t k = 100;  // k at test time
 
-    // GloVe
-    const int efConstruction = 2500;
-    const int M = 25;
-
-    const auto path_query = (data_path / "glove-100/glove-100_query.fvecs").string();
-    const auto path_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
-    const auto path_basedata = (data_path / "glove-100/glove-100_base.fvecs").string();
-
-    char path_index[1024];
-    const auto path_index_template = (data_path / "hnsw/glove-100_ef_%d_M_%d.hnsw").string();
-    std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
-
-    // // SIFT
-    // const int efConstruction = 600;
+    // // GloVe
+    // const int efConstruction = 2500;
     // const int M = 25;
 
-    // const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
-    // const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
-    // const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // const auto path_query = (data_path / "glove-100/glove-100_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
+    // const auto path_basedata = (data_path / "glove-100/glove-100_base.fvecs").string();
 
     // char path_index[1024];
-    // const auto path_index_template = (data_path / "hnsw/sift1m_ef_%d_M_%d.hnsw").string();
+    // const auto path_index_template = (data_path / "hnsw/glove-100_ef_%d_M_%d.hnsw").string();
     // std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
+
+    // SIFT
+    const int efConstruction = 600;
+    const int M = 25;
+
+    const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
+    const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
+    const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
+
+    char path_index[1024];
+    const auto path_index_template = (data_path / "hnsw/sift1m_ef_%d_M_%d.hnsw").string();
+    std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
 
 
 
