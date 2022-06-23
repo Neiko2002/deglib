@@ -51,6 +51,10 @@ public:
     return nullptr;
   }
 
+  inline const float getEdgeWeight(const uint32_t from_neighbor_index, const uint32_t to_neighbor_index) const override {
+    return 0;
+  }
+
   inline const bool hasNode(const uint32_t external_label) const override {
     return false;
   }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <filesystem>
-#include <unordered_set>
+#include <tsl/robin_set.h>
 
 #include "deglib.h"
 #include "stopwatch.h"
@@ -41,7 +41,7 @@ static float test_approx_anns(const deglib::search::SearchGraph& graph, const st
 
         total += result_queue.size();
         const auto gt = ground_truth[i];
-        // auto checked_ids = std::unordered_set<uint32_t>(); // additional check
+        // auto checked_ids = tsl::robin_set<uint32_t>(); // additional check
         while (result_queue.empty() == false)
         {
             const auto internal_index = result_queue.top().getInternalIndex();

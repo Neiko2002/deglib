@@ -14,56 +14,8 @@
 
 namespace deglib::builder
 {
-/*
-struct C {
-  std::deque<float> a;
-  mutable std::mutex m;
 
-  size_t size() const noexcept {
-    std::scoped_lock l{m};
-    return a.size();
-  }
-};
-*/
-
-struct BuilderAddTask {
-  uint32_t label;
-  uint64_t timestamp;
-  std::vector<std::byte> feature;
-};
-
-struct BuilderRemoveTask {
-  uint32_t label;
-  uint64_t timestamp;
-};
-
-/**
- * Every graph change can be document with this struct. Needed to eventually revert back same changed.
- */ 
-struct BuilderChange {
-  uint32_t internal_index;
-  uint32_t from_neighbor_index;
-  float from_neighbor_weight;
-  uint32_t to_neighbor_index;
-  float to_neighbor_weight;
-};
-
-/**
- * Status of the build process. 
- * The process performs within a so called "step" a series of changes.
- * A step is either a series of graph improvement tries or the 
- * addition/deletion of a node followed be the improvement tries. 
- * The build process can only be stopped between two steps.
- */
-struct BuilderStatus {
-  uint64_t step;      // number of graph manipulation steps
-  uint64_t added;     // number of added nodes
-  uint64_t deleted;   // number of deleted nodes
-  uint64_t improved;  // number of successful improvement
-  uint64_t tries;     // number of improvement tries
-};
-
-class EvenRegularGraphBuilder {
+class EvenRegularGraphBuilderExperimental {
 
     const uint8_t extend_k_;            // k value for extending the graph
     const float extend_eps_;            // eps value for extending the graph
@@ -94,7 +46,7 @@ class EvenRegularGraphBuilder {
 
   public:
 
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, 
+    EvenRegularGraphBuilderExperimental(deglib::graph::MutableGraph& graph, std::mt19937& rnd, 
                             const uint8_t extend_k, const float extend_eps, const bool extend_highLID, 
                             const uint8_t improve_k, const float improve_eps, const bool improve_highLID, const uint8_t improve_step_factor = 2,
                             const uint8_t max_path_length = 10, const uint32_t swap_tries = 3, const uint32_t additional_swap_tries = 3) 
@@ -103,15 +55,15 @@ class EvenRegularGraphBuilder {
         max_path_length_(max_path_length), swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries) {
     }
 
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, const uint32_t swaps) 
-      : EvenRegularGraphBuilder(graph, rnd, 
+    EvenRegularGraphBuilderExperimental(deglib::graph::MutableGraph& graph, std::mt19937& rnd, const uint32_t swaps) 
+      : EvenRegularGraphBuilderExperimental(graph, rnd, 
                                 graph.getEdgesPerNode(), 0.2f, true,
                                 graph.getEdgesPerNode(), 0.02f, false,
                                 2, 10, swaps, swaps) {
     }
 
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd) 
-      : EvenRegularGraphBuilder(graph, rnd, 1) {
+    EvenRegularGraphBuilderExperimental(deglib::graph::MutableGraph& graph, std::mt19937& rnd) 
+      : EvenRegularGraphBuilderExperimental(graph, rnd, 1) {
     }
 
     /**

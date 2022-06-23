@@ -6,6 +6,12 @@
 namespace deglib::search
 {
 
+struct NodeDistance
+{
+    uint32_t internal_index_;
+    float distance_;
+};
+
 class ObjectDistance
 {
     uint32_t internal_index_;

@@ -370,12 +370,23 @@ public:
     return weights_by_index(internal_idx);
   }
 
+  inline const float getEdgeWeight(const uint32_t internal_index, const uint32_t neighbor_index) const override {
+    auto neighbor_indizies = neighbors_by_index(internal_index);
+    auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;  
+    auto neighbor_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, neighbor_index); 
+    if(*neighbor_ptr == neighbor_index) {
+      auto weight_index = neighbor_ptr - neighbor_indizies;
+      return weights_by_index(internal_index)[weight_index];
+    }
+    return -1;
+  }
+
   inline const bool hasNode(const uint32_t external_label) const override {
     return label_to_index_.contains(external_label);
   }
 
   inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
-    auto neighbor_indizies = getNeighborIndizies(internal_index);
+    auto neighbor_indizies = neighbors_by_index(internal_index);
     auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;  
     auto neighbor_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, neighbor_index); 
     return (*neighbor_ptr == neighbor_index);
@@ -607,7 +618,7 @@ public:
    * The result set contains internal indizies. 
    */
   template <typename COMPARATOR, bool use_max_distance_count>
-  deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  deglib::search::ResultSet searchImplExperimental(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
     uint32_t distance_computation_count = 0;
@@ -826,7 +837,7 @@ public:
    * The result set contains internal indizies. 
    */
   template <typename COMPARATOR, bool use_max_distance_count>
-  deglib::search::ResultSet searchImplOld(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
     uint32_t distance_computation_count = 0;
