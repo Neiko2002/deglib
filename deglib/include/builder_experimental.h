@@ -122,10 +122,10 @@ class EvenRegularGraphBuilderExperimental {
      * Does vertex_index has a neighbor which is connected to the target_index and has a lower weight?
      */
     static auto checkRNG(const deglib::graph::MutableGraph& graph, const uint32_t edges_per_node, const uint32_t vertex_index, const uint32_t target_index, const float vertex_target_weight) {
-        const auto neighbor_indizies = graph.getNeighborIndizies(vertex_index);
+        const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
         const auto neighbor_weight = graph.getNeighborWeights(vertex_index);
         for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-          const auto neighbor_target_weight = graph.getEdgeWeight(neighbor_indizies[edge_idx], target_index);
+          const auto neighbor_target_weight = graph.getEdgeWeight(neighbor_indices[edge_idx], target_index);
           if(neighbor_target_weight >= 0 && vertex_target_weight > std::max(neighbor_weight[edge_idx], neighbor_target_weight)) {
             return false;
           }
@@ -134,9 +134,9 @@ class EvenRegularGraphBuilderExperimental {
     }
 
     static auto incompleteCheckRNG(const deglib::graph::MutableGraph& graph, const uint32_t edges_per_node, const uint32_t vertex_index, const uint32_t target_index, const float vertex_target_weight) {
-        const auto neighbor_indizies = graph.getNeighborIndizies(vertex_index);
+        const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
         for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-          const auto neighbor_target_weight = graph.getEdgeWeight(neighbor_indizies[edge_idx], target_index);
+          const auto neighbor_target_weight = graph.getEdgeWeight(neighbor_indices[edge_idx], target_index);
           if(neighbor_target_weight >= 0 && vertex_target_weight > neighbor_target_weight) { // incompleteRNG
             return false;
           }
@@ -165,14 +165,14 @@ class EvenRegularGraphBuilderExperimental {
         }
       }
 
-      // setup the nodes first, to be able to get their internal indizies
+      // setup the nodes first, to be able to get their internal indices
       for (auto &&entry : entries)   
         graph.addNode(entry.label, entry.feature.data());
       
       // setup the edges for every node
       const auto edges_per_node = graph.getEdgesPerNode();
       auto neighbors = std::vector<std::pair<uint32_t,float>>();
-      auto neighbor_indizies = std::vector<uint32_t>(edges_per_node);
+      auto neighbor_indices = std::vector<uint32_t>(edges_per_node);
       auto neighbor_weights = std::vector<float>(edges_per_node);
       for (size_t entry_idx = 0; entry_idx < size; entry_idx++) {
 
@@ -190,16 +190,16 @@ class EvenRegularGraphBuilderExperimental {
         
         // sort the edges by their internal index values
         std::sort(neighbors.begin(), neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
-        neighbor_indizies.clear();
+        neighbor_indices.clear();
         neighbor_weights.clear();
         for (auto &&neighbor : neighbors) {
-          neighbor_indizies.emplace_back(neighbor.first);
+          neighbor_indices.emplace_back(neighbor.first);
           neighbor_weights.emplace_back(neighbor.second);
         }
         
         // store the edges of the new node
         const auto internal_index = graph.getInternalIndex(entries[entry_idx].label);
-        graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());
+        graph.changeEdges(internal_index, neighbor_indices.data(), neighbor_weights.data());
       }
     }
 
@@ -221,8 +221,8 @@ class EvenRegularGraphBuilderExperimental {
       const auto new_node_feature = add_task.feature.data();
       const auto edges_per_node = uint32_t(graph.getEdgesPerNode());
       auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
-      const std::vector<uint32_t> entry_node_indizies = { distrib(this->rnd_) };
-      auto top_list = graph.search(entry_node_indizies, new_node_feature, this->extend_eps_, std::max(uint32_t(this->extend_k_), edges_per_node));
+      const std::vector<uint32_t> entry_node_indices = { distrib(this->rnd_) };
+      auto top_list = graph.search(entry_node_indices, new_node_feature, this->extend_eps_, std::max(uint32_t(this->extend_k_), edges_per_node));
       const auto results = topListAscending(top_list);
 
       // their should always be enough neighbors (search results), otherwise the graph would be broken
@@ -265,9 +265,9 @@ class EvenRegularGraphBuilderExperimental {
             // find the worst edge of the new neighbor
             float new_neighbor_weight = -1;
             const auto neighbor_weights = graph.getNeighborWeights(result.getInternalIndex());
-            const auto neighbor_indizies = graph.getNeighborIndizies(result.getInternalIndex());
+            const auto neighbor_indices = graph.getNeighborIndices(result.getInternalIndex());
             for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-              const auto neighbor_index = neighbor_indizies[edge_idx];
+              const auto neighbor_index = neighbor_indices[edge_idx];
               const auto neighbor_weight = neighbor_weights[edge_idx];
 
               // the suggested neighbor might already be in the edge list of the new node
@@ -295,10 +295,10 @@ class EvenRegularGraphBuilderExperimental {
             // find the edge which improves the distortion the most: (distance_new_edge1 + distance_new_edge2) - distance_removed_edge
             {
               float best_distortion = std::numeric_limits<float>::max();
-              const auto neighbor_indizies = graph.getNeighborIndizies(result.getInternalIndex());
+              const auto neighbor_indices = graph.getNeighborIndices(result.getInternalIndex());
               const auto neighbor_weights = graph.getNeighborWeights(result.getInternalIndex());
               for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-                const auto neighbor_index = neighbor_indizies[edge_idx];
+                const auto neighbor_index = neighbor_indices[edge_idx];
                 if(graph.hasEdge(neighbor_index, internal_index) == false) {
                   const auto neighbor_distance = dist_func(new_node_feature, graph.getFeatureVector(neighbor_index), dist_func_param);
 
@@ -343,17 +343,17 @@ class EvenRegularGraphBuilderExperimental {
         abort();
       }
 
-      // sort the neighbors by their neighbor indizies and store them in the new node
+      // sort the neighbors by their neighbor indices and store them in the new node
       {
         std::sort(new_neighbors.begin(), new_neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
-        auto neighbor_indizies = std::vector<uint32_t>(new_neighbors.size());
+        auto neighbor_indices = std::vector<uint32_t>(new_neighbors.size());
         auto neighbor_weights = std::vector<float>(new_neighbors.size());
         for (size_t i = 0; i < new_neighbors.size(); i++) {
           const auto& neighbor = new_neighbors[i];
-          neighbor_indizies[i] = neighbor.first;
+          neighbor_indices[i] = neighbor.first;
           neighbor_weights[i] = neighbor.second;
         }
-        graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());  
+        graph.changeEdges(internal_index, neighbor_indices.data(), neighbor_weights.data());  
       }
 
       //try to improve some of the non-perfect edges
@@ -421,8 +421,8 @@ class EvenRegularGraphBuilderExperimental {
         float dist23 = 0;
         {
           const auto node2_feature = graph.getFeatureVector(node2);
-          const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
-          auto top_list = graph.search(entry_node_indizies, node2_feature, search_eps, search_k);
+          const std::vector<uint32_t> entry_node_indices = { node3, node4 };
+          auto top_list = graph.search(entry_node_indices, node2_feature, search_eps, search_k);
 
           // find a good new node3
           for(auto&& result : topListAscending(top_list)) {
@@ -455,12 +455,12 @@ class EvenRegularGraphBuilderExperimental {
           uint32_t bad_neighbor_index = 0;
           float bad_neighbor_weight = 0.f;
           const auto neighbor_weights = graph.getNeighborWeights(node3);
-          const auto neighbor_indizies = graph.getNeighborIndizies(node3);
+          const auto neighbor_indices = graph.getNeighborIndices(node3);
           for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
 
             // do not remove the edge which was just added
-            if(neighbor_indizies[edge_idx] != node2 && bad_neighbor_weight < neighbor_weights[edge_idx]) {
-              bad_neighbor_index = neighbor_indizies[edge_idx];
+            if(neighbor_indices[edge_idx] != node2 && bad_neighbor_weight < neighbor_weights[edge_idx]) {
+              bad_neighbor_index = neighbor_indices[edge_idx];
               bad_neighbor_weight = neighbor_weights[edge_idx];    
             }
           }
@@ -486,8 +486,8 @@ class EvenRegularGraphBuilderExperimental {
         //    their subgraph and would therefore connect the two potential subgraphs.	
         {
           const auto node2_feature = graph.getFeatureVector(node2);
-          const std::vector<uint32_t> entry_node_indizies = { node3, node4 };
-          auto top_list = graph.search(entry_node_indizies, node2_feature, search_eps, search_k);
+          const std::vector<uint32_t> entry_node_indices = { node3, node4 };
+          auto top_list = graph.search(entry_node_indices, node2_feature, search_eps, search_k);
 
           // find a good new node3
           float best_gain = total_gain;
@@ -511,9 +511,9 @@ class EvenRegularGraphBuilderExperimental {
               //     FYI: If the just selected node3 is the same as the old node3, this process might cut its connection to node4 again.
               //     This will be fixed in the next step or until the recursion reaches max_path_length.
               const auto neighbor_weights = graph.getNeighborWeights(new_node3);
-              const auto neighbor_indizies = graph.getNeighborIndizies(new_node3);
+              const auto neighbor_indices = graph.getNeighborIndices(new_node3);
               for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-                uint32_t new_node4 = neighbor_indizies[edge_idx];
+                uint32_t new_node4 = neighbor_indices[edge_idx];
 
                 // rng approximation. if new_node4 has the shortest edge to new_node3 compared to all its neighbors, we should leave the edge
                 if((rng_swap_step0_ == false || steps == 0) && rng_swap_ && rng_swap_minimal_ == false && checkRNG(graph, edges_per_node, new_node4, new_node3, neighbor_weights[edge_idx]))
@@ -572,9 +572,9 @@ class EvenRegularGraphBuilderExperimental {
           if(high_variance_swaps) {
   
             // find a good (not yet connected) node for node1/node4
-            const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
+            const std::vector<uint32_t> entry_node_indices = { node2, node3 };
             const auto node4_feature = graph.getFeatureVector(node4);
-            auto top_list = graph.search(entry_node_indizies, node4_feature, search_eps, search_k);
+            auto top_list = graph.search(entry_node_indices, node4_feature, search_eps, search_k);
 
             for(auto&& result : topListAscending(top_list)) {
               const auto good_node = result.getInternalIndex();
@@ -584,10 +584,10 @@ class EvenRegularGraphBuilderExperimental {
                 const auto good_node_dist = result.getDistance();
 
                 // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
-                const auto neighbors_indizies = graph.getNeighborIndizies(good_node);
+                const auto neighbors_indices = graph.getNeighborIndices(good_node);
                 const auto neighbor_weights = graph.getNeighborWeights(good_node);
                 for (size_t i = 0; i < edges_per_node; i++) {
-                  const auto selected_neighbor = neighbors_indizies[i];
+                  const auto selected_neighbor = neighbors_indices[i];
 
                   // ignore edges where the second node is already connect to node4
                   if(node4 != selected_neighbor && graph.hasEdge(node4, selected_neighbor) == false) {
@@ -621,9 +621,9 @@ class EvenRegularGraphBuilderExperimental {
           else
           {
             // find a good (not yet connected) node for node1/node4
-            const std::vector<uint32_t> entry_node_indizies = { node2, node3 };
+            const std::vector<uint32_t> entry_node_indices = { node2, node3 };
             const auto node4_feature = graph.getFeatureVector(node4);
-            auto top_list = graph.search(entry_node_indizies, node4_feature, search_eps, search_k);
+            auto top_list = graph.search(entry_node_indices, node4_feature, search_eps, search_k);
 
             float best_gain = 0;
             uint32_t best_selected_neighbor = 0;
@@ -643,10 +643,10 @@ class EvenRegularGraphBuilderExperimental {
                   continue;
 
                 // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
-                const auto neighbors_indizies = graph.getNeighborIndizies(good_node);
+                const auto neighbors_indices = graph.getNeighborIndices(good_node);
                 const auto neighbor_weights = graph.getNeighborWeights(good_node);
                 for (size_t i = 0; i < edges_per_node; i++) {
-                  const auto selected_neighbor = neighbors_indizies[i];
+                  const auto selected_neighbor = neighbors_indices[i];
 
                   // ignore edges where the second node is already connect to node4
                   if(node4 != selected_neighbor && graph.hasEdge(node4, selected_neighbor) == false) {
@@ -705,8 +705,8 @@ class EvenRegularGraphBuilderExperimental {
             const auto dist14 = dist_func(graph.getFeatureVector(node1), graph.getFeatureVector(node4), dist_func_param);
             if((total_gain - dist14) > 0) {
 
-              const std::vector<uint32_t> entry_node_indizies = { node2, node3 }; 
-              if(graph.hasPath(entry_node_indizies, node1, this->improve_eps_, this->improve_k_).size() > 0 || graph.hasPath(entry_node_indizies, node4, this->improve_eps_, improve_k_).size() > 0) {
+              const std::vector<uint32_t> entry_node_indices = { node2, node3 }; 
+              if(graph.hasPath(entry_node_indices, node1, this->improve_eps_, this->improve_k_).size() > 0 || graph.hasPath(entry_node_indices, node4, this->improve_eps_, improve_k_).size() > 0) {
                 
                 // replace the the self-loops of node1 with a connection to the node4
                 graph.changeEdge(node1, node1, node4, dist14);
@@ -765,10 +765,10 @@ class EvenRegularGraphBuilderExperimental {
       uint32_t bad_neighbor_index = 0;
       float bad_neighbor_weight = 0.f;
       const auto neighbor_weights = graph.getNeighborWeights(node1);
-      const auto neighbor_indizies = graph.getNeighborIndizies(node1);
+      const auto neighbor_indices = graph.getNeighborIndices(node1);
       for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
         if(bad_neighbor_weight < neighbor_weights[edge_idx]) {
-          bad_neighbor_index = neighbor_indizies[edge_idx];
+          bad_neighbor_index = neighbor_indices[edge_idx];
           bad_neighbor_weight = neighbor_weights[edge_idx];    
         }
       }

@@ -10,7 +10,7 @@ class MutableGraph : public deglib::search::SearchGraph
   public:    
 
    /**
-    * Add a new node. The neighbor indizies will be prefilled with a self-loop, the weights will be 0.
+    * Add a new node. The neighbor indices will be prefilled with a self-loop, the weights will be 0.
     * 
     * @return the internal index of the new node
     */
@@ -30,11 +30,11 @@ class MutableGraph : public deglib::search::SearchGraph
 
     /**
      * Change all edges of a node.
-     * The neighbor indizies/weights and feature vectors will be copied.
+     * The neighbor indices/weights and feature vectors will be copied.
      * The neighbor array need to have enough neighbors to match the edge-per-node count of the graph.
-     * The indizies in the neighbor_indizies array must be sorted.
+     * The indices in the neighbor_indices array must be sorted.
      */
-    virtual void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indizies, const float* neighbor_weights) = 0;
+    virtual void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indices, const float* neighbor_weights) = 0;
 
 
     /**
@@ -43,6 +43,8 @@ class MutableGraph : public deglib::search::SearchGraph
     virtual const float* getNeighborWeights(const uint32_t internal_index) const = 0;    
 
     virtual const float getEdgeWeight(const uint32_t from_neighbor_index, const uint32_t to_neighbor_index) const = 0;    
+
+    virtual bool reorderNodes(const std::vector<uint32_t> order_vector) = 0;
 };
 
 }  // end namespace deglib::graph

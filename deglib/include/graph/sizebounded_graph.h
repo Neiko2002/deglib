@@ -25,79 +25,79 @@ namespace deglib::graph
  * 
  * Furthermode the graph is undirected, if there is connection from A to B than 
  * there musst be one from B to A. All connections are stored in the neighbor 
- * indizies list of every node. The indizies are based on the indizies of their 
+ * indices list of every node. The indices are based on the indices of their 
  * corresponding nodes. Each node has an index and an external label. The index 
  * is for internal computation and goes from 0 to the number of nodes. Where 
- * the external label can be any signed 32-bit integer. The indizies in the 
+ * the external label can be any signed 32-bit integer. The indices in the 
  * neighbors list are ascending sorted.
  * 
  * Every edge contains of a neighbor node index and a weight. The weights and
- * neighbor indizies are in separated list, but have the same order.
+ * neighbor indices are in separated list, but have the same order.
  * 
  * The number of nodes is limited to uint32.max
  */
 class SizeBoundedGraph : public deglib::graph::MutableGraph {
 
-  using SEARCHFUNC = deglib::search::ResultSet (*)(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count);
+  using SEARCHFUNC = deglib::search::ResultSet (*)(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count);
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchL2(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::L2Float, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchL2(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::L2Float, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchL2Ext16(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::L2Float16Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchL2Ext16(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::L2Float16Ext, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchL2Ext8(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::L2Float8Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchL2Ext8(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::L2Float8Ext, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchL2Ext4(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::L2Float4Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchL2Ext4(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::L2Float4Ext, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchL2Ext16Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::L2Float16ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchL2Ext16Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::L2Float16ExtResiduals, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchL2Ext4Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::L2Float4ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchL2Ext4Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::L2Float4ExtResiduals, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchInnerProduct(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::InnerProductFloat, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchInnerProduct(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::InnerProductFloat, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchInnerProductExt16(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::InnerProductFloat16Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchInnerProductExt16(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::InnerProductFloat16Ext, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchInnerProductExt8(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::InnerProductFloat8Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchInnerProductExt8(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::InnerProductFloat8Ext, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchInnerProductExt4(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::InnerProductFloat4Ext, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchInnerProductExt4(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::InnerProductFloat4Ext, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchInnerProductExt16Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::InnerProductFloat16ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchInnerProductExt16Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::InnerProductFloat16ExtResiduals, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
-  inline static deglib::search::ResultSet searchInnerProductExt4Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
-    return graph.searchImpl<deglib::distances::InnerProductFloat4ExtResiduals, use_max_distance_count>(entry_node_indizies, query, eps, k, max_distance_computation_count);
+  inline static deglib::search::ResultSet searchInnerProductExt4Residual(const SizeBoundedGraph& graph, const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) {
+    return graph.searchImpl<deglib::distances::InnerProductFloat4ExtResiduals, use_max_distance_count>(entry_node_indices, query, eps, k, max_distance_computation_count);
   }
 
   template <bool use_max_distance_count = false>
@@ -251,11 +251,11 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
   const uint16_t feature_byte_size_;
 
   const uint32_t byte_size_per_node_;
-  const uint32_t neighbor_indizies_offset_;
+  const uint32_t neighbor_indices_offset_;
   const uint32_t neighbor_weights_offset_;
   const uint32_t external_label_offset_;
 
-  // list of nodes (node: std::byte* feature vector, uint32_t* indizies of neighbor nodes, float* weights of neighbor nodes, uint32_t external label)      
+  // list of nodes (node: std::byte* feature vector, uint32_t* indices of neighbor nodes, float* weights of neighbor nodes, uint32_t external label)      
   std::unique_ptr<std::byte[]> nodes_;
   std::byte* nodes_memory_;
 
@@ -277,8 +277,8 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
         search_func_(getSearchFunction(feature_space)), explore_func_(getExploreFunction(feature_space)),
         feature_byte_size_(uint16_t(feature_space.get_data_size())), 
         byte_size_per_node_(compute_aligned_byte_size_per_node(edges_per_node, uint16_t(feature_space.get_data_size()), object_alignment)), 
-        neighbor_indizies_offset_(uint32_t(feature_space.get_data_size())),
-        neighbor_weights_offset_(neighbor_indizies_offset_ + uint32_t(edges_per_node) * sizeof(uint32_t)),
+        neighbor_indices_offset_(uint32_t(feature_space.get_data_size())),
+        neighbor_weights_offset_(neighbor_indices_offset_ + uint32_t(edges_per_node) * sizeof(uint32_t)),
         external_label_offset_(neighbor_weights_offset_ + uint32_t(edges_per_node) * sizeof(float)), 
         nodes_(std::make_unique<std::byte[]>(size_t(max_node_count) * byte_size_per_node_ + object_alignment)), 
         nodes_memory_(compute_aligned_pointer(nodes_, object_alignment)), 
@@ -338,7 +338,7 @@ private:
   }
 
   inline const uint32_t* neighbors_by_index(const uint32_t internal_idx) const {
-    return reinterpret_cast<uint32_t*>(node_by_index(internal_idx) + neighbor_indizies_offset_);
+    return reinterpret_cast<uint32_t*>(node_by_index(internal_idx) + neighbor_indices_offset_);
   }
 
   inline const float* weights_by_index(const uint32_t internal_idx) const {
@@ -362,7 +362,7 @@ public:
     return feature_by_index(internal_idx);
   }
 
-  inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
+  inline const uint32_t* getNeighborIndices(const uint32_t internal_idx) const override {
     return neighbors_by_index(internal_idx);
   }
 
@@ -371,11 +371,11 @@ public:
   }
 
   inline const float getEdgeWeight(const uint32_t internal_index, const uint32_t neighbor_index) const override {
-    auto neighbor_indizies = neighbors_by_index(internal_index);
-    auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;  
-    auto neighbor_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, neighbor_index); 
+    auto neighbor_indices = neighbors_by_index(internal_index);
+    auto neighbor_indices_end = neighbor_indices + this->edges_per_node_;  
+    auto neighbor_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, neighbor_index); 
     if(*neighbor_ptr == neighbor_index) {
-      auto weight_index = neighbor_ptr - neighbor_indizies;
+      auto weight_index = neighbor_ptr - neighbor_indices;
       return weights_by_index(internal_index)[weight_index];
     }
     return -1;
@@ -386,10 +386,90 @@ public:
   }
 
   inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
-    auto neighbor_indizies = neighbors_by_index(internal_index);
-    auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;  
-    auto neighbor_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, neighbor_index); 
+    auto neighbor_indices = neighbors_by_index(internal_index);
+    auto neighbor_indices_end = neighbor_indices + this->edges_per_node_;  
+    auto neighbor_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, neighbor_index); 
     return (*neighbor_ptr == neighbor_index);
+  }
+
+  bool reorderNodes(const std::vector<uint32_t> order_vector) override {
+    const uint32_t node_count = this->size();
+    const uint32_t node_bytes = this->byte_size_per_node_;
+    const uint32_t edges_per_node = this->edges_per_node_;
+    
+    // check if every new node index is valid place in the graph
+    if(order_vector.size() != node_count)
+      return false;
+    for (uint32_t i = 0; i < node_count; i++)
+      if(order_vector[i] > node_count)
+        return false;
+
+    // copy the entire content into a new memory segment with a different order
+    auto new_nodes = std::make_unique<std::byte[]>(size_t(node_count) * node_bytes + object_alignment);
+    auto new_nodes_ptr = new_nodes.get();
+    auto old_nodes_ptr = this->nodes_.get();
+    for (uint32_t from_index = 0; from_index < node_count; from_index++)  {
+      auto from_offset = from_index * node_bytes;
+      auto to_offset = order_vector[from_index] * node_bytes;
+      std::memcpy(new_nodes_ptr + to_offset, old_nodes_ptr + from_offset, node_bytes);
+    }
+    std::memcpy(old_nodes_ptr, new_nodes_ptr, size_t(node_count) * node_bytes + object_alignment);
+
+    // change the internal_ids of every node
+    auto neighbors = std::vector<std::pair<uint32_t,float>>(edges_per_node);
+    auto neighbor_indices = std::vector<uint32_t>(edges_per_node);
+    auto neighbor_weights = std::vector<float>(edges_per_node);
+    for (uint32_t i = 0; i < node_count; i++)  {
+      neighbors.clear();
+      neighbor_indices.clear();
+      neighbor_weights.clear();
+
+      // remap the old internal indices to the new indices
+      auto old_neighbors = this->neighbors_by_index(i);
+      auto old_weights = this->weights_by_index(i);
+      for (uint32_t e = 0; e < edges_per_node; e++) 
+        neighbors.emplace_back(order_vector[old_neighbors[e]], old_weights[e]);
+      
+      // sort the edges by their new index values
+      std::sort(neighbors.begin(), neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
+      neighbor_indices.clear();
+      neighbor_weights.clear();
+      for (auto &&neighbor : neighbors) {
+        neighbor_indices.emplace_back(neighbor.first);
+        neighbor_weights.emplace_back(neighbor.second);
+      }
+      
+      // store the edges of the new node
+      this->changeEdges(i, neighbor_indices.data(), neighbor_weights.data());
+    }
+
+
+    // index -> to index and moved
+    // auto new_order = std::vector<std::pair<uint32_t,boolean>>(node_count);
+    // for (size_t i = 0; i < node_count; i++) 
+    //   new_order.emplace_back(order_vector[i], false);
+
+    // // temporary 
+    // std::unique_ptr<std::byte[]> buffer_node = std::make_unique<std::byte[]>(node_bytes);
+
+    // // move the content of the nodes and remap the internal ids
+    // for (uint32_t i = 0; i < node_count; i++)  {
+    //   auto node_index = i;
+    //   auto& node_order = new_order[node_index];
+    //   if(node_order.second == false) {
+    //     auto node = this->node_by_index(node_index);
+
+    //     // make changes in place
+
+    //     // make a copy of the target node
+    //     auto to_node_index = node_order.first;
+    //     auto to_node = this->node_by_index(to_node_index);
+
+    //     std::memcpy(buffer_node.get(), to_node, node_bytes);
+    //   }
+    // }
+
+    return false;
   }
 
   const bool saveGraph(const char* path_to_graph) const override {
@@ -422,7 +502,7 @@ public:
   }
 
   /**
-   * Add a new node. The neighbor indizies will be prefilled with a self-loop, the weights will be 0.
+   * Add a new node. The neighbor indices will be prefilled with a self-loop, the weights will be 0.
    * 
    * @return the internal index of the new node
    */
@@ -432,7 +512,7 @@ public:
 
     auto node_memory = node_by_index(new_internal_index);
     std::memcpy(node_memory, feature_vector, feature_byte_size_);
-    std::fill_n(reinterpret_cast<uint32_t*>(node_memory + neighbor_indizies_offset_), this->edges_per_node_, new_internal_index); // temporary self loop
+    std::fill_n(reinterpret_cast<uint32_t*>(node_memory + neighbor_indices_offset_), this->edges_per_node_, new_internal_index); // temporary self loop
     std::fill_n(reinterpret_cast<float*>(node_memory + neighbor_weights_offset_), this->edges_per_node_, float(0)); // 0 weight
     std::memcpy(node_memory + external_label_offset_, &external_label, sizeof(uint32_t));
 
@@ -451,30 +531,30 @@ public:
   bool changeEdge(const uint32_t internal_index, const uint32_t from_neighbor_index, const uint32_t to_neighbor_index, const float to_neighbor_weight) override {
     auto node_memory = node_by_index(internal_index);
 
-    auto neighbor_indizies = reinterpret_cast<uint32_t*>(node_memory + neighbor_indizies_offset_);    // list of neighbor indizizes
-    auto neighbor_indizies_end = neighbor_indizies + this->edges_per_node_;                           // end of the list
-    auto from_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, from_neighbor_index);  // possible position of the from_neighbor_index in the neighbor list
+    auto neighbor_indices = reinterpret_cast<uint32_t*>(node_memory + neighbor_indices_offset_);    // list of neighbor indizizes
+    auto neighbor_indices_end = neighbor_indices + this->edges_per_node_;                           // end of the list
+    auto from_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, from_neighbor_index);  // possible position of the from_neighbor_index in the neighbor list
 
     // from_neighbor_index not found in the neighbor list
     if(*from_ptr != from_neighbor_index)
       return false;
 
     auto neighbor_weights = reinterpret_cast<float*>(node_memory + neighbor_weights_offset_);         // list of neighbor weights
-    auto to_ptr = std::lower_bound(neighbor_indizies, neighbor_indizies_end, to_neighbor_index);      // neighbor in the list which has a lower index number than to_neighbor_index
-    auto from_list_idx = uint32_t(from_ptr - neighbor_indizies);                                      // index of the from_neighbor_index in the neighbor list
-    auto to_list_idx = uint32_t(to_ptr - neighbor_indizies);                                          // index where to place the to_neighbor_index 
+    auto to_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, to_neighbor_index);      // neighbor in the list which has a lower index number than to_neighbor_index
+    auto from_list_idx = uint32_t(from_ptr - neighbor_indices);                                      // index of the from_neighbor_index in the neighbor list
+    auto to_list_idx = uint32_t(to_ptr - neighbor_indices);                                          // index where to place the to_neighbor_index 
 
     // Make same space before inserting the new values
     if(from_list_idx < to_list_idx) {
-      std::memmove(neighbor_indizies + from_list_idx, neighbor_indizies + from_list_idx + 1, (to_list_idx - from_list_idx) * sizeof(uint32_t)); 
+      std::memmove(neighbor_indices + from_list_idx, neighbor_indices + from_list_idx + 1, (to_list_idx - from_list_idx) * sizeof(uint32_t)); 
       std::memmove(neighbor_weights + from_list_idx, neighbor_weights + from_list_idx + 1, (to_list_idx - from_list_idx) * sizeof(float)); 
       to_list_idx--;
     } else if(to_list_idx < from_list_idx) {
-      std::memmove(neighbor_indizies + to_list_idx + 1, neighbor_indizies + to_list_idx, (from_list_idx - to_list_idx) * sizeof(uint32_t));
+      std::memmove(neighbor_indices + to_list_idx + 1, neighbor_indices + to_list_idx, (from_list_idx - to_list_idx) * sizeof(uint32_t));
       std::memmove(neighbor_weights + to_list_idx + 1, neighbor_weights + to_list_idx, (from_list_idx - to_list_idx) * sizeof(float));
     }
 
-    neighbor_indizies[to_list_idx] = to_neighbor_index;
+    neighbor_indices[to_list_idx] = to_neighbor_index;
     neighbor_weights[to_list_idx] = to_neighbor_weight;
 
     return true;
@@ -482,20 +562,20 @@ public:
 
   /**
    * Change all edges of a node.
-   * The neighbor indizies/weights and feature vectors will be copied.
+   * The neighbor indices und weights will be copied.
    * The neighbor array need to have enough neighbors to match the edge-per-node count of the graph.
-   * The indizies in the neighbor_indizies array must be sorted.
+   * The indices in the neighbor_indices array must be sorted.
    */
-  void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indizies, const float* neighbor_weights) override {
+  void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indices, const float* neighbor_weights) override {
     auto node_memory = node_by_index(internal_index);
-    std::memcpy(node_memory + neighbor_indizies_offset_, neighbor_indizies, uint32_t(edges_per_node_) * sizeof(uint32_t));
+    std::memcpy(node_memory + neighbor_indices_offset_, neighbor_indices, uint32_t(edges_per_node_) * sizeof(uint32_t));
     std::memcpy(node_memory + neighbor_weights_offset_, neighbor_weights, uint32_t(edges_per_node_) * sizeof(float));
   }
 
   /**
    * Performan a search but stops when the to_node was found.
    */
-  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const uint32_t k) const override
+  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indices, const uint32_t to_node, const float eps, const uint32_t k) const override
   {
     const auto query = this->feature_by_index(to_node);
     const auto dist_func = this->feature_space_.get_dist_func();
@@ -514,7 +594,7 @@ public:
     auto results = deglib::search::ResultSet();   
 
     // copy the initial entry nodes and their distances to the query into the three containers
-    for (auto&& index : entry_node_indizies) {
+    for (auto&& index : entry_node_indices) {
       checked_ids[index] = true;
 
       const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
@@ -540,9 +620,9 @@ public:
         break;
 
       size_t good_neighbor_count = 0;
-      const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
+      const auto neighbor_indices = this->neighbors_by_index(next_node.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_node_; i++) {
-        const auto neighbor_index = neighbor_indizies[i];
+        const auto neighbor_index = neighbor_indices[i];
 
         // found our target node, create a path back to the entry node
         if(neighbor_index == to_node) {
@@ -601,24 +681,24 @@ public:
   }
 
   /**
-   * The result set contains internal indizies. 
+   * The result set contains internal indices. 
    */
-  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const override
+  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const override
   {
     if(max_distance_computation_count == 0)
-      return search_func_(*this, entry_node_indizies, query, eps, k, 0);
+      return search_func_(*this, entry_node_indices, query, eps, k, 0);
     else {
       const auto limited_search_func = getSearchFunction<true>(this->feature_space_);
-      return limited_search_func(*this, entry_node_indizies, query, eps, k, max_distance_computation_count);
+      return limited_search_func(*this, entry_node_indices, query, eps, k, max_distance_computation_count);
     }
   }
 
   
   /**
-   * The result set contains internal indizies. 
+   * The result set contains internal indices. 
    */
   template <typename COMPARATOR, bool use_max_distance_count>
-  deglib::search::ResultSet searchImplExperimental(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  deglib::search::ResultSet searchImplExperimental(const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
     uint32_t distance_computation_count = 0;
@@ -636,7 +716,7 @@ public:
     results.reserve(k);
 
     // copy the initial entry nodes and their distances to the query into the three containers
-    for (auto&& index : entry_node_indizies) {
+    for (auto&& index : entry_node_indices) {
       if(checked_ids[index] == false) {
         checked_ids[index] = true;
 
@@ -672,9 +752,9 @@ public:
 
       size_t good_neighbor_count = 0;
       const auto neighbor_weights = this->weights_by_index(next_node.getInternalIndex());
-      const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
+      const auto neighbor_indices = this->neighbors_by_index(next_node.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_node_; i++) {
-        const auto neighbor_index = neighbor_indizies[i];
+        const auto neighbor_index = neighbor_indices[i];
         if (checked_ids[neighbor_index] == false)  {
           checked_ids[neighbor_index] = true;
           good_neighbors_weights[good_neighbor_count] = neighbor_weights[i];
@@ -727,11 +807,11 @@ public:
         const auto neighbor_index = good_neighbors[minDistIndex];
         const auto neighbor_weight = good_neighbors_weights[minDistIndex];
         const auto neighbor_neighbor_weights = this->weights_by_index(neighbor_index);
-        const auto neighbor_neighbor_indizies = this->neighbors_by_index(neighbor_index);
+        const auto neighbor_neighbor_indices = this->neighbors_by_index(neighbor_index);
 
         // check the neighbors of the good neighbors
         for (size_t i = 0; i < this->edges_per_node_; i++) {
-          const auto neighbor_neighbor_index = neighbor_neighbor_indizies[i];
+          const auto neighbor_neighbor_index = neighbor_neighbor_indices[i];
           const auto neighbor_neighbor_weight = neighbor_neighbor_weights[i];
 
           // form a small path from current node, to one of its neighbors, to one of their neighbors
@@ -776,7 +856,7 @@ public:
       // if(next_node.getDistance() < minDist) {
 
       //   // for (size_t n = 0; n < this->edges_per_node_; n++) {
-      //   //   const auto neighbor_index = neighbor_indizies[n];
+      //   //   const auto neighbor_index = neighbor_indices[n];
       //   //   const auto neighbor_weight = neighbor_weights[n];
 
       //   // good_neighbors is better than all neighbors
@@ -784,11 +864,11 @@ public:
       //     const auto neighbor_index = good_neighbors[n];
       //     const auto neighbor_weight = good_neighbors_weights[n];
       //     const auto neighbor_neighbor_weights = this->weights_by_index(neighbor_index);
-      //     const auto neighbor_neighbor_indizies = this->neighbors_by_index(neighbor_index);
+      //     const auto neighbor_neighbor_indices = this->neighbors_by_index(neighbor_index);
 
       //     // check the neighbors of the good neighbors
       //     for (size_t i = 0; i < this->edges_per_node_; i++) {
-      //       const auto neighbor_neighbor_index = neighbor_neighbor_indizies[i];
+      //       const auto neighbor_neighbor_index = neighbor_neighbor_indices[i];
       //       const auto neighbor_neighbor_weight = neighbor_neighbor_weights[i];
 
       //       // form a small path from current node, to one of its neighbors, to one of their neighbors
@@ -834,10 +914,10 @@ public:
   }
 
   /**
-   * The result set contains internal indizies. 
+   * The result set contains internal indices. 
    */
   template <typename COMPARATOR, bool use_max_distance_count>
-  deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_node_indizies, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
     uint32_t distance_computation_count = 0;
@@ -855,7 +935,7 @@ public:
     results.reserve(k);
 
     // copy the initial entry nodes and their distances to the query into the three containers
-    for (auto&& index : entry_node_indizies) {
+    for (auto&& index : entry_node_indices) {
       if(checked_ids[index] == false) {
         checked_ids[index] = true;
 
@@ -888,9 +968,9 @@ public:
         break;
 
       size_t good_neighbor_count = 0;
-      const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
+      const auto neighbor_indices = this->neighbors_by_index(next_node.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_node_; i++) {
-        const auto neighbor_index = neighbor_indizies[i];
+        const auto neighbor_index = neighbor_indices[i];
         if (checked_ids[neighbor_index] == false)  {
           checked_ids[neighbor_index] = true;
           good_neighbors[good_neighbor_count++] = neighbor_index;
@@ -936,7 +1016,7 @@ public:
   }
 
   /**
-   * The result set contains internal indizies. 
+   * The result set contains internal indices. 
    */
   deglib::search::ResultSet explore(const uint32_t entry_node_index, const uint32_t k, const uint32_t max_distance_computation_count) const override
   {
@@ -944,7 +1024,7 @@ public:
   }
 
   /**
-   * The result set contains internal indizies. 
+   * The result set contains internal indices. 
    */
   template <typename COMPARATOR>
   deglib::search::ResultSet exploreImpl(const uint32_t entry_node_index, const uint32_t k, const uint32_t max_distance_computation_count) const
@@ -969,12 +1049,12 @@ public:
       checked_ids[entry_node_index] = true;
       next_nodes.emplace(entry_node_index, 0);
 
-      const auto neighbor_indizies = this->neighbors_by_index(entry_node_index);
+      const auto neighbor_indices = this->neighbors_by_index(entry_node_index);
       const auto neighbor_weights = this->weights_by_index(entry_node_index);
       for (uint8_t i = 0; i < this->edges_per_node_; i++) {
-        checked_ids[neighbor_indizies[i]] = true;
-        next_nodes.emplace(neighbor_indizies[i], neighbor_weights[i]);
-        results.emplace(neighbor_indizies[i], neighbor_weights[i]);
+        checked_ids[neighbor_indices[i]] = true;
+        next_nodes.emplace(neighbor_indices[i], neighbor_weights[i]);
+        results.emplace(neighbor_indices[i], neighbor_weights[i]);
         
         // early stop after to many computations
         if(distance_computation_count++ >= max_distance_computation_count)
@@ -1002,12 +1082,12 @@ public:
 
       uint8_t good_neighbor_count = 0;
       {
-        const auto neighbor_indizies = this->neighbors_by_index(next_node.getInternalIndex());
+        const auto neighbor_indices = this->neighbors_by_index(next_node.getInternalIndex());
         const auto neighbor_weights = this->weights_by_index(next_node.getInternalIndex());
-        MemoryCache::prefetch(reinterpret_cast<const char*>(neighbor_indizies));
+        MemoryCache::prefetch(reinterpret_cast<const char*>(neighbor_indices));
         MemoryCache::prefetch(reinterpret_cast<const char*>(neighbor_weights));
         for (uint8_t i = 0; i < this->edges_per_node_; i++) {
-          const auto neighbor_index = neighbor_indizies[i];
+          const auto neighbor_index = neighbor_indices[i];
 
           if (checked_ids[neighbor_index] == false)  {
             checked_ids[neighbor_index] = true;

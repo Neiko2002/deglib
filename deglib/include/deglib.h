@@ -9,5 +9,6 @@
 #include "analysis.h"
 #include "graph/readonly_graph.h"
 #include "graph/sizebounded_graph.h"
+#include "optimizer.h"
 #include "builder.h"
 #include "builder_experimental.h"

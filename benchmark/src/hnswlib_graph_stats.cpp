@@ -210,13 +210,13 @@ static float compute_avg_reach(hnswlib::HierarchicalNSW<float>* graph, std::vect
     return ((float)avg_reach)/graph_size;
 }
 
-static void compute_stats(const char* graph_file, const char* top_list_file) {
+static void compute_stats(const char* graph_file, const char* top_list_file, const int feature_dims) {
     fmt::print("Compute graph stats of {}\n", graph_file);
 
-    auto l2space = hnswlib::L2Space(128);
+    auto l2space = hnswlib::L2Space(feature_dims);
     auto graph = new hnswlib::HierarchicalNSW<float>(&l2space, graph_file, false);
     auto graph_size = graph->cur_element_count;
-    auto max_edges_per_node = graph->size_links_level0_;
+    auto max_edges_per_node = graph->maxM0_;
 
     size_t top_list_dims;
     size_t top_list_count;
@@ -229,7 +229,7 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
     }
 
     if(top_list_dims < max_edges_per_node) {
-        fmt::print(stderr, "Edges per node {} is higher than the TopList size = {} \n", max_edges_per_node, top_list_dims);
+        fmt::print(stderr, "Edges per verftex {} is higher than the TopList size = {} \n", max_edges_per_node, top_list_dims);
         return;
     }
     
@@ -239,7 +239,7 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
     for (uint32_t n = 0; n < graph_size; n++) {
         auto linklist_data = graph->get_linklist_at_level(n, 0);
         auto edges_per_node = graph->getListCount(linklist_data);
-        auto neighbor_indizies = (tableint*)(linklist_data + 1);
+        auto neighbor_indices = (tableint*)(linklist_data + 1);
 
         // get top list of this node
         auto top_list = all_top_list + n * top_list_dims;
@@ -251,9 +251,9 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
 
         // check if every neighbor is from the perfect neighborhood
         for (uint32_t e = 0; e < edges_per_node; e++) {
-            auto neighbor_index = neighbor_indizies[e];
+            auto neighbor_index = neighbor_indices[e];
 
-            // find in the neighbor ini the first few elements of the top list
+            // find in the neighbor in the first few elements of the top list
             for (uint32_t i = 0; i < edges_per_node; i++) {
                 if(neighbor_index == top_list[i]) {
                     perfect_neighbor_count++;
@@ -262,8 +262,8 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
             }
         }
     }
-    auto perfect_neighbor_ratio = (float) perfect_neighbor_count / total_neighbor_count;
-    auto avg_edge_count = (float) total_neighbor_count / graph_size;
+    auto perfect_neighbor_ratio = ((float) perfect_neighbor_count) / total_neighbor_count;
+    auto avg_edge_count = ((float) total_neighbor_count) / graph_size;
 
     // compute the min, and max out degree
     uint16_t min_out = (uint16_t) max_edges_per_node;
@@ -283,12 +283,15 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
     for (uint32_t n = 0; n < graph_size; n++) {
         auto linklist_data = graph->get_linklist_at_level(n, 0);
         auto edges_per_node = graph->getListCount(linklist_data);
-        auto neighbor_indizies = (tableint*)(linklist_data + 1);
+        auto neighbor_indices = (tableint*)(linklist_data + 1);
 
+        fmt::print("Neighbors of vertex {}\n", n);
         for (uint32_t e = 0; e < edges_per_node; e++) {
-            auto neighbor_index = neighbor_indizies[e];
+            fmt::print("{} = {}\n", e, neighbor_indices[e]);
+            auto neighbor_index = neighbor_indices[e];
             in_degree_count[neighbor_index]++;
         }
+        fmt::print("\n");
     }
 
 
@@ -314,14 +317,15 @@ static void compute_stats(const char* graph_file, const char* top_list_file) {
     }
 
     auto max_level = graph->maxlevel_;
-    auto node_per_level_count = std::vector<uint32_t>(max_level);
+    auto node_per_level_count = std::vector<uint32_t>(max_level+1);
     auto node_levels = graph->element_levels_;
     for (size_t i = 0; i < node_levels.size(); i++) 
         node_per_level_count[node_levels[i]]++;
-    for (int i = max_level-2; i >= 0; i--) // nodes on the higher level exist on the level below
-        node_per_level_count[i] += node_per_level_count[i+1];
+    for (int i = max_level; i >= 1; i--) // vertices on the higher level exist on the level below
+        node_per_level_count[i-1] += node_per_level_count[i];
 
-    auto reachability_count = 0;//compute_reachablity_count(graph); // Glove 1152424
+    // auto reachability_count = 0;//compute_reachablity_count(graph); // Glove 1152424
+    auto reachability_count = compute_reachablity_count(graph);
     auto avg_reach = compute_avg_reach(graph, is_source_vertex);
 
     fmt::print("GQ {}, avg degree {}, min_out {}, max_out {}, min_in {}, max_in {}, source nodes {}, search reachability count {}, exploration avg reach {:.2f}, node count {}, nodes per layer ({})\n", perfect_neighbor_ratio, avg_edge_count, min_out, max_out, min_in, max_in, source_node_count, reachability_count, avg_reach, graph_size, fmt::join(node_per_level_count, ","));
@@ -345,11 +349,14 @@ int main() {
     // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
 
     // GQ 0.23849423, avg degree 18.42118, min_out 1, max_out 50, min_in 0, max_in 1866, source nodes 30686, search reachability count 1152468, exploration avg reach 1152424, node count 1183514, nodes per layer (1183510,47260,1896,64)
-    const auto graph_file = (data_path / "hnsw" / "glove-100_ef_2500_M_25.hnsw").string(); 
-    const auto top_list_file  = (data_path / "glove-100" / "glove_base_top1000.ivecs").string(); 
+    // const auto graph_file = (data_path / "hnsw" / "glove-100_ef_2500_M_25.hnsw").string(); 
+    // const auto top_list_file  = (data_path / "glove-100" / "glove_base_top1000.ivecs").string(); 
 
+    const auto graph_file = (data_path / "2dgraph_ef_500_M_4.hnsw").string(); 
+    const auto top_list_file  = (data_path / "base_top13.ivecs").string(); 
+    const int feature_dims = 2;
 
-    compute_stats(graph_file.c_str(), top_list_file.c_str());
+    compute_stats(graph_file.c_str(), top_list_file.c_str(), feature_dims);
 
     fmt::print("Test OK\n");
     return 0;

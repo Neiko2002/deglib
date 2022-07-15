@@ -128,7 +128,7 @@ auto fvecs_read(const char* fname, size_t& d_out, size_t& n_out)
     if (!ifstream) assert(ifstream.gcount() == static_cast<int>(n * (dims + 1)) || !"could not read whole file");
 
     // shift array to remove row headers
-    for (size_t i = 0; i < n; i++) memmove(&x[i * dims], &x[1 + i * (dims + 1)], dims * sizeof(float));
+    for (size_t i = 0; i < n; i++) std::memmove(&x[i * dims], &x[1 + i * (dims + 1)], dims * sizeof(float));
 
     ifstream.close();
     return x;

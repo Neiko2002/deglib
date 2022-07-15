@@ -31,12 +31,14 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
     
     uint64_t perfect_neighbor_count = 0;
     for (uint32_t n = 0; n < graph_size; n++) {
-        auto neighbor_indizies = graph.getNeighborIndizies(n);
+        auto neighbor_indices = graph.getNeighborIndices(n);
         auto top_list = all_top_list + n * top_list_dims;
 
         // check if every neighbor is from the perfect neighborhood
+         fmt::print("Neighbors of vertex {}\n", n);
         for (uint32_t e = 0; e < edges_per_node; e++) {
-            auto neighbor_index = neighbor_indizies[e];
+            auto neighbor_index = neighbor_indices[e];
+            fmt::print("{} = {}\n", e, neighbor_indices[e]);
 
             // find in the neighbor in the first few elements of the top list
             for (uint32_t i = 0; i < edges_per_node; i++) {
@@ -46,6 +48,7 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
                 }
             }
         }
+        fmt::print("\n");
     }
 
     auto perfect_neighbor_ratio = (float) perfect_neighbor_count / (graph_size * edges_per_node);
@@ -106,8 +109,14 @@ int main() {
 
     const auto data_path = std::filesystem::path(DATA_PATH);
     // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-    const auto top_list_file  = (data_path / "glove-100" / "glove_base_top1000.ivecs").string(); 
+    // const auto top_list_file  = (data_path / "glove-100" / "glove_base_top1000.ivecs").string(); 
+    const auto top_list_file  = (data_path / "base_top13.ivecs").string(); 
     auto graph_files = std::vector<std::string>();
+
+    // 2D Graph
+    graph_files.emplace_back((data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.deg").string()); 
+    graph_files.emplace_back((data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd10+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.deg").string()); 
+
 
     // SIFT1M
     // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2.deg").string();  // GQ=0.47360423

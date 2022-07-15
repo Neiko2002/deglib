@@ -43,7 +43,7 @@ public:
     return nullptr;
   }
 
-  inline const uint32_t* getNeighborIndizies(const uint32_t internal_idx) const override {
+  inline const uint32_t* getNeighborIndices(const uint32_t internal_idx) const override {
     return nullptr;
   }
 
@@ -67,12 +67,12 @@ public:
     return true;
   }
 
-  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indizies, const uint32_t to_node, const float eps, const int k) const override {
+  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indices, const uint32_t to_node, const float eps, const int k) const override {
 
     return std::vector<deglib::search::ObjectDistance>();
   }
 
-  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_node_indizies, const float* query, const float eps, const int k) const override
+  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_node_indices, const float* query, const float eps, const int k) const override
   {
     nullptr;
   }
@@ -85,7 +85,7 @@ public:
     return true;
   }
 
-  void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indizies, const float* neighbor_weights) override {
+  void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indices, const float* neighbor_weights) override {
 
   }
 

@@ -9,7 +9,7 @@ namespace deglib::analysis
 {
     /**
      * Check if the number of nodes and edges is consistent. 
-     * The edges of a node should only contain unique neighbor indizies in ascending order and not a self-loop.
+     * The edges of a node should only contain unique neighbor indices in ascending order and not a self-loop.
      * 
      * @param check_back_link checks if all edges are undirected (quite expensive)
      */
@@ -25,12 +25,12 @@ namespace deglib::analysis
         // check edges
         auto edges_per_node = graph.getEdgesPerNode();
         for (uint32_t n = 0; n < node_count; n++) {
-            auto neighbor_indizies = graph.getNeighborIndizies(n);
+            auto neighbor_indices = graph.getNeighborIndices(n);
 
             // check if the neighbor indizizes of the nodes are in ascending order and unique
             int64_t last_index = -1;
             for (size_t e = 0; e < edges_per_node; e++) {
-                auto neighbor_index = neighbor_indizies[e];
+                auto neighbor_index = neighbor_indices[e];
 
                 if(n == neighbor_index) {
                     fmt::print(stderr, "node {} has a self-loop at position {} \n", n, e);
@@ -119,7 +119,7 @@ namespace deglib::analysis
 
         for (uint32_t n = 0; n < node_count; n++) {
             const auto fv1 = graph.getFeatureVector(n);
-            const auto neighborIds = graph.getNeighborIndizies(n); 
+            const auto neighborIds = graph.getNeighborIndices(n); 
             const auto neighborWeights = graph.getNeighborWeights(n); 
             for (uint32_t e = 0; e < edges_per_node; e++) {
                 const auto fv2 = graph.getFeatureVector(neighborIds[e]);
@@ -160,7 +160,7 @@ namespace deglib::analysis
 
             // get the neighbors to check next
             for (auto &&internal_index : check) {
-                auto neighbor_indizes = graph.getNeighborIndizies(internal_index);
+                auto neighbor_indizes = graph.getNeighborIndices(internal_index);
                 for (size_t e = 0; e < edges_per_node; e++) {
                     auto neighbor_index = neighbor_indizes[e];
 

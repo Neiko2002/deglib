@@ -155,7 +155,7 @@ static void store_top_list(const deglib::search::SearchGraph& graph, const degli
 
     // reproduceable entry point for the graph search
     const uint32_t entry_node_id = 0;
-    const auto entry_node_indizies = std::vector<uint32_t> { graph.getInternalIndex(entry_node_id) };
+    const auto entry_node_indices = std::vector<uint32_t> { graph.getInternalIndex(entry_node_id) };
 
     uint32_t size = (uint32_t)repository.size();
     auto topList = std::vector<uint32_t>();
@@ -163,7 +163,7 @@ static void store_top_list(const deglib::search::SearchGraph& graph, const degli
     for (uint32_t i = 0; i < repository.size(); i++)
     {
         auto query = reinterpret_cast<const std::byte*>(repository.getFeature(i));
-        auto result_queue = graph.search(entry_node_indizies, query, eps, (k + 1)); // +1 for self reference
+        auto result_queue = graph.search(entry_node_indices, query, eps, (k + 1)); // +1 for self reference
         auto sorted_result = topListAscending(result_queue);
 
         topList.push_back(k);                                   // size of the vector
@@ -401,14 +401,14 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
             const auto query = reinterpret_cast<const std::byte*>(repository.getFeature(y));
             const auto internal_index = graph.addNode(y, query);
 
-            auto neighbor_indizies = std::vector<uint32_t>();
+            auto neighbor_indices = std::vector<uint32_t>();
             auto neighbor_weights = std::vector<float>();
             for (uint32_t x = 0; x < size; x++) {
                 if(x == internal_index) continue;
-                neighbor_indizies.emplace_back(x);
+                neighbor_indices.emplace_back(x);
                 neighbor_weights.emplace_back(dist_func(query, reinterpret_cast<const std::byte*>(repository.getFeature(x)), dist_func_param));
             }
-            graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());
+            graph.changeEdges(internal_index, neighbor_indices.data(), neighbor_weights.data());
         }
     }
 
@@ -431,9 +431,9 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
             uint32_t bad_neighbor_index = 0;
             float bad_neighbor_weight = 0;
             const auto neighbor_weights = graph.getNeighborWeights(top_neighbor.getInternalIndex());
-            const auto neighbor_indizies = graph.getNeighborIndizies(top_neighbor.getInternalIndex());
+            const auto neighbor_indices = graph.getNeighborIndices(top_neighbor.getInternalIndex());
             for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-                const auto neighbor_index = neighbor_indizies[edge_idx];
+                const auto neighbor_index = neighbor_indices[edge_idx];
                 const auto neighbor_weight = neighbor_weights[edge_idx];
 
                 // the suggest neighbors might already be in the edge list of the new node
@@ -461,15 +461,15 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
             new_neighbors.emplace_back(bad_neighbor_index, bad_neighbor_distance);
         }
 
-        // sort the neighbors by their neighbor indizies and store them in the new node
+        // sort the neighbors by their neighbor indices and store them in the new node
         std::sort(new_neighbors.begin(), new_neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
-        auto neighbor_indizies = std::vector<uint32_t>();
+        auto neighbor_indices = std::vector<uint32_t>();
         auto neighbor_weights = std::vector<float>();
         for (auto &&neighbor : new_neighbors) {
-            neighbor_indizies.emplace_back(neighbor.first);
+            neighbor_indices.emplace_back(neighbor.first);
             neighbor_weights.emplace_back(neighbor.second);
         }
-        graph.changeEdges(internal_index, neighbor_indizies.data(), neighbor_weights.data());
+        graph.changeEdges(internal_index, neighbor_indices.data(), neighbor_weights.data());
 
         if(label % 10000 == 0) {
             auto quality = deglib::analysis::calc_avg_edge_weight(graph);
@@ -490,7 +490,7 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
 static void test_limit_distance_computation(const char* graph_file, const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& answer, const uint32_t max_distance_count, const uint32_t k) {
 
     const auto graph = deglib::graph::load_readonly_graph(graph_file);
-    const auto entry_node_indizies = std::vector<uint32_t> { graph.getInternalIndex(0) };
+    const auto entry_node_indices = std::vector<uint32_t> { graph.getInternalIndex(0) };
 
     // compute graph distortion
     auto distortion = 0.;
@@ -502,7 +502,7 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
         const auto size = graph.size();
         for (uint32_t n = 0; n < size; n++) {
             const auto fv1 = graph.getFeatureVector(n);
-            const auto neighborIds = graph.getNeighborIndizies(n); 
+            const auto neighborIds = graph.getNeighborIndices(n); 
             for (uint32_t e = 0; e < edges_per_node; e++) {
                 const auto fv2 = graph.getFeatureVector(neighborIds[e]);
                 const auto dist = dist_func(fv1, fv2, dist_func_param);
@@ -526,7 +526,7 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
         for (int i = 0; i < query_repository.size(); i++)
         {
             auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
-            auto result_queue = graph.search(entry_node_indizies, query, eps, k, max_distance_count);
+            auto result_queue = graph.search(entry_node_indices, query, eps, k, max_distance_count);
 
             const auto gt = answer[i];
             total += result_queue.size();
@@ -634,12 +634,12 @@ static void randomize_and_test_knng(const char* initial_graph_file, const std::f
     fmt::print("Find the worst egdes in the current graph {}\n", initial_graph_file);
     auto all_sorted_edges = std::vector<std::vector<std::pair<uint32_t,float>>>(size); // for every node there is a vector of sorted edges
     for (uint32_t n = 0; n < size; n++) {
-        auto indizies = graph.getNeighborIndizies(n);
+        auto indices = graph.getNeighborIndices(n);
         auto weights = graph.getNeighborWeights(n);
 
         auto& sorted_edges = all_sorted_edges[n];
         for (size_t e = 0; e < edges_per_node; e++)
-            sorted_edges.emplace_back(indizies[e], weights[e]);
+            sorted_edges.emplace_back(indices[e], weights[e]);
         
         // sort edges by weight
         std::sort(sorted_edges.begin(), sorted_edges.end(), [](const auto& x, const auto& y){return x.second < y.second;});

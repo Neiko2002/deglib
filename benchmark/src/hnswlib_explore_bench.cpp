@@ -24,13 +24,13 @@ static std::vector<tsl::robin_set<size_t>> get_ground_truth(const uint32_t* grou
 
 static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg, const float* query_repository,
                          const std::vector<tsl::robin_set<size_t>>& ground_truth, const size_t query_dims,
-                         const std::vector<std::vector<uint32_t>>& entry_node_indizies,
+                         const std::vector<std::vector<uint32_t>>& entry_node_indices,
                          const uint32_t k, const uint32_t max_distance_count)
 {
     size_t correct = 0;
     size_t total = 0;
     for (int i = 0; i < ground_truth.size(); i++) {
-        auto entry_node = entry_node_indizies[i][0];
+        auto entry_node = entry_node_indices[i][0];
 
         auto gt = ground_truth[i];
         auto result_queue = appr_alg.explore(entry_node, k, max_distance_count);
@@ -53,23 +53,24 @@ static void test_vs_recall_explore(hnswlib::HierarchicalNSW<float>& appr_alg, co
                            const size_t k)
 {
     // reproduceable entry point for the graph search
-    auto entry_node_indizies = std::vector<std::vector<uint32_t>>();
+    auto entry_node_indices = std::vector<std::vector<uint32_t>>();
     for (size_t i = 0; i < ground_truth.size(); i++) {
         auto entry_node = std::vector<uint32_t>(entry_nodes + i * entry_node_dims, entry_nodes + (i+1) * entry_node_dims);
-        entry_node_indizies.emplace_back(entry_node);
+        entry_node_indices.emplace_back(entry_node);
     }
 
     // try different k values
-    uint32_t steps = 100;
+    uint32_t steps = 100
     for (uint32_t i = 0; i <= steps; i++) {
         const auto max_distance_count = k + (k/10 * i);
+        // const auto max_distance_count = 1 + i;
 
         appr_alg.setEf(k*2);
         appr_alg.metric_distance_computations = 0;
         appr_alg.metric_hops = 0;
 
         auto stopw = StopW();
-        auto recall = test_approx_explore(appr_alg, query_repository, ground_truth, query_dims, entry_node_indizies, k, max_distance_count);
+        auto recall = test_approx_explore(appr_alg, query_repository, ground_truth, query_dims, entry_node_indices, k, max_distance_count);
         auto time_us_per_query = stopw.getElapsedTimeMicro() / ground_truth.size();
 
         float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * ground_truth.size());
@@ -95,6 +96,12 @@ int main()
         std::cout << "_OPENMP " << omp_get_num_threads() << " threads" << std::endl;
     #endif
 
+
+    fmt::print("Testing  ...\n");
+    
+    auto data_path = std::filesystem::path(DATA_PATH);
+    fmt::print("Data dir  {} \n", data_path.string().c_str());
+
     size_t query_size = 10000;
     size_t base_size = 1000000;
     size_t top_k = 100;
@@ -105,11 +112,6 @@ int main()
     int M = 24;
     size_t k = 1000;  // k at test time
 
-    fmt::print("Testing  ...\n");
-    
-    auto data_path = std::filesystem::path(DATA_PATH);
-    fmt::print("Data dir  {} \n", data_path.string().c_str());
-
     const auto path_query = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
     const auto path_groundtruth = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
     const auto path_entry = (data_path / "SIFT1M/sift_explore_entry_node.ivecs").string();
@@ -118,6 +120,28 @@ int main()
     char path_index[1024];
     const auto path_index_template = (data_path / "hnsw/sift1m_ef_%d_M_%d.hnsw").string();
     std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
+
+
+    // // 2D Graph
+    // size_t query_size = 1;
+    // size_t base_size = 14;
+    // size_t top_k = 5;
+    // size_t vecdim = 2;
+    // int threads = 1;
+    
+    // int efConstruction = 500;
+    // int M = 4;
+    // size_t k = 10;  // k at test time
+
+    // const auto path_query = (data_path / "explore.fvecs").string();
+    // const auto path_groundtruth = (data_path / "explore_gt.ivecs").string();
+    // const auto path_entry = (data_path / "explore_entry_node.ivecs").string();
+    // const auto path_basedata = (data_path / "base.fvecs").string();
+    // const auto path_index_template = (data_path / "2dgraph_ef_%d_M_%d.hnsw").string();
+    // char path_index[1024];
+    // std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
+
+
 
     auto ground_truth = ivecs_read(path_groundtruth.c_str(), top_k, query_size);
     auto query_features = fvecs_read(path_query.c_str(), vecdim, query_size);

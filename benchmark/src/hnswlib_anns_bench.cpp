@@ -49,9 +49,9 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
                            const std::vector<tsl::robin_set<size_t>>& ground_truth, const size_t query_dims,
                            const size_t k)
 {
-    //std::vector<size_t> efs = { 100, 140, 171, 206, 249 }; // sift1m_ef_500_M_24 = 100, 140, 171, 206, 249
+    std::vector<size_t> efs = { 100, 140, 171, 206, 249, 500, 1000 }; // sift1m_ef_500_M_24 = 100, 140, 171, 206, 249
     //std::vector<size_t> efs = { 400, 500, 750, 1000, 1500, 2000, 2500, 3000 }; // glove-100_ef_2500_M_2 = 400, 500, 750, 1000, 1500, 2000, 2500, 3000
-    std::vector<size_t> efs = { 2500, 4000, 7000, 10000 }; // glove-100_ef_2500_M_2 = 400, 500, 750, 1000, 1500, 2000, 2500, 3000
+    // std::vector<size_t> efs = { 2500, 4000, 7000, 10000 }; // glove-100_ef_2500_M_2 = 400, 500, 750, 1000, 1500, 2000, 2500, 3000
     for (size_t ef : efs)
     {
         appr_alg.setEf(ef);
@@ -92,7 +92,7 @@ int main()
 
     const int threads = 1;    
     const auto explore = false;
-    const size_t k = 100;  // k at test time
+    const size_t k = 5;  // k at test time
 
     // // GloVe
     // const int efConstruction = 2500;
@@ -106,24 +106,44 @@ int main()
     // const auto path_index_template = (data_path / "hnsw/glove-100_ef_%d_M_%d.hnsw").string();
     // std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
 
-    // SIFT
-    const int efConstruction = 600;
-    const int M = 25;
+    // // SIFT
+    // const int efConstruction = 500;
+    // const int M = 25;
 
-    const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
-    const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
-    const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
+    // const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
+    // // const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
 
+    // char path_index[1024];
+    // const auto path_index_template = (data_path / "sift1m_ef_%d_M_%d.hnsw").string();
+    // // const auto path_index_template = (data_path / "hnsw/sift1m_ef_%d_M_%d_preOrder232076720.test.hnsw").string();
+    // std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
+
+    // size_t query_size = 10000;
+    // size_t base_size = 1000000;
+    // size_t top_k = 100;
+    // size_t vecdim = 128;
+
+
+    // 2D Graph
+    const int efConstruction = 500;
+    const int M = 4;
+    const auto path_query = (data_path / "query.fvecs").string();
+    const auto path_groundtruth = (data_path / "query_gt.ivecs").string();
+    const auto path_basedata = (data_path / "base.fvecs").string();
+    const auto path_index_template = (data_path / "2dgraph_ef_%d_M_%d.hnsw").string();
     char path_index[1024];
-    const auto path_index_template = (data_path / "hnsw/sift1m_ef_%d_M_%d.hnsw").string();
     std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
 
+    size_t query_size = 1;
+    size_t base_size = 14;
+    size_t top_k = 5;
+    size_t vecdim = 2;
 
 
-    size_t query_size = 10000;
-    size_t base_size = 1000000;
-    size_t top_k = 100;
-    size_t vecdim = 128;
+
 
     auto ground_truth = ivecs_read(path_groundtruth.c_str(), top_k, query_size);
     auto query_features = fvecs_read(path_query.c_str(), vecdim, query_size);
@@ -139,11 +159,23 @@ int main()
     }
     else
     {
+        // the order in which the features should be used
+        // std::error_code ec{};
+        // auto ifstream = std::ifstream(order_file.c_str(), std::ios::binary);
+        // auto order_array = std::make_unique<uint32_t[]>(base_size);
+        // ifstream.read(reinterpret_cast<char*>(order_array.get()), base_size * sizeof(uint32_t));
+        // ifstream.close();
+
         std::cout << "Building index:" << std::endl;
         appr_alg = new hnswlib::HierarchicalNSW<float>(&l2space, base_size, M, efConstruction);
 
-        int j1 = 0;
-        appr_alg->addPoint((void*)(base_features), (size_t)j1);
+        // add first data as a root node
+        {
+            auto label = 0;
+            // auto label = order_array[0];
+            auto feature = base_features + vecdim * label;
+            appr_alg->addPoint((void*)(feature), (size_t)label);
+        }
 
         StopW stopw = StopW();
         StopW stopw_full = StopW();
@@ -153,21 +185,23 @@ int main()
 #pragma omp parallel for
         for (int i = 1; i < base_size; i++)
         {
-            int j2 = 0;
+            int label = 0;
 
 #pragma omp critical
             {
-                j1++;
-                j2 = j1;
-                if (j1 % report_every == 0)
+                label = i;
+                // label = order_array[i];
+                if (i % report_every == 0)
                 {
-                    std::cout << j1 / (0.01 * base_size) << " %, "
+                    std::cout << i / (0.01 * base_size) << " %, "
                               << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
                               << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
                     stopw.reset();
                 }
             }
-            appr_alg->addPoint((void*)(base_features + vecdim * j1), (size_t)j2);
+
+            auto feature = base_features + vecdim * label;
+            appr_alg->addPoint((void*)(feature), (size_t)label);
         }
 
         std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds" << std::endl;

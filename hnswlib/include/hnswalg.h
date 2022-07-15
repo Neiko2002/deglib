@@ -281,6 +281,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
             lowerBound = dist;
             top_candidates.emplace(dist, ep_id);
             candidate_set.emplace(-dist, ep_id);
+
+            if (collect_metrics)
+                this->metric_distance_computations++;
         }
         else
         {
@@ -367,15 +370,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
 
-        dist_t lowerBound;
+        dist_t lowerBound ;
         if (!has_deletions || !isMarkedDeleted(ep_id))
         {
-            dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
-            distance_computation_count++;
-            if (collect_metrics)
-                this->metric_distance_computations++;
+            // entry vertex is also the query vertex (data_point)
+            dist_t dist = 0;
             lowerBound = dist;
-            top_candidates.emplace(dist, ep_id);
             candidate_set.emplace(-dist, ep_id);
         }
         else
