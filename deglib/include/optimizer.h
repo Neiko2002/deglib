@@ -11,6 +11,7 @@
 #include <fmt/core.h>
 
 #include "graph.h"
+#include "analysis.h"
 
 namespace deglib::builder
 {
@@ -63,27 +64,6 @@ class EvenRegularGraphOptimizer {
       return topList;
     }
 
-    /**
-     * Is the vertex_index a RNG conform neighbor if it gets connected to target_index?
-     * 
-     * Does vertex_index has a neighbor which is connected to the target_index and has a lower weight?
-     */
-    static auto checkRNG(const deglib::graph::MutableGraph& graph, const uint32_t edges_per_node, const uint32_t vertex_index, const uint32_t target_index, const float vertex_target_weight) {
-        const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
-        const auto neighbor_weights = graph.getNeighborWeights(vertex_index);
-        for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-          const auto neighbor_index = neighbor_indices[edge_idx];
-
-          // skip the neighbor if it is also the target_index
-          if(neighbor_index != target_index) {
-            const auto neighbor_target_weight = graph.getEdgeWeight(neighbor_index, target_index);
-            if(neighbor_target_weight >= 0 && vertex_target_weight > std::max(neighbor_weights[edge_idx], neighbor_target_weight)) {
-              return false;
-            }
-          }
-        }
-      return true;
-    }
 
   public:
 
@@ -110,7 +90,7 @@ class EvenRegularGraphOptimizer {
           const auto neighbor_index = neighbor_indices[n];
           const auto neighbor_weight = neighbor_weights[n];
 
-          if(checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
+          if(deglib::analysis::checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
             //fmt::print("non-RNG between {} and {}\n", vertex_index, neighbor_index);
             graph.changeEdge(vertex_index, neighbor_index, vertex_index, 0);
             graph.changeEdge(neighbor_index, vertex_index, neighbor_index, 0);
@@ -158,7 +138,7 @@ class EvenRegularGraphOptimizer {
         for (uint32_t n = 0; n < edge_per_node; n++) {
           const auto neighbor_index = neighbor_indices[n];
           const auto neighbor_weight = neighbor_weights[n];
-          if(checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
+          if(deglib::analysis::checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
             //fmt::print("Found a none rng-conform edge between {} {}\n", vertex_index, neighbor_index);
             noneRNGConformNeighborIndices.emplace_back(neighbor_index);
           }
@@ -171,7 +151,7 @@ class EvenRegularGraphOptimizer {
           for (size_t n2 = n1; n2 < noneRNGConformNeighborIndices.size(); n2++) {
             const auto neighbor_index2 = noneRNGConformNeighborIndices[n2];
             const auto neighbors_weight = graph.getEdgeWeight(neighbor_index1, neighbor_index2);
-            if(neighbors_weight >= 0 && checkRNG(graph, edge_per_node, neighbor_index1, neighbor_index2, neighbors_weight) == false) {
+            if(neighbors_weight >= 0 && deglib::analysis::checkRNG(graph, edge_per_node, neighbor_index1, neighbor_index2, neighbors_weight) == false) {
               //fmt::print("Found three none rng-conform edges between three vertices: {} {} {}\n", vertex_index, neighbor_index1, neighbor_index2);
 
               const auto weight_sum = neighbors_weight + graph.getEdgeWeight(vertex_index, neighbor_index1) + graph.getEdgeWeight(vertex_index, neighbor_index2);

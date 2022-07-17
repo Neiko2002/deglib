@@ -136,6 +136,66 @@ namespace deglib::analysis
     }
 
     /**
+     * Is the vertex_index a RNG conform neighbor if it gets connected to target_index?
+     * 
+     * Does vertex_index has a neighbor which is connected to the target_index and has a lower weight?
+     */
+    static auto checkRNG(const deglib::graph::MutableGraph& graph, const uint32_t edges_per_node, const uint32_t vertex_index, const uint32_t target_index, const float vertex_target_weight) {
+      const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
+      const auto neighbor_weight = graph.getNeighborWeights(vertex_index);
+      for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
+        const auto neighbor_target_weight = graph.getEdgeWeight(neighbor_indices[edge_idx], target_index);  
+        if(neighbor_target_weight >= 0 && vertex_target_weight > std::max(neighbor_weight[edge_idx], neighbor_target_weight)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    /**
+     * Is the vertex_index a RNG conform neighbor if it gets connected to target_index?
+     */
+    static auto checkRNG(const deglib::graph::MutableGraph& graph, const uint32_t vertex_index, const uint32_t target_index, const std::vector<std::pair<uint32_t, float>>& new_neighbors) {
+      const auto dist_func = graph.getFeatureSpace().get_dist_func();
+      const auto dist_func_param = graph.getFeatureSpace().get_dist_func_param();
+      const float vertex_target_weight = dist_func(graph.getFeatureVector(vertex_index), graph.getFeatureVector(target_index), dist_func_param); 
+
+      const auto neighbor_size = new_neighbors.size();
+      for (size_t n = 0; n < neighbor_size; n++) {
+        const auto& new_neighbor = new_neighbors[n];
+        const auto neighbor_target_weight = graph.getEdgeWeight(new_neighbor.first, target_index);
+        if(neighbor_target_weight >= 0 && vertex_target_weight > std::max(new_neighbor.second, neighbor_target_weight)) {
+         return false;
+        }
+      }
+      return true;
+    }
+
+    static uint32_t calc_non_rng_edges(const deglib::graph::MutableGraph& graph) {
+        const auto node_count = graph.size();
+        const auto edge_per_node =graph.getEdgesPerNode();
+
+        uint32_t removed_rng_edges = 0;
+        for (uint32_t i = 0; i < node_count; i++) {
+            const auto vertex_index = i;
+
+            const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
+            const auto neighbor_weights = graph.getNeighborWeights(vertex_index);
+
+            // find all none rng conform neighbors
+            for (uint32_t n = 0; n < edge_per_node; n++) {
+                const auto neighbor_index = neighbor_indices[n];
+                const auto neighbor_weight = neighbor_weights[n];
+
+                if(checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) 
+                    removed_rng_edges++;
+            }
+        }
+
+        return removed_rng_edges;
+    }
+
+    /**
      * check if the graph is connected and contains only one graph component
      */
     static bool check_graph_connectivity(const deglib::search::SearchGraph& graph) {

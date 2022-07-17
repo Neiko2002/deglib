@@ -113,12 +113,31 @@ class SearchGraph
     virtual const bool hasNode(const uint32_t external_label) const = 0;
     virtual const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const = 0;
 
+    const std::vector<uint32_t> getEntryNodeIndices() const {
+      return std::vector<uint32_t> { getInternalIndex(0) };
+    }
+
     virtual const bool saveGraph(const char* path_to_graph) const = 0;
 
     /**
      * Performan a search but stops when the to_node was found.
      */
     virtual std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indices, const uint32_t to_node, const float eps, const uint32_t k) const = 0;
+
+
+    /**
+     * Approximate nearest neighbor search based on yahoo's range search algorithm for graphs.
+     * 
+     * Eps greater 0 extends the search range and takes additional graph nodes into account. 
+     * 
+     * It is possible to limit the amount of work by specifing a maximal number of distances to be calculated.
+     * For lower numbers it is recommended to set eps to 0 since its very unlikly the method can make use of the extended the search range.
+     * 
+     * The starting point of the search is determined be the graph
+     */
+    deglib::search::ResultSet search(const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const {
+      return search(getEntryNodeIndices(), query, eps,  k, max_distance_computation_count);
+    };
 
     /**
      * Approximate nearest neighbor search based on yahoo's range search algorithm for graphs.

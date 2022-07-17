@@ -27,6 +27,13 @@ struct C {
 };
 */
 
+struct BoostedEdge {
+  uint32_t vertex;
+  float weight;
+  float boost; // second but boosted
+  bool rng;
+};
+
 struct BuilderAddTask {
   uint32_t label;
   uint64_t timestamp;
@@ -85,7 +92,11 @@ class EvenRegularGraphBuilder {
 
     // should the build loop run until the stop method is called
     bool stop_building_ = false;
-    const float rng_factor = 1.5f;
+    const float rng_factor_ = 1.5f;
+
+    // compute the most median entry node for a good nearest neighbor search
+    std::vector<float> sum_fv_;
+    std::vector<uint32_t> entry_node_indices_;
 
   public:
 
@@ -96,6 +107,18 @@ class EvenRegularGraphBuilder {
       : graph_(graph), rnd_(rnd), extend_k_(extend_k), extend_eps_(extend_eps), extend_highLID_(extend_highLID), 
         improve_k_(improve_k), improve_eps_(improve_eps), improve_highLID_(improve_highLID), improve_step_factor_(improve_step_factor),
         max_path_length_(max_path_length), swap_tries_(swap_tries), additional_swap_tries_(additional_swap_tries) {
+
+        // compute the most median entry node for a good nearest neighbor search
+        entry_node_indices_ = std::vector<uint32_t> { graph_.getInternalIndex(0) };
+        const auto feature_dims = graph.getFeatureSpace().dim();
+        const auto graph_size = (uint32_t) graph.size();
+        sum_fv_ = std::vector<float>(feature_dims);
+        for (uint32_t i = 0; i < graph_size; i++) {
+            auto fv = reinterpret_cast<const float*>(graph.getFeatureVector(i));
+            for (size_t dim = 0; dim < feature_dims; dim++) 
+                sum_fv_[dim] += fv[dim];
+        }
+        updateEntryNode();
     }
 
     EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, const uint32_t swaps) 
@@ -128,6 +151,40 @@ class EvenRegularGraphBuilder {
     }
 
   private:
+
+    void addFeatureToMean(const std::byte* new_feature) {
+      const auto feature = reinterpret_cast<const float*>(new_feature);
+      const auto feature_dims = graph_.getFeatureSpace().dim();
+      for (size_t dim = 0; dim < feature_dims; dim++) 
+        sum_fv_[dim] += feature[dim];
+
+      if(graph_.size() % 1000 == 0) 
+        updateEntryNode();
+    }
+
+    void removeFeatureFromMean(const std::byte* new_feature) {
+      const auto feature = reinterpret_cast<const float*>(new_feature);
+      const auto feature_dims = graph_.getFeatureSpace().dim();
+      for (size_t dim = 0; dim < feature_dims; dim++) 
+        sum_fv_[dim] -= feature[dim];
+
+      if(graph_.size() % 1000 == 0) 
+        updateEntryNode();
+    }
+
+    void updateEntryNode() {
+      if(graph_.size() > graph_.getEdgesPerNode() + 1) {
+        const auto feature_dims = graph_.getFeatureSpace().dim();
+        const auto graph_size = graph_.size();
+        auto avg_fv = std::vector<float>(feature_dims);
+        for (size_t dim = 0; dim < feature_dims; dim++) 
+          avg_fv[dim] = sum_fv_[dim] / graph_size;
+
+        const auto seed = std::vector<uint32_t> { graph_.getInternalIndex(0) };
+        auto result_queue = graph_.search(seed, reinterpret_cast<const std::byte*>(avg_fv.data()), extend_eps_, extend_k_);
+        entry_node_indices_[0] = result_queue.top().getInternalIndex();
+      }
+    }
   
     auto size() {
       return this->new_entry_queue_.size();
@@ -159,39 +216,8 @@ class EvenRegularGraphBuilder {
       return topList;
     }
 
-    /**
-     * Is the vertex_index a RNG conform neighbor if it gets connected to target_index?
-     * 
-     * Does vertex_index has a neighbor which is connected to the target_index and has a lower weight?
-     */
-    static auto checkRNG(const deglib::graph::MutableGraph& graph, const uint32_t edges_per_node, const uint32_t vertex_index, const uint32_t target_index, const float vertex_target_weight) {
-      const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
-      const auto neighbor_weight = graph.getNeighborWeights(vertex_index);
-      for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-        const auto neighbor_target_weight = graph.getEdgeWeight(neighbor_indices[edge_idx], target_index);  
-        if(neighbor_target_weight >= 0 && vertex_target_weight > std::max(neighbor_weight[edge_idx], neighbor_target_weight)) {
-          return false;
-        }
-      }
-      return true;
-    }
 
-    static auto sRNG(const deglib::graph::MutableGraph& graph, const uint32_t vertex_index, const uint32_t target_index, const std::vector<std::pair<uint32_t, float>>& new_neighbors) {
-      // for computing distances to neighbors not in the result queue
-      const auto dist_func = graph.getFeatureSpace().get_dist_func();
-      const auto dist_func_param = graph.getFeatureSpace().get_dist_func_param();
-      const float vertex_target_weight = dist_func(graph.getFeatureVector(vertex_index), graph.getFeatureVector(target_index), dist_func_param); 
 
-      const auto neighbor_size = new_neighbors.size();
-      for (size_t n = 0; n < neighbor_size; n++) {
-        const auto& new_neighbor = new_neighbors[n];
-        const auto neighbor_target_weight = graph.getEdgeWeight(new_neighbor.first, target_index);
-        if(neighbor_target_weight >= 0 && vertex_target_weight > std::max(new_neighbor.second, neighbor_target_weight)) {
-         return false;
-        }
-      }
-      return true;
-    }
 
 
     /**
@@ -216,8 +242,10 @@ class EvenRegularGraphBuilder {
       }
 
       // setup the nodes first, to be able to get their internal indices
-      for (auto &&entry : entries)   
+      for (auto &&entry : entries) {
         graph.addNode(entry.label, entry.feature.data());
+        addFeatureToMean(entry.feature.data());
+      }
       
       // setup the edges for every node
       const auto edges_per_node = graph.getEdgesPerNode();
@@ -283,6 +311,7 @@ class EvenRegularGraphBuilder {
       }
 
       // add an empty node to the graph (no neighbor information yet)
+      addFeatureToMean(new_node_feature);
       const auto internal_index = graph.addNode(external_label, new_node_feature);
 
       // for computing distances to neighbors not in the result queue
@@ -290,21 +319,22 @@ class EvenRegularGraphBuilder {
       const auto dist_func_param = graph.getFeatureSpace().get_dist_func_param();
      
       // adding neighbors happens in two phases, the first tries to retain RNG, the second adds them without checking
-      bool check_rng = true;
+      int check_rng_phase = 1;
 
       // remove an edge of the good neighbors and connect them with this new node
       auto new_neighbors = std::vector<std::pair<uint32_t, float>>();
       while(new_neighbors.size() < edges_per_node) {
         for (size_t i = 0; i < results.size() && new_neighbors.size() < edges_per_node; i++) {
-          const auto& result = results[i];
+          const auto candidate_index = results[i].getInternalIndex();
+          const auto candidate_weight = results[i].getDistance();
 
           // check if the node is already in the edge list of the new node (added during a previous loop-run)
           // since all edges are undirected and the edge information of the new node does not yet exist, we search the other way around.
-          if(graph.hasEdge(result.getInternalIndex(), internal_index)) 
+          if(graph.hasEdge(candidate_index, internal_index)) 
             continue;
 
-          // does this vertex has a neighbor which is connected to the new vertex and has a lower distance?
-          if(check_rng && checkRNG(graph, edges_per_node, result.getInternalIndex(), internal_index, result.getDistance()) == false) 
+          // does the candidate has a neighbor which is connected to the new vertex and has a lower distance?
+          if(check_rng_phase <= 1 && deglib::analysis::checkRNG(graph, edges_per_node, candidate_index, internal_index, candidate_weight) == false) 
             continue;
 
           // This version is good for high LID datasets or small graphs with low distance count limit during ANNS
@@ -314,13 +344,13 @@ class EvenRegularGraphBuilder {
 
             // find the worst edge of the new neighbor
             float new_neighbor_weight = -1;
-            const auto neighbor_indices = graph.getNeighborIndices(result.getInternalIndex());
-            const auto neighbor_weights = graph.getNeighborWeights(result.getInternalIndex());
+            const auto neighbor_indices = graph.getNeighborIndices(candidate_index);
+            const auto neighbor_weights = graph.getNeighborWeights(candidate_index);
 
-            float avg_weight = 0;
-            for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) 
-              avg_weight += neighbor_weights[edge_idx];
-            avg_weight /= edges_per_node;
+            // float avg_weight = 0;
+            // for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) 
+            //   avg_weight += neighbor_weights[edge_idx];
+            // avg_weight /= edges_per_node;
 
             for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
               const auto neighbor_index = neighbor_indices[edge_idx];
@@ -329,13 +359,18 @@ class EvenRegularGraphBuilder {
               // the suggested neighbor might already be in the edge list of the new node
               // the weight of the neighbor might not be worst than the current worst one
               if(neighbor_weight > new_neighbor_weight && graph.hasEdge(neighbor_index, internal_index) == false) {
+                
+                // find a non-RNG edge between the candidate_index and neighbor_index, which would be RNG conform between internal_index and neighbor_index
                 auto factor = 1.0f;
-                // if(checkRNG(graph, edges_per_node, result.getInternalIndex(), neighbor_index, neighbor_weight) == false && sRNG(graph, internal_index, neighbor_index, new_neighbors))
-                if(checkRNG(graph, edges_per_node, result.getInternalIndex(), neighbor_index, neighbor_weight) == false)
-                  factor = rng_factor;
+                // if(check_rng_phase <= 2 && deglib::analysis::checkRNG(graph, internal_index, neighbor_index, new_neighbors) == false)
+                //   continue;
+                // if(check_rng_phase <= 2 && deglib::analysis::checkRNG(graph, edges_per_node, candidate_index, neighbor_index, neighbor_weight))
+                //   continue;
+                if(deglib::analysis::checkRNG(graph, edges_per_node, candidate_index, neighbor_index, neighbor_weight) == false)
+                  factor *= rng_factor_;
+                // if(deglib::analysis::checkRNG(graph, internal_index, neighbor_index, new_neighbors))
+                //   factor *= rng_factor_/2;
 
-                //const auto factor = checkRNG(graph, edges_per_node, result.getInternalIndex(), neighbor_index, neighbor_weight) ? 1.0f : rng_factor;
-                //const auto factor = checkRNG(graph, edges_per_node, result.getInternalIndex(), neighbor_index, neighbor_weight) ? 1.0f : std::max(1.0f, neighbor_weight/avg_weight);
                 new_neighbor_weight = neighbor_weight * factor;
                 new_neighbor_index = neighbor_index;
               }
@@ -343,23 +378,24 @@ class EvenRegularGraphBuilder {
 
             // new_neighbor_weight == -1 should not be possible, otherwise the new node is connected to every node in the neighbor-list of the result-node and still has space for more
             if(new_neighbor_weight == -1) {
-              fmt::print(stderr, "it was not possible to find a bad edge in the neighbor list of node {} which would connect to node {} \n", result.getInternalIndex(), internal_index);
-              perror("");
-              abort();
+              continue;
+              // fmt::print(stderr, "it was not possible to find a bad edge in the neighbor list of node {} which would connect to node {} \n", candidate_index, internal_index);
+              // perror("");
+              // abort();
             }
 
             new_neighbor_distance = dist_func(new_node_feature, graph.getFeatureVector(new_neighbor_index), dist_func_param); 
           }
 
           // place the new node in the edge list of the result-node
-          graph.changeEdge(result.getInternalIndex(), new_neighbor_index, internal_index, result.getDistance());
-          new_neighbors.emplace_back(result.getInternalIndex(), result.getDistance());
+          graph.changeEdge(candidate_index, new_neighbor_index, internal_index, candidate_weight);
+          new_neighbors.emplace_back(candidate_index, candidate_weight);
 
           // place the new node in the edge list of the best edge neighbor
-          graph.changeEdge(new_neighbor_index, result.getInternalIndex(), internal_index, new_neighbor_distance);
+          graph.changeEdge(new_neighbor_index, candidate_index, internal_index, new_neighbor_distance);
           new_neighbors.emplace_back(new_neighbor_index, new_neighbor_distance);
         }
-        check_rng = false;
+        check_rng_phase++;
       }
 
       if(new_neighbors.size() < edges_per_node) {
@@ -383,7 +419,7 @@ class EvenRegularGraphBuilder {
 
       //try to improve some of the non-perfect edges
       {
-        auto nonperfect_neighbors = std::vector<std::pair<uint32_t, float>>();
+        auto nonperfect_neighbors = std::vector<BoostedEdge>();
         for (size_t i = 0; i < new_neighbors.size(); i++) {
           const auto& neighbor = new_neighbors[i];
 
@@ -394,16 +430,20 @@ class EvenRegularGraphBuilder {
               perfect = true;
               break;
             }
-          }
+          } 
 
-          if(perfect == false && graph.hasEdge(internal_index, neighbor.first)) 
-            nonperfect_neighbors.emplace_back(neighbor.first, neighbor.second);
+          if(perfect == false && graph.hasEdge(internal_index, neighbor.first)) {
+            bool rng = deglib::analysis::checkRNG(graph, edges_per_node, internal_index, neighbor.first, neighbor.second);
+            nonperfect_neighbors.emplace_back(neighbor.first, neighbor.second, neighbor.second, rng);
+          }
         }
 
-        std::sort(nonperfect_neighbors.begin(), nonperfect_neighbors.end(), [](const auto& x, const auto& y){return x.second < y.second;});
-        for (size_t i = 0; i < nonperfect_neighbors.size() / 2; i++) // first half of non perfect edges
-          if(graph.hasEdge(internal_index, nonperfect_neighbors[i].first)) 
-            improveEdges(internal_index, nonperfect_neighbors[i].first, nonperfect_neighbors[i].second);
+        std::sort(nonperfect_neighbors.begin(), nonperfect_neighbors.end(), [](const auto& x, const auto& y){return x.boost < y.boost;}); // low to high
+        for (size_t i = 0; i < nonperfect_neighbors.size(); i++) {
+          if(graph.hasEdge(internal_index, nonperfect_neighbors[i].vertex) && (nonperfect_neighbors[i].rng == false || i >= nonperfect_neighbors.size() / 2)) {
+            improveEdges(internal_index, nonperfect_neighbors[i].vertex, nonperfect_neighbors[i].weight);
+          }
+        }
       }
     }
 
@@ -448,9 +488,9 @@ class EvenRegularGraphBuilder {
           float dist23 = -1;
           float dist34 = -1;
 
-                  // const auto& feature_space = this->graph_.getFeatureSpace();
-                  // const auto dist_func = feature_space.get_dist_func();
-                  // const auto dist_func_param = feature_space.get_dist_func_param();
+          // const auto& feature_space = this->graph_.getFeatureSpace();
+          // const auto dist_func = feature_space.get_dist_func();
+          // const auto dist_func_param = feature_space.get_dist_func_param();
 
           // We use the descending order to find the worst swap combination with the best gain
           // Sometimes the gain between the two best combinations is the same, its better to use one with the bad edges to make later improvements easier
@@ -461,7 +501,7 @@ class EvenRegularGraphBuilder {
             if(node1 != new_node3 && node2 != new_node3 && graph.hasEdge(node2, new_node3) == false) {
 
               // does the vertex new_node3 has a neighbor which is connected to node2 and has a lower distance?
-              if(steps == 0 && checkRNG(graph, edges_per_node, new_node3, node2, result.getDistance()) == false) 
+              if(steps == 0 && deglib::analysis::checkRNG(graph, edges_per_node, new_node3, node2, result.getDistance()) == false) 
                 continue;
 
               // 1.1 When node2 and the new node 3 gets connected, the full graph connectivity is assured again, 
@@ -472,24 +512,24 @@ class EvenRegularGraphBuilder {
               const auto neighbor_indices = graph.getNeighborIndices(new_node3);
               const auto neighbor_weights = graph.getNeighborWeights(new_node3);
               
-              float avg_weight = 0;
-              for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) 
-                avg_weight += neighbor_weights[edge_idx];
-              avg_weight /= edges_per_node;
+              // float avg_weight = 0;
+              // for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) 
+              //   avg_weight += neighbor_weights[edge_idx];
+              // avg_weight /= edges_per_node;
 
               for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
                 uint32_t new_node4 = neighbor_indices[edge_idx];
 
+                // find a non-RNG edge between the new_node3 and new_node4, which would be RNG conform between node2 and new_node4
                 auto factor = 1.0f;
-                if(steps > 0 || checkRNG(graph, edges_per_node, new_node3, new_node4, neighbor_weights[edge_idx]) == false) {
-                //   //if(checkRNG(graph, edges_per_node, node2, new_node4, dist_func(node2_feature, graph.getFeatureVector(new_node4), dist_func_param)))
-                    factor = rng_factor;
-                }
+                // if(steps == 0 && deglib::analysis::checkRNG(graph, edges_per_node, new_node3, new_node4, neighbor_weights[edge_idx]) == false) 
+                //     factor *= rng_factor_;
+                // if(steps == 0 && deglib::analysis::checkRNG(graph, edges_per_node, node2, new_node4, dist_func(node2_feature, graph.getFeatureVector(new_node4), dist_func_param)))
+                //   factor *= rng_factor_/2;
 
                 // compute the gain of the graph distortion if this change would be applied
-                // const auto factor = (steps > 0 || checkRNG(graph, edges_per_node, new_node3, new_node4, neighbor_weights[edge_idx])) ? 1.0f : rng_factor;
-                //const auto factor = (steps > 0 || checkRNG(graph, edges_per_node, new_node3, new_node4, neighbor_weights[edge_idx])) ? 1.0f : std::max(1.0f, neighbor_weights[edge_idx]/avg_weight);
-                //const auto factor = 1;
+                // const auto factor = (steps > 0 || deglib::analysis::checkRNG(graph, edges_per_node, new_node3, new_node4, neighbor_weights[edge_idx])) ? 1.0f : rng_factor;
+                //const auto factor = (steps > 0 || deglib::analysis::checkRNG(graph, edges_per_node, new_node3, new_node4, neighbor_weights[edge_idx])) ? 1.0f : std::max(1.0f, neighbor_weights[edge_idx]/avg_weight);
                 const auto gain = total_gain - result.getDistance() + neighbor_weights[edge_idx]*factor;
 
                 // do not remove the edge which was just added
@@ -554,7 +594,7 @@ class EvenRegularGraphBuilder {
               const auto good_node_dist = result.getDistance();
 
               // does the vertex good_node has a neighbor which is connected to node4 and has a lower distance?
-              if(steps == 0 && checkRNG(graph, edges_per_node, good_node, node4, good_node_dist) == false) 
+              if(steps == 0 && deglib::analysis::checkRNG(graph, edges_per_node, good_node, node4, good_node_dist) == false) 
                 continue;
 
               // select any edge of the good node which improves the graph quality when replaced with a connection to node 4
@@ -565,7 +605,7 @@ class EvenRegularGraphBuilder {
 
                 // ignore edges where the second node is already connect to node4
                 if(node4 != selected_neighbor && graph.hasEdge(node4, selected_neighbor) == false) {
-                  const auto factor = 1;//checkRNG(graph, edges_per_node, good_node, selected_neighbor, neighbor_weights[i]) ? 1.0f : 1.5f;
+                  const auto factor = 1;//deglib::analysis::checkRNG(graph, edges_per_node, good_node, selected_neighbor, neighbor_weights[i]) ? 1.0f : 1.5f;
                   const auto old_neighbor_dist = neighbor_weights[i];
                   const auto new_neighbor_dist = dist_func(node4_feature, graph.getFeatureVector(selected_neighbor), dist_func_param);
 
@@ -683,7 +723,7 @@ class EvenRegularGraphBuilder {
       const auto neighbor_weights = graph.getNeighborWeights(node1);
       const auto neighbor_indices = graph.getNeighborIndices(node1);
       for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
-        bool is_rng = checkRNG(graph, edges_per_node, node1, neighbor_indices[edge_idx], neighbor_weights[edge_idx]);
+        bool is_rng = deglib::analysis::checkRNG(graph, edges_per_node, node1, neighbor_indices[edge_idx], neighbor_weights[edge_idx]);
 
         if((bad_is_rng == true && is_rng == false) || (bad_neighbor_weight < neighbor_weights[edge_idx] && bad_is_rng == is_rng)) {
           bad_neighbor_index = neighbor_indices[edge_idx];
@@ -757,7 +797,7 @@ class EvenRegularGraphBuilder {
         for (uint32_t n = 0; n < edge_per_node; n++) {
           const auto neighbor_index = neighbor_indices[n];
           const auto neighbor_weight = neighbor_weights[n];
-          if(checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
+          if(deglib::analysis::checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
             tested_none_rng_edges++;
 
             if(improveEdges(vertex_index, neighbor_index, neighbor_weight)) 

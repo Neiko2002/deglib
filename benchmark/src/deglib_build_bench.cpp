@@ -15,7 +15,7 @@ void rng_optimize_graph(const std::string& graph_file, const std::string& optimi
 
     fmt::print("Load graph {} \n", graph_file);
     auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
-    fmt::print("Graph with {} nodes \n", graph.size());
+    fmt::print("Graph with {} nodes and {} non-RNG edges \n", graph.size(), deglib::analysis::calc_non_rng_edges(graph));
     
     // auto optimizer = deglib::builder::EvenRegularGraphOptimizer(graph, rnd);
     // optimizer.removeNonRngEdges();
@@ -35,6 +35,8 @@ void rng_optimize_graph(const std::string& graph_file, const std::string& optimi
     // store the graph
     graph.saveGraph(optimized_graph_file.c_str());
     // graph.saveGraph((optimized_graph_file+"opt_again.deg").c_str());
+
+    fmt::print("The RNG optimized graph contains {} non-RNG edges\n", deglib::analysis::calc_non_rng_edges(graph)); 
 }
 
 void naive_reorder_graph(const std::string& graph_file_in, const std::string& order_file, const std::string& graph_file_out) {
@@ -118,8 +120,8 @@ void create_graph(const std::string repository_file, const std::string order_fil
     const bool improve_highLID = false;
     const uint8_t improve_step_factor = 0;
     const uint8_t max_path_length = 5; 
-    const uint32_t swap_tries = 1;
-    const uint32_t additional_swap_tries = 1;
+    const uint32_t swap_tries = 0;
+    const uint32_t additional_swap_tries = 0;
 
     // create a new graph
     const uint8_t edges_per_node = 30;
@@ -186,9 +188,11 @@ void create_graph(const std::string repository_file, const std::string order_fil
     // start the build process
     builder.build(improvement_callback, false);
 
-    // store the graph
+   // store the graph
     if(valid)
         graph.saveGraph(graph_file.c_str());
+
+    fmt::print("The graph contains {} non-RNG edges\n", deglib::analysis::calc_non_rng_edges(graph)); 
 }
 
 /**
@@ -209,14 +213,15 @@ void test_graph(const std::filesystem::path data_path, const std::string graph_f
     // const auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
     
     // generall graph stats
-    {
-        const auto mutable_graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
-        auto graph_memory = graph.getEdgesPerNode() * graph.size() * 8 / 1000000; // 4 bytes node id and 4 bytes for the weight
-        auto avg_weight = deglib::analysis::calc_avg_edge_weight(mutable_graph);
-        auto weight_histogram_ordered = deglib::analysis::calc_edge_weight_histogram(mutable_graph, true);
-        auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(mutable_graph, false);
-        fmt::print("Graph memory {}mb during build, avg weight {:.2f} (every 10%, Sorted: {:.1f}, InOrder: {:.1f})\n", graph_memory, avg_weight, fmt::join(weight_histogram_ordered, " "), fmt::join(weight_histogram, " ")); 
-    }
+    // {
+    //     const auto mutable_graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
+    //     auto graph_memory = graph.getEdgesPerNode() * graph.size() * 8 / 1000000; // 4 bytes node id and 4 bytes for the weight
+    //     auto avg_weight = deglib::analysis::calc_avg_edge_weight(mutable_graph);
+    //     auto weight_histogram_ordered = deglib::analysis::calc_edge_weight_histogram(mutable_graph, true);
+    //     auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(mutable_graph, false);
+    //     auto non_rng_edge_count = deglib::analysis::calc_non_rng_edges(mutable_graph); 
+    //     fmt::print("Graph memory {}mb during build, avg weight {:.2f}, {:8} non-rng edges, (every 10%, Sorted: {:.1f}, InOrder: {:.1f})\n", graph_memory, avg_weight, non_rng_edge_count, fmt::join(weight_histogram_ordered, " "), fmt::join(weight_histogram, " ")); 
+    // }
 
     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
     fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
@@ -248,8 +253,9 @@ int main() {
     // //SIFT1M
     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
     // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.rng_optimized.deg").string();
-    const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd1+1_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_swap_rng_opt.swap_pref_none_rng.deg").string();
-    const auto optimized_graph_file =   (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+3_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.swap_pref_none_rng.rng_opt.deg").string();
+    const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.deg").string();
+    const auto optimized_graph_file =   (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_swap_rng_double_opt.rng_optimized.deg").string();
+
 
     // ----------------------------------------------------------------------------------------------
     // --------------- TODO: Anstatt 5mio non-rng conform edges zu testen, werden die 5 schlechtesten edges eines jeden Knoten getestet
@@ -275,16 +281,17 @@ int main() {
     // const auto optimized_graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_swap_rng_opt.remove_non_rng_edges.deg").string();
 
     // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
-    // create_graph(repository_file, order_file, graph_file);
+    if(std::filesystem::exists(graph_file.c_str()) == false)
+        create_graph(repository_file, order_file, graph_file);
 
     // loads the graph from the drive and test it against the SIFT query data
     test_graph(data_path, graph_file, repeat_test, test_k);
 
 
-    // // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
+    // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
     // rng_optimize_graph(graph_file, optimized_graph_file);
 
-    // // loads the graph from the drive and test it against the SIFT query data
+    // loads the graph from the drive and test it against the SIFT query data
     // test_graph(data_path, optimized_graph_file, repeat_test, test_k);
 
 
