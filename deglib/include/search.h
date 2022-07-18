@@ -6,11 +6,6 @@
 namespace deglib::search
 {
 
-struct NodeDistance
-{
-    uint32_t internal_index_;
-    float distance_;
-};
 
 class ObjectDistance
 {
@@ -22,34 +17,30 @@ class ObjectDistance
 
     ObjectDistance(const uint32_t internal_index, const float distance) : internal_index_(internal_index), distance_(distance) {}
 
-    inline const uint32_t getInternalIndex() const { return internal_index_; }
-
-    inline const float getDistance() const { return distance_; }
-
-    inline bool operator==(const ObjectDistance& o) const { return (distance_ == o.distance_) && (internal_index_ == o.internal_index_); }
-
-    inline bool operator<(const ObjectDistance& o) const
-    {
-        if (distance_ == o.distance_)
-        {
-            return internal_index_ < o.internal_index_;
-        }
-        else
-        {
-            return distance_ < o.distance_;
-        }
+    inline const uint32_t getInternalIndex() const { 
+      return internal_index_; 
     }
 
-    inline bool operator>(const ObjectDistance& o) const
-    {
-        if (distance_ == o.distance_)
-        {
-            return internal_index_ > o.internal_index_;
-        }
-        else
-        {
-            return distance_ > o.distance_;
-        }
+    inline const float getDistance() const { 
+      return distance_; 
+    }
+
+    inline bool operator==(const ObjectDistance& o) const { 
+      return (distance_ == o.distance_) && (internal_index_ == o.internal_index_); 
+    }
+
+    inline bool operator<(const ObjectDistance& o) const {
+      if (distance_ == o.distance_)
+        return internal_index_ < o.internal_index_;
+      else
+        return distance_ < o.distance_;
+    }
+
+    inline bool operator>(const ObjectDistance& o) const {
+      if (distance_ == o.distance_)
+        return internal_index_ > o.internal_index_;
+      else
+        return distance_ > o.distance_;
     }
 };
 
@@ -62,15 +53,15 @@ class ObjectDistance
  * https://stackoverflow.com/questions/4484767/how-to-iterate-over-a-priority-queue
  * https://www.linuxtopia.org/online_books/programming_books/c++_practical_programming/c++_practical_programming_189.html
  */
-template<class Compare>
-class PQV : public std::vector<ObjectDistance> {
+template<class Compare, class ObjectType>
+class PQV : public std::vector<ObjectType> {
   Compare comp;
   public:
     PQV(Compare cmp = Compare()) : comp(cmp) {
       std::make_heap(this->begin(),this->end(), comp);
     }
 
-    const ObjectDistance& top() { return this->front(); }
+    const ObjectType& top() { return this->front(); }
 
     template <class... _Valty>
     void emplace(_Valty&&... _Val) {
@@ -78,7 +69,7 @@ class PQV : public std::vector<ObjectDistance> {
       std::push_heap(this->begin(), this->end(), comp);
     }
 
-    void push(const ObjectDistance& x) {
+    void push(const ObjectType& x) {
       this->push_back(x);
       std::push_heap(this->begin(),this->end(), comp);
     }
@@ -90,10 +81,10 @@ class PQV : public std::vector<ObjectDistance> {
 };
 
 // search result set containing node ids and distances
-typedef PQV<std::less<ObjectDistance>> ResultSet;
+typedef PQV<std::less<ObjectDistance>, ObjectDistance> ResultSet;
 
 // set of unchecked node ids
-typedef PQV<std::greater<ObjectDistance>> UncheckedSet;
+typedef PQV<std::greater<ObjectDistance>, ObjectDistance> UncheckedSet;
 
 
 

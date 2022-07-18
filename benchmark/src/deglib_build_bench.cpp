@@ -120,8 +120,8 @@ void create_graph(const std::string repository_file, const std::string order_fil
     const bool improve_highLID = false;
     const uint8_t improve_step_factor = 0;
     const uint8_t max_path_length = 5; 
-    const uint32_t swap_tries = 0;
-    const uint32_t additional_swap_tries = 0;
+    const uint32_t swap_tries = 3;
+    const uint32_t additional_swap_tries = 2;
 
     // create a new graph
     const uint8_t edges_per_node = 30;
@@ -210,6 +210,7 @@ void test_graph(const std::filesystem::path data_path, const std::string graph_f
     // load an existing graph
     fmt::print("Load graph {} \n", graph_file);
     const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
+    // const auto graph = deglib::graph::load_readonly_irregular_graph(graph_file.c_str());
     // const auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
     
     // generall graph stats
@@ -220,7 +221,9 @@ void test_graph(const std::filesystem::path data_path, const std::string graph_f
     //     auto weight_histogram_ordered = deglib::analysis::calc_edge_weight_histogram(mutable_graph, true);
     //     auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(mutable_graph, false);
     //     auto non_rng_edge_count = deglib::analysis::calc_non_rng_edges(mutable_graph); 
-    //     fmt::print("Graph memory {}mb during build, avg weight {:.2f}, {:8} non-rng edges, (every 10%, Sorted: {:.1f}, InOrder: {:.1f})\n", graph_memory, avg_weight, non_rng_edge_count, fmt::join(weight_histogram_ordered, " "), fmt::join(weight_histogram, " ")); 
+    //     auto valid_weights = deglib::analysis::check_graph_weights(mutable_graph);
+    //     auto connected = deglib::analysis::check_graph_connectivity(mutable_graph);
+    //     fmt::print("Graph memory {}mb during build, avg weight {:.2f}, {:8} non-rng edges, (every 10%, Sorted: {:.1f}, InOrder: {:.1f}), {} connected & {}\n", graph_memory, avg_weight, non_rng_edge_count, fmt::join(weight_histogram_ordered, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid"); 
     // }
 
     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
@@ -251,10 +254,9 @@ int main() {
     const auto data_path = std::filesystem::path(DATA_PATH);
 
     // //SIFT1M
-    const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.rng_optimized.deg").string();
-    const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.deg").string();
-    const auto optimized_graph_file =   (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_swap_rng_double_opt.rng_optimized.deg").string();
+    const auto repository_file =        (data_path / "SIFT1M/sift_base.fvecs").string();
+    const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.non_rng_removed.deg").string();
+    const auto optimized_graph_file =   (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.non_rng_optimized.deg").string();
 
 
     // ----------------------------------------------------------------------------------------------
@@ -277,8 +279,8 @@ int main() {
 
     // 2DGraph
     // const auto repository_file = (data_path / "base.fvecs").string();
-    // const auto graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_swap_rng_opt.deg").string();
-    // const auto optimized_graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_swap_rng_opt.remove_non_rng_edges.deg").string();
+    // const auto graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd100+0_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.deg").string();
+    // const auto optimized_graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd100+0_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.remove_non_rng_edges.deg").string();
 
     // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
     if(std::filesystem::exists(graph_file.c_str()) == false)
@@ -288,10 +290,11 @@ int main() {
     test_graph(data_path, graph_file, repeat_test, test_k);
 
 
-    // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
-    // rng_optimize_graph(graph_file, optimized_graph_file);
+    // // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
+    // if(std::filesystem::exists(optimized_graph_file.c_str()) == false)
+    //     rng_optimize_graph(graph_file, optimized_graph_file);
 
-    // loads the graph from the drive and test it against the SIFT query data
+    // // loads the graph from the drive and test it against the SIFT query data
     // test_graph(data_path, optimized_graph_file, repeat_test, test_k);
 
 

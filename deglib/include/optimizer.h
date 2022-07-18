@@ -72,7 +72,6 @@ class EvenRegularGraphOptimizer {
      */
     auto& removeNonRngEdges() {
       auto start = std::chrono::system_clock::now();
-      uint64_t duration_ms = 0;
 
       auto& graph = this->graph_;
       const auto node_count = graph.size();
@@ -97,19 +96,17 @@ class EvenRegularGraphOptimizer {
             removed_rng_edges++;
           }
         }
-
-        if(i % 100000 == 0) {
-          duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count());
-          auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph);
-          auto valid_weights = deglib::analysis::check_graph_weights(graph);
-          auto connected = deglib::analysis::check_graph_connectivity(graph);
-          auto duration = duration_ms / 1000;
-          fmt::print("{:7} vertices, removed {:7} edges, {:5}s, improv, Q: {:4.2f}, {} connected & {}\n", 
-                    i, removed_rng_edges, duration, avg_edge_weight, connected ? "" : "not", valid_weights ? "valid" : "invalid");
-          start = std::chrono::system_clock::now();
-        }
       }
-      
+
+      auto duration_ms = uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count());
+      auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph);
+      auto valid_weights = deglib::analysis::check_graph_weights(graph);
+      auto connected = deglib::analysis::check_graph_connectivity(graph);
+      auto duration = duration_ms / 1000;
+      fmt::print("{:7} vertices, removed {:7} edges, {:5}s, improv, Q: {:4.2f}, {} connected & {}\n", 
+                node_count, removed_rng_edges, duration, avg_edge_weight, connected ? "" : "not", valid_weights ? "valid" : "invalid");
+      start = std::chrono::system_clock::now();
+            
       return this->graph_;
     }
 

@@ -37,7 +37,7 @@ static float test_approx_anns(const deglib::search::SearchGraph& graph, const st
         
 
         if (result_queue.size() != k) {
-            fmt::print(stderr, "ANNS with k={} got only {} results \n", k, result_queue.size());
+            fmt::print(stderr, "ANNS with k={} got only {} results for query {}\n", k, result_queue.size(), i);
             abort();
         }
 
@@ -108,6 +108,7 @@ static void test_graph_anns(const deglib::search::SearchGraph& graph, const degl
     // }
 
     // reproduceable entry point for the graph search
+    // const auto entry_node_indices = std::vector<uint32_t> { graph.getInternalIndex(entry_node_id) };
     const auto entry_node_indices = graph.getEntryNodeIndices();
     fmt::print("internal id {} \n", graph.getInternalIndex(entry_node_indices[0]));
 

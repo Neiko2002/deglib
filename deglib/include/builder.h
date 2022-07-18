@@ -323,6 +323,7 @@ class EvenRegularGraphBuilder {
 
       // remove an edge of the good neighbors and connect them with this new node
       auto new_neighbors = std::vector<std::pair<uint32_t, float>>();
+      // fmt::print("\n\n new vertex {}\n", internal_index);
       while(new_neighbors.size() < edges_per_node) {
         for (size_t i = 0; i < results.size() && new_neighbors.size() < edges_per_node; i++) {
           const auto candidate_index = results[i].getInternalIndex();
@@ -366,8 +367,8 @@ class EvenRegularGraphBuilder {
                 //   continue;
                 // if(check_rng_phase <= 2 && deglib::analysis::checkRNG(graph, edges_per_node, candidate_index, neighbor_index, neighbor_weight))
                 //   continue;
-                if(deglib::analysis::checkRNG(graph, edges_per_node, candidate_index, neighbor_index, neighbor_weight) == false)
-                  factor *= rng_factor_;
+                // if(deglib::analysis::checkRNG(graph, edges_per_node, candidate_index, neighbor_index, neighbor_weight) == false)
+                //   factor *= rng_factor_;
                 // if(deglib::analysis::checkRNG(graph, internal_index, neighbor_index, new_neighbors))
                 //   factor *= rng_factor_/2;
 
@@ -383,6 +384,8 @@ class EvenRegularGraphBuilder {
               // perror("");
               // abort();
             }
+
+            // fmt::print("neighbor {}, weight {}, rng {}\n", new_neighbor_index, new_neighbor_weight, deglib::analysis::checkRNG(graph, edges_per_node, candidate_index, new_neighbor_index, new_neighbor_weight) ? "true":"false");
 
             new_neighbor_distance = dist_func(new_node_feature, graph.getFeatureVector(new_neighbor_index), dist_func_param); 
           }

@@ -8,6 +8,7 @@
 #include "graph.h"
 #include "analysis.h"
 #include "graph/readonly_graph.h"
+#include "graph/readonly_irregular_graph.h"
 #include "graph/sizebounded_graph.h"
 #include "optimizer.h"
 #include "builder.h"
