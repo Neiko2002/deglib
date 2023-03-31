@@ -21,7 +21,7 @@ class FeatureRepository
   public:
     virtual size_t dims() const = 0;
     virtual size_t size() const = 0;
-    virtual const float* getFeature(const uint32_t nodeid) const = 0;
+    virtual const float* getFeature(const uint32_t vertexid) const = 0;
     virtual void clear() = 0;
 };
 
@@ -39,7 +39,7 @@ class StaticFeatureRepository : public FeatureRepository
 
     size_t dims() const override { return dims_; }
     size_t size() const override { return count_; }
-    const float* getFeature(const uint32_t nodeid) const override { return &contiguous_features_[nodeid * dims_]; }
+    const float* getFeature(const uint32_t vertexid) const override { return &contiguous_features_[vertexid * dims_]; }
     void clear() override { contiguous_features_.reset(); }
 
   private:
@@ -63,7 +63,7 @@ class DynamicFeatureRepository : public FeatureRepository
 
     size_t dims() const override { return dims_; }
     size_t size() const override { return features_.size(); }
-    const float* getFeature(const uint32_t nodeid) const override { return features_.find(nodeid)->second; }
+    const float* getFeature(const uint32_t vertexid) const override { return features_.find(vertexid)->second; }
     void clear() override
     {
         contiguous_features_.reset();
@@ -78,9 +78,9 @@ class DynamicFeatureRepository : public FeatureRepository
 
     auto cend() const { return features_.cend(); }
 
-    void addFeature(const uint32_t nodeid, const float* feature) { features_[nodeid] = feature; }
+    void addFeature(const uint32_t vertexid, const float* feature) { features_[vertexid] = feature; }
 
-    void deleteFeature(const uint32_t nodeid) { features_.erase(nodeid); }
+    void deleteFeature(const uint32_t vertexid) { features_.erase(vertexid); }
 
   private:
     const size_t dims_;
@@ -91,7 +91,7 @@ class DynamicFeatureRepository : public FeatureRepository
 /*****************************************************
  * I/O functions for fvecs and ivecs
  * Reference
- *https://github.com/facebookresearch/faiss/blob/e86bf8cae1a0ecdaee1503121421ed262ecee98c/demos/demo_sift1M.cpp
+ * https://github.com/facebookresearch/faiss/blob/e86bf8cae1a0ecdaee1503121421ed262ecee98c/demos/demo_sift1M.cpp
  *****************************************************/
 
 auto fvecs_read(const char* fname, size_t& d_out, size_t& n_out)

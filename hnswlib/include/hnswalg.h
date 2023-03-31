@@ -23,14 +23,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
     static const tableint max_update_element_locks = 65536;
     HierarchicalNSW(SpaceInterface<dist_t>* s) {}
 
-    HierarchicalNSW(SpaceInterface<dist_t>* s, const std::string& location, bool nmslib = false,
-                    size_t max_elements = 0)
+    HierarchicalNSW(SpaceInterface<dist_t>* s, const std::string& location, bool nmslib = false, size_t max_elements = 0)
     {
         loadIndex(location, s, max_elements);
     }
 
-    HierarchicalNSW(SpaceInterface<dist_t>* s, size_t max_elements, size_t M = 16, size_t ef_construction = 200,
-                    size_t random_seed = 100)
+    HierarchicalNSW(SpaceInterface<dist_t>* s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100, size_t maxM0 = 0)
         : link_list_locks_(max_elements),
           link_list_update_locks_(max_update_element_locks),
           element_levels_(max_elements)
@@ -43,7 +41,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t>
         dist_func_param_ = s->get_dist_func_param();
         M_ = M;
         maxM_ = M_;
-        maxM0_ = M_ * 2;
+        maxM0_ = (maxM0 == 0) ? M_ * 2 : maxM0;
         ef_construction_ = std::max(ef_construction, M_);
         ef_ = 10;
 

@@ -30,7 +30,7 @@ float* fvecs_read(const char* fname, size_t &d_out, size_t &n_out) {
   std::error_code ec{};
   auto file_size = std::filesystem::file_size(fname, ec);
   if (ec != std::error_code{}) {
-    std::fprintf(stderr, "error when accessing test file, size is: %zd message: %s \n", file_size, ec.message().c_str());
+    std::fprintf(stderr, "error when accessing fvecs file %s, size is: %zd message: %s \n", fname, file_size, ec.message().c_str());
     perror("");
     abort();
   }
@@ -99,11 +99,9 @@ static void get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *ma
 
     (vector<std::priority_queue<std::pair<int, labeltype>>>(qsize)).swap(answers);
     DISTFUNC<int> fstdistfunc_ = l2space.get_dist_func();
-    cout << qsize << "\n";
-    for (int i = 0; i < qsize; i++)
-    {
-        for (int j = 0; j < k; j++)
-        {
+    std::cout << qsize << "\n";
+    for (int i = 0; i < qsize; i++) {
+        for (int j = 0; j < k; j++) {
             answers[i].emplace(0.0f, massQA[1000 * i + j]);
         }
     }

@@ -244,7 +244,7 @@ static void compute_stats(const char* graph_file, const char* top_list_file, con
         // get top list of this node
         auto top_list = all_top_list + n * top_list_dims;
         if(top_list_dims < edges_per_node) {
-            fmt::print("TopList for {} is not long enough has {} elements has {}\n", n, edges_per_node, top_list_dims);
+            fmt::print("TopList for {} is not long enough. has {} elements expected {}\n", n, top_list_dims, edges_per_node);
             edges_per_node = (uint16_t) top_list_dims;
         }
         total_neighbor_count += edges_per_node;
@@ -285,13 +285,13 @@ static void compute_stats(const char* graph_file, const char* top_list_file, con
         auto edges_per_node = graph->getListCount(linklist_data);
         auto neighbor_indices = (tableint*)(linklist_data + 1);
 
-        fmt::print("Neighbors of vertex {}\n", n);
+        // fmt::print("Neighbors of vertex {}\n", n);
         for (uint32_t e = 0; e < edges_per_node; e++) {
-            fmt::print("{} = {}\n", e, neighbor_indices[e]);
+            // fmt::print("{} = {}\n", e, neighbor_indices[e]);
             auto neighbor_index = neighbor_indices[e];
             in_degree_count[neighbor_index]++;
         }
-        fmt::print("\n");
+        // fmt::print("\n");
     }
 
 
@@ -352,9 +352,15 @@ int main() {
     // const auto graph_file = (data_path / "hnsw" / "glove-100_ef_2500_M_25.hnsw").string(); 
     // const auto top_list_file  = (data_path / "glove-100" / "glove_base_top1000.ivecs").string(); 
 
-    const auto graph_file = (data_path / "2dgraph_ef_500_M_4.hnsw").string(); 
-    const auto top_list_file  = (data_path / "base_top13.ivecs").string(); 
-    const int feature_dims = 2;
+    // const auto graph_file = (data_path / "2dgraph_ef_500_M_4.hnsw").string(); 
+    // const auto top_list_file  = (data_path / "base_top13.ivecs").string(); 
+    // const int feature_dims = 2;
+
+    const auto graph_file = (data_path / "hnsw" / "uqv_ef_200_M_10_maxM0_40.hnsw").string(); 
+    const auto top_list_file  = (data_path / "uqv" / "uqv_base_top1000.ivecs").string(); 
+    const int feature_dims = 256;
+
+    
 
     compute_stats(graph_file.c_str(), top_list_file.c_str(), feature_dims);
 

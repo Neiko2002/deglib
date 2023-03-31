@@ -4,6 +4,8 @@
 #include <random>
 #include <math.h>
 #include <limits>
+#include <tsl/robin_set.h>
+#include <tsl/robin_map.h>
 
 #include "benchmark.h"
 #include "deglib.h"
@@ -66,12 +68,12 @@ static void store_top_list(const char* numpy_file, const char* top_list_file, co
         in.read(reinterpret_cast<char*>(topList.data()), dims * sizeof(uint32_t));
         topList[0] = dims - 1;  // replace the self reference with the size of the vector
         out.write(reinterpret_cast<const char*>(topList.data()), dims * sizeof(uint32_t));    
-        topList.clear();
+    //topList.clear();
     }
 }
 
-static void create_explore_ground_truth(const deglib::FeatureRepository& repository, const char* top_list_file, const char* feature_file, const char* ground_truth_file, const char* entry_node_file, const uint32_t step_size) {
-    fmt::print("Build explore ground truth with {} elements \n", repository.size() / step_size);
+static void create_explore_ground_truth(const deglib::FeatureRepository& repository, const char* top_list_file, const char* feature_file, const char* ground_truth_file, const char* entry_vertex_file, const uint32_t query_count) {
+    fmt::print("Build explore ground truth with {} elements \n", query_count);
 
     size_t top_list_dims;
     size_t top_list_count;
@@ -81,6 +83,7 @@ static void create_explore_ground_truth(const deglib::FeatureRepository& reposit
 
     // create feature file
     const auto size = (uint32_t) repository.size();
+    const auto step_size = (uint32_t) size / query_count;
     {
         fmt::print("Storing explore ground truth features to {}\n", feature_file);
         auto out = std::ofstream(feature_file, std::ios::out | std::ios::binary);
@@ -124,21 +127,21 @@ static void create_explore_ground_truth(const deglib::FeatureRepository& reposit
         out.close();
     }
 
-    // create entry node
+    // create entry vertex
     {
-        fmt::print("Storing explore entry node to {}\n", entry_node_file);
-        auto out = std::ofstream(entry_node_file, std::ios::out | std::ios::binary);
+        fmt::print("Storing explore entry vertex to {}\n", entry_vertex_file);
+        auto out = std::ofstream(entry_vertex_file, std::ios::out | std::ios::binary);
 
         // check open file for write
         if (!out.is_open()) {
-            fmt::print(stderr, "Error in open file {}\n", entry_node_file);
+            fmt::print(stderr, "Error in open file {}\n", entry_vertex_file);
             perror("");
             abort();
         }
 
-        const auto entry_node_size = (uint32_t) 1;
+        const auto entry_vertex_size = (uint32_t) 1;
         for (uint32_t i = 0; i < size; i+=step_size) {
-            out.write(reinterpret_cast<const char*>(&entry_node_size), sizeof(entry_node_size));    
+            out.write(reinterpret_cast<const char*>(&entry_vertex_size), sizeof(entry_vertex_size));    
             out.write(reinterpret_cast<const char*>(&i), sizeof(i));    
         }
 
@@ -154,8 +157,8 @@ static void store_top_list(const deglib::search::SearchGraph& graph, const degli
     fmt::print("Build top lists for repo with {} elements \n", repository.size());
 
     // reproduceable entry point for the graph search
-    const uint32_t entry_node_id = 0;
-    const auto entry_node_indices = std::vector<uint32_t> { graph.getInternalIndex(entry_node_id) };
+    const uint32_t entry_vertex_id = 0;
+    const auto entry_vertex_indices = std::vector<uint32_t> { graph.getInternalIndex(entry_vertex_id) };
 
     uint32_t size = (uint32_t)repository.size();
     auto topList = std::vector<uint32_t>();
@@ -163,7 +166,7 @@ static void store_top_list(const deglib::search::SearchGraph& graph, const degli
     for (uint32_t i = 0; i < repository.size(); i++)
     {
         auto query = reinterpret_cast<const std::byte*>(repository.getFeature(i));
-        auto result_queue = graph.search(entry_node_indices, query, eps, (k + 1)); // +1 for self reference
+        auto result_queue = graph.search(entry_vertex_indices, query, eps, (k + 1)); // +1 for self reference
         auto sorted_result = topListAscending(result_queue);
 
         topList.push_back(k);                                   // size of the vector
@@ -246,10 +249,10 @@ static bool create_knng(const deglib::FeatureRepository& repository, const char*
         // store graph information
         uint32_t size = uint32_t(top_list_count);
         out.write(reinterpret_cast<const char*>(&size), sizeof(size));
-        uint8_t edges_per_node = k;
-        out.write(reinterpret_cast<const char*>(&edges_per_node), sizeof(edges_per_node));
+        uint8_t edges_per_vertex = k;
+        out.write(reinterpret_cast<const char*>(&edges_per_vertex), sizeof(edges_per_vertex));
 
-        // store the node and edge information
+        // store the vertex and edge information
         for (uint32_t i = 0; i < size; i++) {
             const auto fv1 = repository.getFeature(i);
 
@@ -289,7 +292,7 @@ static bool create_knng(const deglib::FeatureRepository& repository, const char*
 static bool create_deg_add_only(const deglib::FeatureRepository& repository, const std::filesystem::path& deg_dir, const uint8_t k_target) {
     fmt::print("Build and store DEG add only graphs\n");
 
-    const uint32_t max_node_count = uint32_t(repository.size());
+    const uint32_t max_vertex_count = uint32_t(repository.size());
     const auto dims = repository.dims();
 
     // create graphs with different states of randomness
@@ -306,7 +309,7 @@ static bool create_deg_add_only(const deglib::FeatureRepository& repository, con
         auto rnd = std::mt19937(7);
         const auto highLID = true;
         const auto feature_space = deglib::FloatSpace(dims, deglib::Metric::L2);
-        auto graph = deglib::graph::SizeBoundedGraph(max_node_count, k, feature_space);
+        auto graph = deglib::graph::SizeBoundedGraph(max_vertex_count, k, feature_space);
         auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, k, eps, highLID, 0, 0.f, false, 2, 10, 0, 0);
 
         // provide all features to the graph builder at once. In an online system this will be called 
@@ -377,8 +380,8 @@ static std::vector<deglib::search::ObjectDistance> fullSearch(const deglib::grap
 }
 
 /**
- * Similar to create_deg_add_only but it will uses a perfect TOP list to connect the best nodes.
- * First all nodes will be added and than the edges. This is not the same as adding nodes and perfect edges at the same time.
+ * Similar to create_deg_add_only but it will uses a perfect TOP list to connect the best vertices.
+ * First all vertices will be added and than the edges. This is not the same as adding vertices and perfect edges at the same time.
  */ 
 static bool create_deg_add_only_perfect(const deglib::FeatureRepository& repository, const std::filesystem::path& deg_dir, const uint8_t k_target) {
     fmt::print("Build and store DEG add only graph using a perfect top list\n");
@@ -388,15 +391,15 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
     const auto dist_func = feature_space.get_dist_func();
     const auto dist_func_param = feature_space.get_dist_func_param();
 
-    // create the graph and add all nodes, without any edges
+    // create the graph and add all vertices, without any edges
     const auto start = std::chrono::system_clock::now();
-    const uint8_t edges_per_node = k_target;
-    const uint32_t node_count = uint32_t(repository.size());
-    auto graph = deglib::graph::SizeBoundedGraph(node_count, edges_per_node, feature_space);
+    const uint8_t edges_per_vertex = k_target;
+    const uint32_t vertex_count = uint32_t(repository.size());
+    auto graph = deglib::graph::SizeBoundedGraph(vertex_count, edges_per_vertex, feature_space);
 
-    // add the initial nodes (edges_per_node + 1)
+    // add the initial vertices (edges_per_vertex + 1)
     {
-        const auto size = (uint32_t)(edges_per_node + 1);
+        const auto size = (uint32_t)(edges_per_vertex + 1);
         for (uint32_t y = 0; y < size; y++) {
             const auto query = reinterpret_cast<const std::byte*>(repository.getFeature(y));
             const auto internal_index = graph.addNode(y, query);
@@ -412,18 +415,18 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
         }
     }
 
-    // add the remaining nodes
-    for (uint32_t label = edges_per_node + 1; label < node_count; label++) {
+    // add the remaining vertices
+    for (uint32_t label = edges_per_vertex + 1; label < vertex_count; label++) {
         const auto internal_index = graph.addNode(label, reinterpret_cast<const std::byte*>(repository.getFeature(label)));
         const auto top_list = fullSearch(graph, internal_index, k_target);
 
-        // remove the worst edge of the good neighbors and connect them with this new node
+        // remove the worst edge of the good neighbors and connect them with this new vertex
         auto new_neighbors = std::vector<std::pair<uint32_t, float>>();
-        for (int i = 0; i < top_list.size() && new_neighbors.size() < edges_per_node; i++) {
+        for (int i = 0; i < top_list.size() && new_neighbors.size() < edges_per_vertex; i++) {
             const auto top_neighbor = top_list[i];
 
-            // check if the node is already in the edge list of the new node (added during a previous loop-run)
-            // since all edges are undirected and the edge information of the new node does not yet exist, we search the other way around.
+            // check if the vertex is already in the edge list of the new vertex (added during a previous loop-run)
+            // since all edges are undirected and the edge information of the new vertex does not yet exist, we search the other way around.
             if(graph.hasEdge(top_neighbor.getInternalIndex(), internal_index)) 
                 continue;
 
@@ -432,11 +435,11 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
             float bad_neighbor_weight = 0;
             const auto neighbor_weights = graph.getNeighborWeights(top_neighbor.getInternalIndex());
             const auto neighbor_indices = graph.getNeighborIndices(top_neighbor.getInternalIndex());
-            for (size_t edge_idx = 0; edge_idx < edges_per_node; edge_idx++) {
+            for (size_t edge_idx = 0; edge_idx < edges_per_vertex; edge_idx++) {
                 const auto neighbor_index = neighbor_indices[edge_idx];
                 const auto neighbor_weight = neighbor_weights[edge_idx];
 
-                // the suggest neighbors might already be in the edge list of the new node
+                // the suggest neighbors might already be in the edge list of the new vertex
                 // the weight of the neighbor might not be worst than the current worst one
                 if(bad_neighbor_weight < neighbor_weight && graph.hasEdge(neighbor_index, internal_index) == false) {
                     bad_neighbor_index = neighbor_index;
@@ -444,24 +447,24 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
                 }          
             }
 
-            // this should not be possible, otherwise the new node is connected to every node in the neighbor-list of the result-node and still has space for more
+            // this should not be possible, otherwise the new vertex is connected to every vertex in the neighbor-list of the result-vertex and still has space for more
             if(bad_neighbor_weight <= 0) {
-                fmt::print(stderr, "it was not possible to find a bad edge (best weight {}) in the neighbor list of node {} which would connect to node {} \n", bad_neighbor_weight, top_neighbor.getInternalIndex(), internal_index);
+                fmt::print(stderr, "it was not possible to find a bad edge (best weight {}) in the neighbor list of vertex {} which would connect to vertex {} \n", bad_neighbor_weight, top_neighbor.getInternalIndex(), internal_index);
                 perror("");
                 abort();
             }
 
-            // place the new node in the edge list of the result-node
+            // place the new vertex in the edge list of the result-vertex
             graph.changeEdge(top_neighbor.getInternalIndex(), bad_neighbor_index, internal_index, top_neighbor.getDistance());
             new_neighbors.emplace_back(top_neighbor.getInternalIndex(), top_neighbor.getDistance());
 
-            // place the new node in the edge list of the worst edge neighbor
+            // place the new vertex in the edge list of the worst edge neighbor
             const auto bad_neighbor_distance = dist_func(graph.getFeatureVector(internal_index), graph.getFeatureVector(bad_neighbor_index), dist_func_param);
             graph.changeEdge(bad_neighbor_index, top_neighbor.getInternalIndex(), internal_index, bad_neighbor_distance);
             new_neighbors.emplace_back(bad_neighbor_index, bad_neighbor_distance);
         }
 
-        // sort the neighbors by their neighbor indices and store them in the new node
+        // sort the neighbors by their neighbor indices and store them in the new vertex
         std::sort(new_neighbors.begin(), new_neighbors.end(), [](const auto& x, const auto& y){return x.first < y.first;});
         auto neighbor_indices = std::vector<uint32_t>();
         auto neighbor_weights = std::vector<float>();
@@ -490,7 +493,7 @@ static bool create_deg_add_only_perfect(const deglib::FeatureRepository& reposit
 static void test_limit_distance_computation(const char* graph_file, const deglib::FeatureRepository& query_repository, const std::vector<tsl::robin_set<uint32_t>>& answer, const uint32_t max_distance_count, const uint32_t k) {
 
     const auto graph = deglib::graph::load_readonly_graph(graph_file);
-    const auto entry_node_indices = std::vector<uint32_t> { graph.getInternalIndex(0) };
+    const auto entry_vertex_indices = std::vector<uint32_t> { graph.getInternalIndex(0) };
 
     // compute graph distortion
     auto distortion = 0.;
@@ -498,18 +501,18 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
         const auto feature_space = deglib::FloatSpace(128, deglib::Metric::L2);
         const auto dist_func = feature_space.get_dist_func();
         const auto dist_func_param = feature_space.get_dist_func_param();
-        const auto edges_per_node = graph.getEdgesPerNode();
+        const auto edges_per_vertex = graph.getEdgesPerNode();
         const auto size = graph.size();
         for (uint32_t n = 0; n < size; n++) {
             const auto fv1 = graph.getFeatureVector(n);
             const auto neighborIds = graph.getNeighborIndices(n); 
-            for (uint32_t e = 0; e < edges_per_node; e++) {
+            for (uint32_t e = 0; e < edges_per_vertex; e++) {
                 const auto fv2 = graph.getFeatureVector(neighborIds[e]);
                 const auto dist = dist_func(fv1, fv2, dist_func_param);
                 distortion += dist;
             }
         }
-        distortion /= uint64_t(size) * edges_per_node;
+        distortion /= uint64_t(size) * edges_per_vertex;
     }
 
     float best_precision = 0;
@@ -526,7 +529,7 @@ static void test_limit_distance_computation(const char* graph_file, const deglib
         for (int i = 0; i < query_repository.size(); i++)
         {
             auto query = reinterpret_cast<const std::byte*>(query_repository.getFeature(i));
-            auto result_queue = graph.search(entry_node_indices, query, eps, k, max_distance_count);
+            auto result_queue = graph.search(entry_vertex_indices, query, eps, k, max_distance_count);
 
             const auto gt = answer[i];
             total += result_queue.size();
@@ -581,8 +584,8 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
 
     auto rnd = std::mt19937(7);
     auto graph = deglib::graph::load_sizebounded_graph(initial_graph_file);
-    auto edges_per_node = graph.getEdgesPerNode();
-    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, edges_per_node, 0.2f, edges_per_node, 0.02f, edges_per_node, 0.02f, 2, edges_per_node/2, 1, 0);
+    auto edges_per_vertex = graph.getEdgesPerNode();
+    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, edges_per_vertex, 0.2f, edges_per_vertex, 0.02f, edges_per_vertex, 0.02f, 2, edges_per_vertex/2, 1, 0);
 
     fmt::print("Improve and test graph {}\n", initial_graph_file);
     test_limit_distance_computation(initial_graph_file, query_repository, answer, max_distance_count, k_test);
@@ -607,7 +610,7 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
             } 
 
             // test the graph quality
-            const auto graph_file = (deg_dir / fmt::format("deg{}_128D_L2_AddK{}Eps0.2_Improve{}Eps0.02_ImproveExt{}-2StepEps0.02_Path{}_it{}m.deg", edges_per_node, edges_per_node, edges_per_node, edges_per_node, edges_per_node/2, status.tries/1000000)).string();
+            const auto graph_file = (deg_dir / fmt::format("deg{}_128D_L2_AddK{}Eps0.2_Improve{}Eps0.02_ImproveExt{}-2StepEps0.02_Path{}_it{}m.deg", edges_per_vertex, edges_per_vertex, edges_per_vertex, edges_per_vertex, edges_per_vertex/2, status.tries/1000000)).string();
             graph.saveGraph(graph_file.c_str());
             test_limit_distance_computation(graph_file.c_str(), query_repository, answer, max_distance_count, k_test);
 
@@ -622,7 +625,7 @@ static void randomize_and_test_knng(const char* initial_graph_file, const std::f
 
     auto graph = deglib::graph::load_sizebounded_graph(initial_graph_file);
     const auto size = graph.size();
-    const auto edges_per_node = graph.getEdgesPerNode();
+    const auto edges_per_vertex = graph.getEdgesPerNode();
 
     const auto feature_space = deglib::FloatSpace(128, deglib::Metric::L2);
     const auto dist_func = feature_space.get_dist_func();
@@ -632,13 +635,13 @@ static void randomize_and_test_knng(const char* initial_graph_file, const std::f
     test_limit_distance_computation(initial_graph_file, query_repository, answer, max_distance_count, k_test);
 
     fmt::print("Find the worst egdes in the current graph {}\n", initial_graph_file);
-    auto all_sorted_edges = std::vector<std::vector<std::pair<uint32_t,float>>>(size); // for every node there is a vector of sorted edges
+    auto all_sorted_edges = std::vector<std::vector<std::pair<uint32_t,float>>>(size); // for every vertex there is a vector of sorted edges
     for (uint32_t n = 0; n < size; n++) {
         auto indices = graph.getNeighborIndices(n);
         auto weights = graph.getNeighborWeights(n);
 
         auto& sorted_edges = all_sorted_edges[n];
-        for (size_t e = 0; e < edges_per_node; e++)
+        for (size_t e = 0; e < edges_per_vertex; e++)
             sorted_edges.emplace_back(indices[e], weights[e]);
         
         // sort edges by weight
@@ -649,7 +652,7 @@ static void randomize_and_test_knng(const char* initial_graph_file, const std::f
     auto replace_count = 1;
     auto rnd = std::mt19937(7);
     const auto distrib = std::uniform_int_distribution<uint32_t>(0, uint32_t(graph.size() - 1));
-    for (uint8_t i = 0; i < edges_per_node; i++) {
+    for (uint8_t i = 0; i < edges_per_vertex; i++) {
         for (uint32_t n = 0; n < size; n++, replace_count++) {
             const auto bad_edge_index = all_sorted_edges[n][i].first;
 
@@ -686,33 +689,45 @@ int main() {
     const auto repeat_test = 3;
     const auto data_path = std::filesystem::path(DATA_PATH);
 
-    // create and store top list of all database elements
-    // {
-    //     //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02.deg").string();
-    //     //const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
-    //     //
-    //     //const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    //     //const auto repository = deglib::load_static_repository(repository_file.c_str());
-    //     //const auto top_list_file = (data_path / "SIFT1M/sift_base_top200_p0.998.ivecs").string();
+    // convert top list of all database elements
+    {
+        // const auto numpy_file = (data_path / "SIFT1M" / "sift_base_top1001.npd").string();
+        // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+        // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1000000);
 
-    // const auto numpy_file = (data_path / "SIFT1M" / "sift_base_top1001.npd").string();
-    // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-    // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1000000);
+        // const auto numpy_file = (data_path / "glove-100" / "glove_base_top1001.npd").string();
+        // const auto top_list_file = (data_path / "glove-100" / "glove_base_top1000.ivecs").string();
+        // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1183514);
 
-    const auto numpy_file = (data_path / "glove-100" / "glove_base_top1001.npd").string();
-    const auto top_list_file = (data_path / "glove-100" / "glove_base_top1000.ivecs").string();
-    store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1183514);
+        // const auto numpy_file = (data_path / "Enron" / "enron_base_top1001.npd").string();
+        // const auto top_list_file = (data_path / "Enron" / "enron_base_top100.ivecs").string();
+        // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 94987);
+    }
 
-        
-    //     const auto repository_file = (data_path / "SIFT1M/sift_base.fvecs").string();
-    //     const auto repository = deglib::load_static_repository(repository_file.c_str());
+    // create exploration query and ground truth data
+    {
+        // const auto repository_file           = (data_path / "SIFT1M/sift_base.fvecs").string();
+        // const auto top_list_file             = (data_path / "SIFT1M/sift_base_top1000.ivecs").string();
+        // const auto explore_feature_file      = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
+        // const auto explore_entry_vertex_file   = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
+        // const auto explore_ground_truth_file = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
 
-    //     const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-    //     const auto explore_entry_node_file = (data_path / "SIFT1M/sift_explore_entry_node.ivecs").string();
-    //     const auto explore_feature_file = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
-    //     const auto explore_ground_truth_file = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
-    //     create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_node_file.c_str(),100);
-    // }
+        // const auto repository_file           = (data_path / "glove-100/glove-100_base.fvecs").string();
+        // const auto top_list_file             = (data_path / "glove-100/glove-100_base_top1000.ivecs").string();
+        // const auto explore_feature_file      = (data_path / "glove-100/glove-100_explore_query.fvecs").string();
+        // const auto explore_entry_vertex_file   = (data_path / "glove-100/glove-100_explore_entry_vertex.ivecs").string();
+        // const auto explore_ground_truth_file = (data_path / "glove-100/glove-100_explore_ground_truth.ivecs").string();
+
+        const auto repository_file           = (data_path / "Enron/enron_base.fvecs").string();
+        const auto top_list_file             = (data_path / "Enron/enron_base_top1000.ivecs").string();
+        const auto explore_feature_file      = (data_path / "Enron/enron_explore_query.fvecs").string();
+        const auto explore_entry_vertex_file   = (data_path / "Enron/enron_explore_entry_vertex.ivecs").string();
+        const auto explore_ground_truth_file = (data_path / "Enron/enron_explore_ground_truth.ivecs").string();
+
+        const auto query_count = 10000;
+        const auto repository = deglib::load_static_repository(repository_file.c_str());
+        create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_vertex_file.c_str(), query_count);
+    }
 
     // create KNN graph with the help of database top list
     // {

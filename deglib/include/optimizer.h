@@ -74,22 +74,22 @@ class EvenRegularGraphOptimizer {
       auto start = std::chrono::system_clock::now();
 
       auto& graph = this->graph_;
-      const auto node_count = graph.size();
-      const auto edge_per_node =graph.getEdgesPerNode();
+      const auto vertex_count = graph.size();
+      const auto edge_per_vertex =graph.getEdgesPerNode();
 
       uint32_t removed_rng_edges = 0;
-      for (uint32_t i = 0; i < node_count; i++) {
+      for (uint32_t i = 0; i < vertex_count; i++) {
         const auto vertex_index = i;
 
         const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
         const auto neighbor_weights = graph.getNeighborWeights(vertex_index);
 
         // find all none rng conform neighbors
-        for (uint32_t n = 0; n < edge_per_node; n++) {
+        for (uint32_t n = 0; n < edge_per_vertex; n++) {
           const auto neighbor_index = neighbor_indices[n];
           const auto neighbor_weight = neighbor_weights[n];
 
-          if(deglib::analysis::checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
+          if(deglib::analysis::checkRNG(graph, edge_per_vertex, vertex_index, neighbor_index, neighbor_weight) == false) {
             //fmt::print("non-RNG between {} and {}\n", vertex_index, neighbor_index);
             graph.changeEdge(vertex_index, neighbor_index, vertex_index, 0);
             graph.changeEdge(neighbor_index, vertex_index, neighbor_index, 0);
@@ -104,7 +104,7 @@ class EvenRegularGraphOptimizer {
       auto connected = deglib::analysis::check_graph_connectivity(graph);
       auto duration = duration_ms / 1000;
       fmt::print("{:7} vertices, removed {:7} edges, {:5}s, improv, Q: {:4.2f}, {} connected & {}\n", 
-                node_count, removed_rng_edges, duration, avg_edge_weight, connected ? "" : "not", valid_weights ? "valid" : "invalid");
+                vertex_count, removed_rng_edges, duration, avg_edge_weight, connected ? "" : "not", valid_weights ? "valid" : "invalid");
       start = std::chrono::system_clock::now();
             
       return this->graph_;
@@ -118,13 +118,13 @@ class EvenRegularGraphOptimizer {
       uint64_t duration_ms = 0;
 
       auto& graph = this->graph_;
-      const auto node_count = graph.size();
-      const auto edge_per_node =graph.getEdgesPerNode();
+      const auto vertex_count = graph.size();
+      const auto edge_per_vertex =graph.getEdgesPerNode();
 
       uint32_t removed_triple = 0;
       auto noneRNGConformNeighborIndices = std::vector<uint32_t>();
       auto noneRNGConformNeighbors = std::vector<RNGTriple>();
-      for (uint32_t i = 0; i < node_count; i++) {
+      for (uint32_t i = 0; i < vertex_count; i++) {
         const auto vertex_index = i;
 
         const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
@@ -132,10 +132,10 @@ class EvenRegularGraphOptimizer {
 
         // find all none rng conform neighbors
         noneRNGConformNeighborIndices.clear();
-        for (uint32_t n = 0; n < edge_per_node; n++) {
+        for (uint32_t n = 0; n < edge_per_vertex; n++) {
           const auto neighbor_index = neighbor_indices[n];
           const auto neighbor_weight = neighbor_weights[n];
-          if(deglib::analysis::checkRNG(graph, edge_per_node, vertex_index, neighbor_index, neighbor_weight) == false) {
+          if(deglib::analysis::checkRNG(graph, edge_per_vertex, vertex_index, neighbor_index, neighbor_weight) == false) {
             //fmt::print("Found a none rng-conform edge between {} {}\n", vertex_index, neighbor_index);
             noneRNGConformNeighborIndices.emplace_back(neighbor_index);
           }
@@ -148,7 +148,7 @@ class EvenRegularGraphOptimizer {
           for (size_t n2 = n1; n2 < noneRNGConformNeighborIndices.size(); n2++) {
             const auto neighbor_index2 = noneRNGConformNeighborIndices[n2];
             const auto neighbors_weight = graph.getEdgeWeight(neighbor_index1, neighbor_index2);
-            if(neighbors_weight >= 0 && deglib::analysis::checkRNG(graph, edge_per_node, neighbor_index1, neighbor_index2, neighbors_weight) == false) {
+            if(neighbors_weight >= 0 && deglib::analysis::checkRNG(graph, edge_per_vertex, neighbor_index1, neighbor_index2, neighbors_weight) == false) {
               //fmt::print("Found three none rng-conform edges between three vertices: {} {} {}\n", vertex_index, neighbor_index1, neighbor_index2);
 
               const auto weight_sum = neighbors_weight + graph.getEdgeWeight(vertex_index, neighbor_index1) + graph.getEdgeWeight(vertex_index, neighbor_index2);

@@ -16,8 +16,8 @@ namespace deglib::graph
 
 class DynamicGraph : public deglib::search::MutableGraph {
   
-  // any array of pointer to different parts in memory where the node information are stored
-  // every part contains sizeof(uint16_t) nodes. The node index decribes the memory index with
+  // any array of pointer to different parts in memory where the vertex information are stored
+  // every part contains sizeof(uint16_t) vertices. The vertex index decribes the memory index with
   // it 16 higher bits and the index inside the memory block with its 16 lower bits.
   std::array<uint64_t, sizeof(uint16_t)> memory_ptr;
 
@@ -67,12 +67,12 @@ public:
     return true;
   }
 
-  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indices, const uint32_t to_node, const float eps, const int k) const override {
+  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_vertex_indices, const uint32_t to_vertex, const float eps, const int k) const override {
 
     return std::vector<deglib::search::ObjectDistance>();
   }
 
-  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_node_indices, const float* query, const float eps, const int k) const override
+  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_vertex_indices, const float* query, const float eps, const int k) const override
   {
     nullptr;
   }

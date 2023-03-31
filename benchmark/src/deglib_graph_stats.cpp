@@ -11,7 +11,7 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
 
     auto graph = deglib::graph::load_sizebounded_graph(graph_file);
     const auto graph_size = graph.size();
-    const auto edges_per_node = graph.getEdgesPerNode();
+    const auto edges_per_vertex = graph.getEdgesPerNode();
 
     size_t top_list_dims;
     size_t top_list_count;
@@ -24,8 +24,8 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
         return;
     }
 
-    if(top_list_dims < edges_per_node) {
-        fmt::print(stderr, "Edges per node {} is higher than the TopList size = {} \n", edges_per_node, top_list_dims);
+    if(top_list_dims < edges_per_vertex) {
+        fmt::print(stderr, "Edges per vertex {} is higher than the TopList size = {} \n", edges_per_vertex, top_list_dims);
         return;
     }
     
@@ -36,12 +36,12 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
 
         // check if every neighbor is from the perfect neighborhood
          fmt::print("Neighbors of vertex {}\n", n);
-        for (uint32_t e = 0; e < edges_per_node; e++) {
+        for (uint32_t e = 0; e < edges_per_vertex; e++) {
             auto neighbor_index = neighbor_indices[e];
             fmt::print("{} = {}\n", e, neighbor_indices[e]);
 
             // find in the neighbor in the first few elements of the top list
-            for (uint32_t i = 0; i < edges_per_node; i++) {
+            for (uint32_t i = 0; i < edges_per_vertex; i++) {
                 if(neighbor_index == top_list[i]) {
                     perfect_neighbor_count++;
                     break;
@@ -51,9 +51,9 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
         fmt::print("\n");
     }
 
-    auto perfect_neighbor_ratio = (float) perfect_neighbor_count / (graph_size * edges_per_node);
+    auto perfect_neighbor_ratio = (float) perfect_neighbor_count / (graph_size * edges_per_vertex);
     auto connected = deglib::analysis::check_graph_connectivity(graph);
-    fmt::print("Graph quality is {}, edges per node {}, graph size {}, connected {}\n", perfect_neighbor_ratio, edges_per_node, graph_size, connected);
+    fmt::print("Graph quality is {}, edges per vertex {}, graph size {}, connected {}\n", perfect_neighbor_ratio, edges_per_vertex, graph_size, connected);
 }
 
 static void compute_edge_histogram(const char* graph_file, const uint32_t steps, const float interval) {
@@ -61,7 +61,7 @@ static void compute_edge_histogram(const char* graph_file, const uint32_t steps,
 
     auto graph = deglib::graph::load_sizebounded_graph(graph_file);
     const auto graph_size = graph.size();
-    const auto edges_per_node = graph.getEdgesPerNode();
+    const auto edges_per_vertex = graph.getEdgesPerNode();
 
     fmt::print("Compute max and min weight\n");
     {
@@ -69,7 +69,7 @@ static void compute_edge_histogram(const char* graph_file, const uint32_t steps,
         float max_weight = std::numeric_limits<float>::min();
         for (uint32_t n = 0; n < graph_size; n++) {
             const auto edge_weights = graph.getNeighborWeights(n);
-            for (size_t e = 0; e < edges_per_node; e++) {
+            for (size_t e = 0; e < edges_per_vertex; e++) {
                 if(edge_weights[e] < min_weight)
                     min_weight = edge_weights[e];
                 if(edge_weights[e] > max_weight)
@@ -84,7 +84,7 @@ static void compute_edge_histogram(const char* graph_file, const uint32_t steps,
         auto edge_weight_histogram = std::vector<uint32_t>(steps);
         for (uint32_t n = 0; n < graph_size; n++) {
             const auto edge_weights = graph.getNeighborWeights(n);
-            for (size_t e = 0; e < edges_per_node; e++) {
+            for (size_t e = 0; e < edges_per_vertex; e++) {
                 const auto bin = std::min(steps-1, uint32_t(edge_weights[e] / interval));
                 edge_weight_histogram[bin]++;
             }
@@ -148,19 +148,19 @@ int main() {
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow.deg").string());
     // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow-rerun.deg").string());
 
-    // // Graph quality is 0.23271069, edges per node 30, graph size 1183514, connected true
+    // // Graph quality is 0.23271069, edges per vertex 30, graph size 1183514, connected true
     // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdges.deg").string());
 
-    // // Graph quality is 0.23340161, edges per node 30, graph size 1183514, connected true
+    // // Graph quality is 0.23340161, edges per vertex 30, graph size 1183514, connected true
     // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov.deg").string());
 
-    // // Graph quality is 0.23545972, edges per node 30, graph size 1183514, connected true
+    // // Graph quality is 0.23545972, edges per vertex 30, graph size 1183514, connected true
     // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.3High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov.deg").string()); // 30 best
 
-    // // Graph quality is 0.23538786, edges per node 30, graph size 1183514, connected true
+    // // Graph quality is 0.23538786, edges per vertex 30, graph size 1183514, connected true
     // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.3High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov_noLoopDetection.deg").string());
 
-    // // Graph quality is 0.23036574, edges per node 60, graph size 1183514, connected true
+    // // Graph quality is 0.23036574, edges per vertex 60, graph size 1183514, connected true
     // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.2High_ImproveK60Eps0.02Low_ImproveExtK60-3StepEps0.02Low_Path10_Rnd2+2.deg").string()); // 60 best
 
 

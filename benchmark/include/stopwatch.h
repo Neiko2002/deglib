@@ -32,7 +32,7 @@ public:
 */
 
 #if defined(_WIN32)
-#include <windows.h>
+#include <windows.h> // max/min will be defined as macro, define std::max before including windows.h
 #include <psapi.h>
 
 #elif defined(__unix__) || defined(__unix) || defined(unix) || (defined(__APPLE__) && defined(__MACH__))

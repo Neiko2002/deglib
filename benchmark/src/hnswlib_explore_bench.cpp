@@ -1,16 +1,16 @@
 #include <omp.h>
 #include <fmt/core.h>
-#include <tsl/robin_set.h>
 
 #include <algorithm>
+#include <unordered_set>
 
 #include "hnswlib.h"
 #include "hnsw/utils.h"
 #include "stopwatch.h"
 
-static std::vector<tsl::robin_set<size_t>> get_ground_truth(const uint32_t* ground_truth, const size_t ground_truth_size, const size_t ground_truth_dims, const size_t k)
+static std::vector<std::unordered_set<size_t>> get_ground_truth(const uint32_t* ground_truth, const size_t ground_truth_size, const size_t ground_truth_dims, const size_t k)
 {
-    auto answers = std::vector<tsl::robin_set<size_t>>(ground_truth_size);
+    auto answers = std::vector<std::unordered_set<size_t>>(ground_truth_size);
     for (int i = 0; i < ground_truth_size; i++)
     {
         auto& gt = answers[i];
@@ -23,7 +23,7 @@ static std::vector<tsl::robin_set<size_t>> get_ground_truth(const uint32_t* grou
 }
 
 static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg, const float* query_repository,
-                         const std::vector<tsl::robin_set<size_t>>& ground_truth, const size_t query_dims,
+                         const std::vector<std::unordered_set<size_t>>& ground_truth, const size_t query_dims,
                          const std::vector<std::vector<uint32_t>>& entry_node_indices,
                          const uint32_t k, const uint32_t max_distance_count)
 {
@@ -48,7 +48,7 @@ static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg
 
 
 static void test_vs_recall_explore(hnswlib::HierarchicalNSW<float>& appr_alg, const float* query_repository,
-                           const std::vector<tsl::robin_set<size_t>>& ground_truth, const size_t query_dims,
+                           const std::vector<std::unordered_set<size_t>>& ground_truth, const size_t query_dims,
                            const uint32_t* entry_nodes, const uint32_t entry_node_dims,
                            const size_t k)
 {
@@ -60,27 +60,29 @@ static void test_vs_recall_explore(hnswlib::HierarchicalNSW<float>& appr_alg, co
     }
 
     // try different k values
-    uint32_t steps = 100
-    for (uint32_t i = 0; i <= steps; i++) {
-        const auto max_distance_count = k + (k/10 * i);
-        // const auto max_distance_count = 1 + i;
+    float k_factor = 0.1f;
+    for (uint32_t f = 0; f <= 3; f++) {
+        k_factor *= 10;
+        for (uint32_t i = (f == 0) ? 0 : 1; i < 10; i++) {
+           const auto max_distance_count = k + uint32_t(k*k_factor * i);
 
-        appr_alg.setEf(k*2);
-        appr_alg.metric_distance_computations = 0;
-        appr_alg.metric_hops = 0;
+            appr_alg.setEf(k*2);
+            appr_alg.metric_distance_computations = 0;
+            appr_alg.metric_hops = 0;
 
-        auto stopw = StopW();
-        auto recall = test_approx_explore(appr_alg, query_repository, ground_truth, query_dims, entry_node_indices, k, max_distance_count);
-        auto time_us_per_query = stopw.getElapsedTimeMicro() / ground_truth.size();
+            auto stopw = StopW();
+            auto recall = test_approx_explore(appr_alg, query_repository, ground_truth, query_dims, entry_node_indices, k, max_distance_count);
+            auto time_us_per_query = stopw.getElapsedTimeMicro() / ground_truth.size();
 
-        float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * ground_truth.size());
-        float hops_per_query = appr_alg.metric_hops / (1.0f * ground_truth.size());
+            float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * ground_truth.size());
+            float hops_per_query = appr_alg.metric_hops / (1.0f * ground_truth.size());
 
-        fmt::print("max_distance_count {} \t recall {} \t time_us_per_query {}us, avg distance computations {}, avg hops {}\n", max_distance_count, recall, time_us_per_query, distance_comp_per_query, hops_per_query);
-        if (recall > 1.0)
-        {
-            fmt::print("recall {} \t time_us_per_query {}us\n", recall, time_us_per_query);
-            break;
+            fmt::print("max_distance_count {} \t recall {} \t time_us_per_query {}us, avg distance computations {}, avg hops {}\n", max_distance_count, recall, time_us_per_query, distance_comp_per_query, hops_per_query);
+            if (recall > 1.0)
+            {
+                fmt::print("recall {} \t time_us_per_query {}us\n", recall, time_us_per_query);
+                break;
+            }
         }
     }
 }
@@ -102,32 +104,20 @@ int main()
     auto data_path = std::filesystem::path(DATA_PATH);
     fmt::print("Data dir  {} \n", data_path.string().c_str());
 
-    size_t query_size = 10000;
-    size_t base_size = 1000000;
-    size_t top_k = 100;
+
     size_t vecdim = 128;
-    int threads = 1;
-    
-    int efConstruction = 500;
-    int M = 24;
     size_t k = 1000;  // k at test time
 
     const auto path_query = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
     const auto path_groundtruth = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
     const auto path_entry = (data_path / "SIFT1M/sift_explore_entry_node.ivecs").string();
-    const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
+    //const auto path_index = (data_path / "hnsw/ef_500_M_24.hnsw").string();
+    const auto path_index = (data_path / "hnsw/ef_800_M_40_maxM0_50.hnsw").string();
 
-    char path_index[1024];
-    const auto path_index_template = (data_path / "hnsw/sift1m_ef_%d_M_%d.hnsw").string();
-    std::sprintf(path_index, path_index_template.c_str(), efConstruction, M);
 
 
     // // 2D Graph
-    // size_t query_size = 1;
-    // size_t base_size = 14;
-    // size_t top_k = 5;
     // size_t vecdim = 2;
-    // int threads = 1;
     
     // int efConstruction = 500;
     // int M = 4;
@@ -143,9 +133,12 @@ int main()
 
 
 
+
+    size_t query_size;
+    size_t base_size;
+    size_t top_k;
     auto ground_truth = ivecs_read(path_groundtruth.c_str(), top_k, query_size);
     auto query_features = fvecs_read(path_query.c_str(), vecdim, query_size);
-    auto base_features = fvecs_read(path_basedata.c_str(), vecdim, base_size);
 
     hnswlib::L2Space l2space(vecdim);
     hnswlib::HierarchicalNSW<float>* appr_alg;

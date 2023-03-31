@@ -15,7 +15,7 @@ void rng_optimize_graph(const std::string& graph_file, const std::string& optimi
 
     fmt::print("Load graph {} \n", graph_file);
     auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
-    fmt::print("Graph with {} nodes and {} non-RNG edges \n", graph.size(), deglib::analysis::calc_non_rng_edges(graph));
+    fmt::print("Graph with {} vertices and {} non-RNG edges \n", graph.size(), deglib::analysis::calc_non_rng_edges(graph));
     
     // auto optimizer = deglib::builder::EvenRegularGraphOptimizer(graph, rnd);
     // optimizer.removeNonRngEdges();
@@ -39,65 +39,25 @@ void rng_optimize_graph(const std::string& graph_file, const std::string& optimi
     fmt::print("The RNG optimized graph contains {} non-RNG edges\n", deglib::analysis::calc_non_rng_edges(graph)); 
 }
 
-void naive_reorder_graph(const std::string& graph_file_in, const std::string& order_file, const std::string& graph_file_out) {
-   
-    // load an existing graph
-    fmt::print("Load graph {} \n", graph_file_in);
-    auto graph = deglib::graph::load_sizebounded_graph(graph_file_in.c_str());
-    const auto max_node_count = graph.size();
-    const auto edges_per_node = graph.getEdgesPerNode();
-
-    fmt::print("Find a simple new order of the graph nodes \n");
-    auto new_order = std::vector<uint32_t>(max_node_count);
-    new_order.clear();
-    auto checked_ids = std::vector<bool>(max_node_count);
-    for (uint32_t i = 0; i < max_node_count; i++) {
-        if(checked_ids[i] == false) {
-            new_order.emplace_back(i);
-            auto neighbors = graph.getNeighborIndices(i);
-            for (uint32_t e = 0; e < edges_per_node; e++) {
-                auto neighbor = neighbors[e];
-                if(checked_ids[neighbor] == false) 
-                    new_order.emplace_back(neighbor);
-                checked_ids[neighbor] = true;
-            }
-            checked_ids[i] = true;
-        }
-    }
-
-    // reorder the nodes in the graph
-    fmt::print("Reorder the nodes in the graph \n");
-    graph.reorderNodes(new_order);
-
-    // store the graph
-    fmt::print("Store new graph {} \n", graph_file_out);
-    graph.saveGraph(graph_file_out.c_str());
-
-    fmt::print("Store order file {} \n", order_file);
-    auto out = std::ofstream(order_file, std::ios::out | std::ios::binary);
-    out.write(reinterpret_cast<const char*>(new_order.data()), new_order.size() * sizeof(uint32_t));    
-    out.close();
-}
-
 void reorder_graph(const std::string graph_file_in, const std::string order_file, const std::string graph_file_out) {
 
     // load an existing graph
     fmt::print("Load graph {} \n", graph_file_in);
     auto graph = deglib::graph::load_sizebounded_graph(graph_file_in.c_str());
-    const auto max_node_count = graph.size();
+    const auto max_vertex_count = graph.size();
 
-    // the order in which the node based on their labels should be ordered
+    // the order in which the vertex based on their labels should be ordered
     fmt::print("Load reorder file {} \n", order_file);
     std::error_code ec{};
     auto ifstream = std::ifstream(order_file.c_str(), std::ios::binary);
-    auto order_array = std::make_unique<uint32_t[]>(max_node_count);
-    ifstream.read(reinterpret_cast<char*>(order_array.get()), max_node_count * sizeof(uint32_t));
+    auto order_array = std::make_unique<uint32_t[]>(max_vertex_count);
+    ifstream.read(reinterpret_cast<char*>(order_array.get()), max_vertex_count * sizeof(uint32_t));
     ifstream.close();
 
-    // reorder the nodes in the graph
-    fmt::print("Reorder the nodes in the graph \n");
+    // reorder the vertices in the graph
+    fmt::print("Reorder the vertices in the graph \n");
     auto order_ptr = order_array.get();
-    auto new_order = std::vector<uint32_t>(order_ptr, order_ptr + max_node_count);
+    auto new_order = std::vector<uint32_t>(order_ptr, order_ptr + max_vertex_count);
     graph.reorderNodes(new_order);
 
     // store the graph
@@ -106,13 +66,16 @@ void reorder_graph(const std::string graph_file_in, const std::string order_file
 }
 
 /**
- * Load the SIFT repository and create a dynamic exploratino graph with it.
+ * Load the data repository and create a dynamic exploratino graph with it.
  * Store the graph in the graph file.
  */
 void create_graph(const std::string repository_file, const std::string order_file, const std::string graph_file) {
     
-    auto rnd = std::mt19937(7); 
-    const uint8_t extend_k = 60; // should be greater equals edges_per_node
+    auto rnd = std::mt19937(7);  // default 7
+    const int weight_scale = 1; // SIFT+Glove+enron+crawl=1 UQ-V=100000
+    const uint8_t edges_per_vertex = 30;
+    const deglib::Metric metric = deglib::Metric::L2;
+    const uint8_t extend_k = 30; // should be greater or equals to edges_per_vertex
     const float extend_eps = 0.2f;
     const bool extend_highLID = true;
     const uint8_t improve_k = 30;
@@ -120,103 +83,139 @@ void create_graph(const std::string repository_file, const std::string order_fil
     const bool improve_highLID = false;
     const uint8_t improve_step_factor = 0;
     const uint8_t max_path_length = 5; 
-    const uint32_t swap_tries = 3;
-    const uint32_t additional_swap_tries = 2;
+    const uint32_t swap_tries = 0;
+    const uint32_t additional_swap_tries = 0;
+
+    // load data
+    fmt::print("Load Data \n");
+    auto repository = deglib::load_static_repository(repository_file.c_str());   
+    fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after loading data\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
 
     // create a new graph
-    const uint8_t edges_per_node = 30;
-    const deglib::Metric metric = deglib::Metric::L2;
-    auto repository = deglib::load_static_repository(repository_file.c_str());
+    fmt::print("Setup empty graph with {} vertices in {}D feature space\n", repository.size(), repository.dims());
     const auto dims = repository.dims();
-    const uint32_t max_node_count = uint32_t(repository.size());
+    const uint32_t max_vertex_count = uint32_t(repository.size());
     const auto feature_space = deglib::FloatSpace(dims, metric);
-    auto graph = deglib::graph::SizeBoundedGraph(max_node_count, edges_per_node, feature_space);
+    auto graph = deglib::graph::SizeBoundedGraph(max_vertex_count, edges_per_vertex, feature_space);
+    fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after setup empty graph\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
 
-    // create a graph builder to add nodes to the new graph and improve its edges
-    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
-    // auto builder = deglib::builder::EvenRegularGraphBuilderExperimental(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
+    // create a graph builder to add vertices to the new graph and improve its edges
+    fmt::print("Start graph builder \n");   
+    //auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
+    auto builder = deglib::builder::EvenRegularGraphBuilderExperimental(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
     
     // the order in which the features should be used
     // std::error_code ec{};
     // auto ifstream = std::ifstream(order_file.c_str(), std::ios::binary);
-    // auto order_array = std::make_unique<uint32_t[]>(max_node_count);
-    // ifstream.read(reinterpret_cast<char*>(order_array.get()), max_node_count * sizeof(uint32_t));
+    // auto order_array = std::make_unique<uint32_t[]>(max_vertex_count);
+    // ifstream.read(reinterpret_cast<char*>(order_array.get()), max_vertex_count * sizeof(uint32_t));
     // ifstream.close();
 
     // provide all features to the graph builder at once. In an online system this will be called 
     for (uint32_t i = 0; i < repository.size(); i++) {
         auto label = i;
-        // auto label = order_array[i];
+        //auto label = order_array[i];
         auto feature = reinterpret_cast<const std::byte*>(repository.getFeature(label));
         auto feature_vector = std::vector<std::byte>{feature, feature + dims * sizeof(float)};
         builder.addEntry(label, std::move(feature_vector));
     }
-    fmt::print("start building \n");
-    
+    repository.clear();
+    fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after setup graph builder\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
+
+    fmt::print("Start building \n");    
     // check the integrity of the graph during the graph build process
-    const auto log_after = 10000;
-    auto start = std::chrono::system_clock::now();
+    const auto log_after = 100000;
+    auto start = std::chrono::steady_clock::now();
     uint64_t duration_ms = 0;
     bool valid = true;
     const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
 
-        if(status.added % log_after == 0) {    
-            duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count());
-            auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph);
-            auto weight_histogram_sorted = deglib::analysis::calc_edge_weight_histogram(graph, true);
-            auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(graph, false);
+        if(status.added % log_after == 0 || status.added == max_vertex_count) {    
+            duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+            auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, weight_scale);
+            auto weight_histogram_sorted = deglib::analysis::calc_edge_weight_histogram(graph, true, weight_scale);
+            auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(graph, false, weight_scale);
             auto valid_weights = deglib::analysis::check_graph_weights(graph);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
             auto duration = duration_ms / 1000;
-            fmt::print("{:7} nodes, {:5}s, {:8} / {:8} improv, Q: {:4.2f} -> Sorted:{:.1f}, InOrder:{:.1f}, {} connected & {}\n", 
-                        status.added, duration, status.improved, status.tries, avg_edge_weight, fmt::join(weight_histogram_sorted, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid");
-            start = std::chrono::system_clock::now();
+            auto currRSS = getCurrentRSS() / 1000000;
+            auto peakRSS = getPeakRSS() / 1000000;
+            fmt::print("{:7} vertices, {:5}s, {:8} / {:8} improv, Q: {:4.2f} -> Sorted:{:.1f}, InOrder:{:.1f}, {} connected & {}, RSS {} & peakRSS {}\n", 
+                        status.added, duration, status.improved, status.tries, avg_edge_weight, fmt::join(weight_histogram_sorted, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid", currRSS, peakRSS);
+            start = std::chrono::steady_clock::now();
+        }
+        else if(status.added % (log_after/10) == 0) {    
+            duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+            auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, weight_scale);
+            auto duration = duration_ms / 1000;
+            auto currRSS = getCurrentRSS() / 1000000;
+            auto peakRSS = getPeakRSS() / 1000000;
+            fmt::print("{:7} vertices, {:5}s, {:8} / {:8} improv, Q: {:4.2f}, RSS {} & peakRSS {}\n", status.added, duration, status.improved, status.tries,avg_edge_weight, currRSS, peakRSS);
+            start = std::chrono::steady_clock::now();
         }
 
+        
+
         // check the graph from time to time
-        if(status.added % log_after == 0) {
-            duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count());
-            valid = deglib::analysis::check_graph_validation(graph, uint32_t(status.added - status.deleted), true);
-            if(valid == false) {
-                builder.stop();
-                fmt::print("Invalid graph, build process is stopped\n");
-            }
-            start = std::chrono::system_clock::now();
-        }
+        // if(status.added % log_after == 0) {
+        //     duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count());
+        //     valid = deglib::analysis::check_graph_validation(graph, uint32_t(status.added - status.deleted), true);
+        //     if(valid == false) {
+        //         builder.stop();
+        //         fmt::print("Invalid graph, build process is stopped\n");
+        //     }
+        //     start = std::chrono::system_clock::now();
+        // }
     };
 
     // start the build process
     builder.build(improvement_callback, false);
+    fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after building the graph in {} secs\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000, duration_ms / 1000);
+
 
    // store the graph
     if(valid)
         graph.saveGraph(graph_file.c_str());
 
-    fmt::print("The graph contains {} non-RNG edges\n", deglib::analysis::calc_non_rng_edges(graph)); 
+    fmt::print("The graph contains {} non-RNG edges\n", deglib::analysis::calc_non_rng_edges(graph));
 }
 
 /**
  * Load the graph from the drive and test it against the SIFT query data.
  */
 void test_graph(const std::filesystem::path data_path, const std::string graph_file, const uint32_t repeat, const uint32_t k) {
+
     // const auto path_query_repository = (data_path / "query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "query_gt.ivecs").string();
     const auto path_query_repository = (data_path / "SIFT1M/sift_query.fvecs").string();
     const auto path_query_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
-    //const auto path_query_repository = (data_path / "glove-100/glove-100_query.fvecs").string();
-    //const auto path_query_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
-
+    // const auto path_query_repository = (data_path / "glove-100/glove-100_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "uqv" / "uqv_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "uqv" / "uqv_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "audio" / "audio_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "enron" / "enron_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "enron" / "enron_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "pixabay" / "pixabay_clipfv_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "pixabay" / "pixabay_clipfv_groundtruth.ivecs").string();
+    //   const auto path_query_repository = (data_path / "pixabay" / "pixabay_gpret_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "pixabay" / "pixabay_gpret_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "crawl" / "crawl_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "crawl" / "crawl_groundtruth.ivecs").string();
 
     // load an existing graph
     fmt::print("Load graph {} \n", graph_file);
     const auto graph = deglib::graph::load_readonly_graph(graph_file.c_str());
+    fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after loading the graph\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
+
     // const auto graph = deglib::graph::load_readonly_irregular_graph(graph_file.c_str());
     // const auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
     
     // generall graph stats
     // {
     //     const auto mutable_graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
-    //     auto graph_memory = graph.getEdgesPerNode() * graph.size() * 8 / 1000000; // 4 bytes node id and 4 bytes for the weight
+    //     auto graph_memory = graph.getEdgesPerNode() * graph.size() * 8 / 1000000; // 4 bytes vertex id and 4 bytes for the weight
     //     auto avg_weight = deglib::analysis::calc_avg_edge_weight(mutable_graph);
     //     auto weight_histogram_ordered = deglib::analysis::calc_edge_weight_histogram(mutable_graph, true);
     //     auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(mutable_graph, false);
@@ -239,7 +238,6 @@ void test_graph(const std::filesystem::path data_path, const std::string graph_f
 }
 
 int main() {
-    fmt::print("Testing ...\n");
 
     #if defined(USE_AVX)
         fmt::print("use AVX2  ...\n");
@@ -248,41 +246,81 @@ int main() {
     #else
         fmt::print("use arch  ...\n");
     #endif
+    fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb \n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
 
-    const uint32_t repeat_test = 1;
-    const uint32_t test_k = 100;
+
     const auto data_path = std::filesystem::path(DATA_PATH);
-
-    // //SIFT1M
-    const auto repository_file =        (data_path / "SIFT1M/sift_base.fvecs").string();
-    const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.non_rng_removed.deg").string();
-    const auto optimized_graph_file =   (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.non_rng_optimized.deg").string();
-
-
-    // ----------------------------------------------------------------------------------------------
-    // --------------- TODO: Anstatt 5mio non-rng conform edges zu testen, werden die 5 schlechtesten edges eines jeden Knoten getestet
-    // --------------- TODO: Der hohe Factor für non-RNG edges kann auch beim Swappen eingebaut werden
-    // ----------------------------------------------------------------------------------------------
-
-    const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
-    // // const auto order_file = (data_path / "SIFT1M/sift_base_order_naive.int").string();
-    // // const auto order_file = (data_path / "SIFT1M/sift_base_order359635264.int").string();
-    // //  const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
-    // // const auto order_file = (data_path / "SIFT1M/sift_base_order223619312.int").string();
-
-
-    // GLOVE
-    //const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
-    //const auto graph_file = (data_path / "deg" / "100D_L2_K30_AddK30Eps0.2HighRNGSelectOptional_ImproveK30-0StepEps0.001Low_Path5_Rnd0+0_realHighLows_improveNonPerfectEdges_noLoopDetection.deg").string();
-    // const auto graph_file = (data_path / "deg" / "100D_L2_K22_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd8+8_realHighLows_improveNonPerfectEdges_noLoopDetection.deg").string();
+    uint32_t repeat_test = 1;    
+    uint32_t test_k = 100;
 
 
     // 2DGraph
+    // test_k = 4;
     // const auto repository_file = (data_path / "base.fvecs").string();
     // const auto graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd100+0_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.deg").string();
     // const auto optimized_graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd100+0_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.remove_non_rng_edges.deg").string();
 
-    // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.
+    //SIFT1M
+    const auto repository_file =        (data_path / "SIFT1M/sift_base.fvecs").string();
+    // const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0_postOrdered232076720.deg").string();
+    const auto optimized_graph_file =   (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.non_rng_optimized.deg").string();
+
+    // // const auto order_file = (data_path / "ignore").string();
+    const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
+    // // const auto order_file = (data_path / "SIFT1M/sift_base_order_naive.int").string();
+    // // const auto order_file = (data_path / "SIFT1M/sift_base_order359635264.int").string();
+    // // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
+    // // const auto order_file = (data_path / "SIFT1M/sift_base_order223619312.int").string();
+
+    // GLOVE
+    // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
+    // const auto graph_file = (data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveNonRNGAndSecondHalfOfNonPerfectEdges.add_rngOptional_only28.rng_optimized_RNGSwapAtStep0.deg").string();
+
+    // // UQ-V    
+    // const auto repository_file      = (data_path / "uqv" / "uqv_base.fvecs").string();
+    // const auto order_file           = (data_path / "uqv" / "sift_base_order232076720.int").string();
+    // const auto graph_file           = (data_path / "deg" / "256D_L2_K20_AddK20Eps0.2Low_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "256D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+
+    // // enron
+    // test_k = 20;
+    // repeat_test = 20;
+    // const auto repository_file      = (data_path / "enron" / "enron_base.fvecs").string();
+    // const auto order_file           = (data_path / "enron" / "sift_base_order232076720.int").string();
+    // const auto graph_file           = (data_path / "deg" / "1369D_L2_K30_AddK60Eps0.3High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "1369D_L2_K20_AddK20Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+
+    // pixabay clipfv
+    // const auto repository_file      = (data_path / "pixabay" / "pixabay_clipfv_base.fvecs").string();
+    // const auto order_file           = (data_path / "pixabay" / "sift_base_order232076720.int").string();
+    // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "768D_L2_K20_AddK20Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+
+
+    // // pixabay gpret
+    // const auto repository_file      = (data_path / "pixabay" / "pixabay_gpret_base.fvecs").string();
+    // const auto order_file           = (data_path / "pixabay" / "sift_base_order232076720.int").string();
+    // const auto graph_file           = (data_path / "deg" / "1024D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "1024D_L2_K20_AddK20Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+
+    // crawl
+    // const auto repository_file      = (data_path / "crawl" / "crawl_base.fvecs").string();
+    // const auto order_file           = (data_path / "crawl" / "sift_base_order232076720.int").string();
+    // const auto graph_file           = (data_path / "deg" / "300D_L2_K40_AddK40Eps0.1Low.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "300D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+
+    // audio
+    // test_k = 20;
+    // repeat_test = 10;
+    // const auto repository_file      = (data_path / "audio" / "audio_base.fvecs").string();
+    // const auto order_file           = (data_path / "audio" / "sift_base_order232076720.int").string();
+    // const auto graph_file           = (data_path / "deg" / "192D_L2_K20_AddK20Eps0.2Low_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "192D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+
+
+    // load the base features and creates a DEG graph with them. The graph is than stored on the drive.
     if(std::filesystem::exists(graph_file.c_str()) == false)
         create_graph(repository_file, order_file, graph_file);
 

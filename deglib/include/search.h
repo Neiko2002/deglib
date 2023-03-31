@@ -80,10 +80,10 @@ class PQV : public std::vector<ObjectType> {
     }
 };
 
-// search result set containing node ids and distances
+// search result set containing vertex ids and distances
 typedef PQV<std::less<ObjectDistance>, ObjectDistance> ResultSet;
 
-// set of unchecked node ids
+// set of unchecked vertex ids
 typedef PQV<std::greater<ObjectDistance>, ObjectDistance> UncheckedSet;
 
 
@@ -111,15 +111,15 @@ class SearchGraph
     virtual const bool saveGraph(const char* path_to_graph) const = 0;
 
     /**
-     * Performan a search but stops when the to_node was found.
+     * Perform a search but stops when the to_vertex was found.
      */
-    virtual std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_node_indices, const uint32_t to_node, const float eps, const uint32_t k) const = 0;
+    virtual std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_vertex_indices, const uint32_t to_vertex, const float eps, const uint32_t k) const = 0;
 
 
     /**
      * Approximate nearest neighbor search based on yahoo's range search algorithm for graphs.
      * 
-     * Eps greater 0 extends the search range and takes additional graph nodes into account. 
+     * Eps greater 0 extends the search range and takes additional graph vertices into account. 
      * 
      * It is possible to limit the amount of work by specifing a maximal number of distances to be calculated.
      * For lower numbers it is recommended to set eps to 0 since its very unlikly the method can make use of the extended the search range.
@@ -133,17 +133,17 @@ class SearchGraph
     /**
      * Approximate nearest neighbor search based on yahoo's range search algorithm for graphs.
      * 
-     * Eps greater 0 extends the search range and takes additional graph nodes into account. 
+     * Eps greater 0 extends the search range and takes additional graph vertices into account. 
      * 
      * It is possible to limit the amount of work by specifing a maximal number of distances to be calculated.
      * For lower numbers it is recommended to set eps to 0 since its very unlikly the method can make use of the extended the search range.
      */
-    virtual deglib::search::ResultSet search(const std::vector<uint32_t>& entry_node_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const = 0;
+    virtual deglib::search::ResultSet search(const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const = 0;
 
     /**
      * A exploration for similar element, limited by max_distance_computation_count
      */
-    virtual deglib::search::ResultSet explore(const uint32_t entry_node_index, const uint32_t k, const uint32_t max_distance_computation_count) const = 0;
+    virtual deglib::search::ResultSet explore(const uint32_t entry_vertex_index, const uint32_t k, const uint32_t max_distance_computation_count) const = 0;
 };
 
 } // end namespace deglib::search
