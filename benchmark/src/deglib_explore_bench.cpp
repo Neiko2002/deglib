@@ -20,13 +20,22 @@ int main() {
     const uint32_t repeat_test = 1;
     const auto data_path = std::filesystem::path(DATA_PATH);
     
-
-    // SIFT1M
     const uint32_t k = 1000; 
-    const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string(); 
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.test.deg").string();  // fast 28min
-    const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_explore_ground_truth.ivecs").string();
-    const auto path_entry_vertex = (data_path / "SIFT1M" / "sift_explore_entry_vertex.ivecs").string();
+
+    // ------------------------------------------ SIFT1M ---------------------------------------------
+    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string(); 
+    // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_explore_ground_truth.ivecs").string();
+    // const auto path_entry_vertex = (data_path / "SIFT1M" / "sift_explore_entry_vertex.ivecs").string();
+
+    // ------------------------------------------ Glove ---------------------------------------------
+    const auto graph_file               = (data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string(); 
+    const auto path_query_groundtruth   = (data_path / "glove-100" / "glove-100_explore_ground_truth.ivecs").string();
+    const auto path_entry_vertex        = (data_path / "glove-100" / "glove-100_explore_entry_vertex.ivecs").string();
+
+    // ------------------------------------------ Enron ---------------------------------------------
+    // const auto graph_file               = (data_path / "deg" / "1369D_L2_K30_AddK60Eps0.3High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string(); 
+    // const auto path_query_groundtruth   = (data_path / "enron" / "enron_explore_ground_truth.ivecs").string();
+    // const auto path_entry_vertex        = (data_path / "enron" / "enron_explore_entry_vertex.ivecs").string();
     
     // 2DGraph
     // const uint32_t k = 10; 

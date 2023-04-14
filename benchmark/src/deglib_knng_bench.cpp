@@ -96,8 +96,8 @@ static void create_explore_ground_truth(const deglib::FeatureRepository& reposit
         }
 
         const auto feature_dim = (uint32_t) repository.dims();
-        for (uint32_t i = 0; i < size; i+=step_size) {
-            const auto feature = repository.getFeature(i);
+        for (uint32_t i = 0; i < query_count; i++) {
+            const auto feature = repository.getFeature(i * step_size);
             out.write(reinterpret_cast<const char*>(&feature_dim), sizeof(feature_dim));    
             out.write(reinterpret_cast<const char*>(feature), sizeof(float) * feature_dim);    
         }
@@ -118,8 +118,8 @@ static void create_explore_ground_truth(const deglib::FeatureRepository& reposit
         }
 
         const auto ground_truth_dims = (uint32_t) top_list_dims;
-        for (uint32_t i = 0; i < size; i+=step_size) {
-            const auto top_list_entry =  top_list + i * ground_truth_dims;
+        for (uint32_t i = 0; i < query_count; i++) {
+            const auto top_list_entry =  top_list + i * step_size * ground_truth_dims;
             out.write(reinterpret_cast<const char*>(&ground_truth_dims), sizeof(ground_truth_dims));    
             out.write(reinterpret_cast<const char*>(top_list_entry), sizeof(uint32_t) * ground_truth_dims);    
         }
@@ -140,9 +140,10 @@ static void create_explore_ground_truth(const deglib::FeatureRepository& reposit
         }
 
         const auto entry_vertex_size = (uint32_t) 1;
-        for (uint32_t i = 0; i < size; i+=step_size) {
+        for (uint32_t i = 0; i < query_count; i++) {
+            const auto pos = uint32_t(i * step_size);
             out.write(reinterpret_cast<const char*>(&entry_vertex_size), sizeof(entry_vertex_size));    
-            out.write(reinterpret_cast<const char*>(&i), sizeof(i));    
+            out.write(reinterpret_cast<const char*>(&pos), sizeof(pos));    
         }
 
         out.close();
@@ -709,20 +710,20 @@ int main() {
         // const auto repository_file           = (data_path / "SIFT1M/sift_base.fvecs").string();
         // const auto top_list_file             = (data_path / "SIFT1M/sift_base_top1000.ivecs").string();
         // const auto explore_feature_file      = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
-        // const auto explore_entry_vertex_file   = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
+        // const auto explore_entry_vertex_file = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
         // const auto explore_ground_truth_file = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
 
-        // const auto repository_file           = (data_path / "glove-100/glove-100_base.fvecs").string();
-        // const auto top_list_file             = (data_path / "glove-100/glove-100_base_top1000.ivecs").string();
-        // const auto explore_feature_file      = (data_path / "glove-100/glove-100_explore_query.fvecs").string();
-        // const auto explore_entry_vertex_file   = (data_path / "glove-100/glove-100_explore_entry_vertex.ivecs").string();
-        // const auto explore_ground_truth_file = (data_path / "glove-100/glove-100_explore_ground_truth.ivecs").string();
+        const auto repository_file           = (data_path / "glove-100/glove-100_base.fvecs").string();
+        const auto top_list_file             = (data_path / "glove-100/glove-100_base_top1000.ivecs").string();
+        const auto explore_feature_file      = (data_path / "glove-100/glove-100_explore_query.fvecs").string();
+        const auto explore_entry_vertex_file = (data_path / "glove-100/glove-100_explore_entry_vertex.ivecs").string();
+        const auto explore_ground_truth_file = (data_path / "glove-100/glove-100_explore_ground_truth.ivecs").string();
 
-        const auto repository_file           = (data_path / "Enron/enron_base.fvecs").string();
-        const auto top_list_file             = (data_path / "Enron/enron_base_top1000.ivecs").string();
-        const auto explore_feature_file      = (data_path / "Enron/enron_explore_query.fvecs").string();
-        const auto explore_entry_vertex_file   = (data_path / "Enron/enron_explore_entry_vertex.ivecs").string();
-        const auto explore_ground_truth_file = (data_path / "Enron/enron_explore_ground_truth.ivecs").string();
+        // const auto repository_file           = (data_path / "Enron/enron_base.fvecs").string();
+        // const auto top_list_file             = (data_path / "Enron/enron_base_top1000.ivecs").string();
+        // const auto explore_feature_file      = (data_path / "Enron/enron_explore_query.fvecs").string();
+        // const auto explore_entry_vertex_file = (data_path / "Enron/enron_explore_entry_vertex.ivecs").string();
+        // const auto explore_ground_truth_file = (data_path / "Enron/enron_explore_ground_truth.ivecs").string();
 
         const auto query_count = 10000;
         const auto repository = deglib::load_static_repository(repository_file.c_str());

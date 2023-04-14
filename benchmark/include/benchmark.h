@@ -142,7 +142,7 @@ static void test_graph_anns(const deglib::search::SearchGraph& graph, const degl
             recall = deglib::benchmark::test_approx_anns(graph, entry_vertex_indices, query_repository, answer, eps, k);
         uint64_t time_us_per_query = (stopw.getElapsedTimeMicro() / query_repository.size()) / repeat;
 
-        fmt::print("eps {:.2} \t recall {:.4} \t time_us_per_query {:6}us\n", eps, recall, time_us_per_query);
+        fmt::print("eps {:.2f} \t recall {:.5f} \t time_us_per_query {:6}us\n", eps, recall, time_us_per_query);
         if (recall > 1.0)
             break;
     }
@@ -171,11 +171,11 @@ static void test_graph_explore(const deglib::search::SearchGraph& graph, const u
     const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_count, ground_truth_dims, k);
 
     // try different k values
-    float k_factor = 0.1f;
-    for (uint32_t f = 0; f <= 3; f++) {
-        k_factor *= 10;
-        for (uint32_t i = (f == 0) ? 0 : 1; i < 10; i++) {
-           const auto max_distance_count = k + uint32_t(k*k_factor * i);
+    uint32_t k_factor = 100;
+    for (uint32_t f = 0; f <= 3; f++, k_factor *= 10) {
+        for (uint32_t i = (f == 0) ? 1 : 2; i < 11; i++) {         
+           const auto max_distance_count = ((f == 0) ? (k + k_factor * (i-1)) : (k_factor * i));
+
         //  for (uint32_t i = 1; i < 14; i++) {
         //      const auto max_distance_count = i;
 
@@ -185,7 +185,7 @@ static void test_graph_explore(const deglib::search::SearchGraph& graph, const u
                 recall = deglib::benchmark::test_approx_explore(graph, entry_vertex_indices, answer, k, max_distance_count);
             uint64_t time_us_per_query = stopw.getElapsedTimeMicro() / (query_count * repeat);
 
-            fmt::print("max_distance_count {}, k {}, recall {}, time_us_per_query {}us\n", max_distance_count, k, recall, time_us_per_query);
+            fmt::print("max_distance_count {:5}, k {:4}, recall {:.5f}, time_us_per_query {:4}us\n", max_distance_count, k, recall, time_us_per_query);
             if (recall > 1.0)
                 break;
         }

@@ -56,8 +56,11 @@ void reorder_graph(const std::string graph_file_in, const std::string order_file
 
     // reorder the vertices in the graph
     fmt::print("Reorder the vertices in the graph \n");
-    auto order_ptr = order_array.get();
-    auto new_order = std::vector<uint32_t>(order_ptr, order_ptr + max_vertex_count);
+    // auto order_ptr = order_array.get();
+    // auto new_order = std::vector<uint32_t>(order_ptr, order_ptr + max_vertex_count);
+    auto new_order = std::vector<uint32_t>(max_vertex_count);
+    for(size_t i = 0; i < max_vertex_count; i++)
+        new_order[order_array[i]] = i;
     graph.reorderNodes(new_order);
 
     // store the graph
@@ -261,14 +264,13 @@ int main() {
     // const auto optimized_graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd100+0_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.remove_non_rng_edges.deg").string();
 
     //SIFT1M
-    const auto repository_file =        (data_path / "SIFT1M/sift_base.fvecs").string();
-    // const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
-    const auto graph_file =             (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0_postOrdered232076720.deg").string();
-    const auto optimized_graph_file =   (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.non_rng_optimized.deg").string();
+    const auto repository_file      = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // const auto graph_file        = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    const auto graph_file           = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_preOrdered232076720.deg").string();
+    const auto optimized_graph_file = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd3+2_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.non_rng_optimized.deg").string();
 
     // // const auto order_file = (data_path / "ignore").string();
     const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
-    // // const auto order_file = (data_path / "SIFT1M/sift_base_order_naive.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order359635264.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order223619312.int").string();

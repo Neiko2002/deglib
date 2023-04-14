@@ -22,7 +22,7 @@ static std::vector<std::unordered_set<size_t>> get_ground_truth(const uint32_t* 
     return answers;
 }
 
-static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg, const float* query_repository,
+static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg,
                          const std::vector<std::unordered_set<size_t>>& ground_truth, const size_t query_dims,
                          const std::vector<std::vector<uint32_t>>& entry_node_indices,
                          const uint32_t k, const uint32_t max_distance_count)
@@ -36,8 +36,7 @@ static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg
         auto result_queue = appr_alg.explore(entry_node, k, max_distance_count);
 
         total += gt.size();
-        while (result_queue.empty() == false)
-        {
+        while (result_queue.empty() == false){
             if (gt.find(result_queue.top().second) != gt.end()) correct++;
             result_queue.pop();
         }
@@ -47,7 +46,7 @@ static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg
 }
 
 
-static void test_vs_recall_explore(hnswlib::HierarchicalNSW<float>& appr_alg, const float* query_repository,
+static void test_vs_recall_explore(hnswlib::HierarchicalNSW<float>& appr_alg, 
                            const std::vector<std::unordered_set<size_t>>& ground_truth, const size_t query_dims,
                            const uint32_t* entry_nodes, const uint32_t entry_node_dims,
                            const size_t k)
@@ -60,24 +59,23 @@ static void test_vs_recall_explore(hnswlib::HierarchicalNSW<float>& appr_alg, co
     }
 
     // try different k values
-    float k_factor = 0.1f;
-    for (uint32_t f = 0; f <= 3; f++) {
-        k_factor *= 10;
-        for (uint32_t i = (f == 0) ? 0 : 1; i < 10; i++) {
-           const auto max_distance_count = k + uint32_t(k*k_factor * i);
+    uint32_t k_factor = 100;
+    for (uint32_t f = 0; f <= 3; f++, k_factor *= 10) {
+        for (uint32_t i = (f == 0) ? 1 : 2; i < 11; i++) {         
+           const auto max_distance_count = ((f == 0) ? (k + k_factor * (i-1)) : (k_factor * i));
 
-            appr_alg.setEf(k*2);
+            appr_alg.setEf(k);
             appr_alg.metric_distance_computations = 0;
             appr_alg.metric_hops = 0;
 
             auto stopw = StopW();
-            auto recall = test_approx_explore(appr_alg, query_repository, ground_truth, query_dims, entry_node_indices, k, max_distance_count);
+            auto recall = test_approx_explore(appr_alg, ground_truth, query_dims, entry_node_indices, k, max_distance_count);
             auto time_us_per_query = stopw.getElapsedTimeMicro() / ground_truth.size();
 
             float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * ground_truth.size());
             float hops_per_query = appr_alg.metric_hops / (1.0f * ground_truth.size());
 
-            fmt::print("max_distance_count {} \t recall {} \t time_us_per_query {}us, avg distance computations {}, avg hops {}\n", max_distance_count, recall, time_us_per_query, distance_comp_per_query, hops_per_query);
+            fmt::print("max_distance_count {:6d} \t recall {:.6f} \t time_us_per_query {:4d}us, avg distance computations {:8.2f}, avg hops {:6.2f}\n", max_distance_count, recall, time_us_per_query, distance_comp_per_query, hops_per_query);
             if (recall > 1.0)
             {
                 fmt::print("recall {} \t time_us_per_query {}us\n", recall, time_us_per_query);
@@ -105,16 +103,26 @@ int main()
     fmt::print("Data dir  {} \n", data_path.string().c_str());
 
 
-    size_t vecdim = 128;
+
     size_t k = 1000;  // k at test time
 
-    const auto path_query = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
-    const auto path_groundtruth = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
-    const auto path_entry = (data_path / "SIFT1M/sift_explore_entry_node.ivecs").string();
-    //const auto path_index = (data_path / "hnsw/ef_500_M_24.hnsw").string();
-    const auto path_index = (data_path / "hnsw/ef_800_M_40_maxM0_50.hnsw").string();
+    // ------------------------------------------ SIFT1M ---------------------------------------------
+    // size_t vecdim = 128
+    // const auto path_groundtruth = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
+    // const auto path_entry = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
+    // const auto path_index = (data_path / "hnsw/ef_800_M_40_maxM0_50.hnsw").string();
 
+    // ------------------------------------------ Enron ---------------------------------------------
+    size_t vecdim = 100;
+    const auto path_groundtruth = (data_path / "glove-100" / "glove-100_explore_ground_truth.ivecs").string();
+    const auto path_entry       = (data_path / "glove-100" / "glove-100_explore_entry_vertex.ivecs").string();
+    const auto path_index       = (data_path / "hnsw" / "glove-100_ef_700_M_50_maxM0_60.hnsw").string(); 
 
+    // ------------------------------------------ Enron ---------------------------------------------
+    // size_t vecdim = 1369;
+    // const auto path_groundtruth = (data_path / "enron" / "enron_explore_ground_truth.ivecs").string();
+    // const auto path_entry = (data_path / "enron" / "enron_explore_entry_vertex.ivecs").string();
+    // const auto path_index = (data_path / "hnsw" / "ef_900_M_50_maxM0_80.hnsw").string(); 
 
     // // 2D Graph
     // size_t vecdim = 2;
@@ -133,12 +141,10 @@ int main()
 
 
 
-
+    
     size_t query_size;
-    size_t base_size;
     size_t top_k;
     auto ground_truth = ivecs_read(path_groundtruth.c_str(), top_k, query_size);
-    auto query_features = fvecs_read(path_query.c_str(), vecdim, query_size);
 
     hnswlib::L2Space l2space(vecdim);
     hnswlib::HierarchicalNSW<float>* appr_alg;
@@ -159,10 +165,10 @@ int main()
     size_t entry_node_dims;
     size_t entry_node_count;
     const auto entry_node = ivecs_read(path_entry.c_str(), entry_node_dims, entry_node_count);
-    fmt::print("{} exploration entry node {} dimensions \n", entry_node_count, entry_node_dims);
+    fmt::print("{} exploration entry vertex ids dimensions {} \n", entry_node_count, entry_node_dims);
     fmt::print("Explore for {} neighbors \n", k);
 
-    test_vs_recall_explore(*appr_alg, query_features, answer, vecdim, entry_node, (uint32_t) entry_node_dims, k);
+    test_vs_recall_explore(*appr_alg, answer, vecdim, entry_node, (uint32_t) entry_node_dims, k);
 
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
     fmt::print("Test ok\n");
