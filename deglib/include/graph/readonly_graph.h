@@ -371,8 +371,7 @@ public:
   inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
     auto neighbor_indices = getNeighborIndices(internal_index);
     auto neighbor_indices_end = neighbor_indices + this->edges_per_vertex_;  
-    auto neighbor_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, neighbor_index); 
-    return (*neighbor_ptr == neighbor_index);
+    return std::binary_search(neighbor_indices, neighbor_indices_end, neighbor_index); 
   }
 
   const bool saveGraph(const char* path_to_graph) const override {
@@ -500,6 +499,110 @@ public:
       const auto limited_search_func = getSearchFunction<true>(this->feature_space_);
       return limited_search_func(*this, entry_vertex_indices, query, eps, k, max_distance_computation_count);
     }
+  }
+
+
+  /**
+   * The result set contains internal indices. 
+   */
+  template <typename COMPARATOR, bool use_max_distance_count>
+  deglib::search::ResultSet greedySearchImpl(const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  {
+    const auto dist_func_param = this->feature_space_.get_dist_func_param();
+    uint32_t distance_computation_count = 0;
+
+    // set of checked vertex ids
+    auto checked_ids = std::vector<bool>(this->size());
+
+    // items to traverse next
+    auto next_vertices = deglib::search::UncheckedSet();
+    next_vertices.reserve(k*this->edges_per_vertex_);
+
+    // result set
+    // TODO: custom priority queue with an internal Variable Length Array wrapped in a macro with linear-scan search and memcopy 
+    auto results = deglib::search::ResultSet();
+    results.reserve(k);
+
+    // copy the initial entry vertices and their distances to the query into the three containers
+    for (auto&& index : entry_vertex_indices) {
+      if(checked_ids[index] == false) {
+        checked_ids[index] = true;
+
+        const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
+        const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
+        next_vertices.emplace(index, distance);
+        results.emplace(index, distance);
+
+        // early stop after to many computations
+        if constexpr (use_max_distance_count) {
+          if(++distance_computation_count >= max_distance_computation_count)
+            return results;
+        }
+      }
+    }
+
+    // search radius
+    auto r = std::numeric_limits<float>::max();
+
+    // iterate as long as good elements are in the next_vertices queue     
+    const auto ef = (uint32_t)eps;
+    auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
+    while (next_vertices.empty() == false)
+    {
+      
+      // next vertex to check
+      const auto next_vertex = next_vertices.top();
+      next_vertices.pop();
+
+      // max distance reached
+      if (next_vertex.getDistance() > r) 
+        break;
+
+      size_t good_neighbor_count = 0;
+      const auto neighbor_indices = this->neighbors_by_index(next_vertex.getInternalIndex());
+      for (size_t i = 0; i < this->edges_per_vertex_; i++) {
+        const auto neighbor_index = neighbor_indices[i];
+        if (checked_ids[neighbor_index] == false)  {
+          checked_ids[neighbor_index] = true;
+          good_neighbors[good_neighbor_count++] = neighbor_index;
+        }
+      }
+
+      if (good_neighbor_count == 0)
+        continue;
+
+      MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[0])));
+      for (size_t i = 0; i < good_neighbor_count; i++) {
+        MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+
+        const auto neighbor_index = good_neighbors[i];
+        const auto neighbor_feature_vector = this->feature_by_index(neighbor_index);
+        const auto neighbor_distance = COMPARATOR::compare(query, neighbor_feature_vector, dist_func_param);
+             
+        // check the neighborhood of this vertex later, if its good enough
+        if (results.size() < ef || neighbor_distance < r) {
+          next_vertices.emplace(neighbor_index, neighbor_distance);
+          results.emplace(neighbor_index, neighbor_distance);
+
+          // update the search radius
+          if (results.size() > ef) {
+            results.pop();
+            r = results.top().getDistance();
+          }
+        }
+
+        // early stop after to many computations
+        if constexpr (use_max_distance_count) {
+          if(++distance_computation_count >= max_distance_computation_count)
+            return results;
+        }
+      }
+    }
+
+    while (results.size() > k)
+      results.pop();
+
+    return results;
   }
 
   /**

@@ -1,8 +1,10 @@
 #pragma once
 
+#include <omp.h>
 #include <math.h>
 #include <algorithm>
 #include <fmt/core.h>
+#include <span>
 
 #include "search.h"
 #include "graph.h"
@@ -15,7 +17,7 @@ namespace deglib::analysis
      * 
      * @param check_back_link checks if all edges are undirected (quite expensive)
      */
-    static bool check_graph_validation(const deglib::search::SearchGraph& graph, const uint32_t expected_vertices, const bool check_back_link = false) {
+    static auto check_graph_validation(const deglib::search::SearchGraph& graph, const uint32_t expected_vertices, const bool check_back_link = false) {
 
         // check vertex count
         auto vertex_count = graph.size();
@@ -24,10 +26,14 @@ namespace deglib::analysis
             return false;
         }
 
-        // check edges
+        // skip if the graph is too small to check
         auto edges_per_vertex = graph.getEdgesPerNode();
+        if(vertex_count <= edges_per_vertex) 
+            return true;
+
+        // check edges
         for (uint32_t n = 0; n < vertex_count; n++) {
-            auto neighbor_indices = graph.getNeighborIndices(n);
+            auto neighbor_indices = std::span(graph.getNeighborIndices(n), edges_per_vertex);
 
             // check if the neighbor indizizes of the vertices are in ascending order and unique
             int64_t last_index = -1;
@@ -59,6 +65,108 @@ namespace deglib::analysis
         }
         
         return true;
+    }
+
+    /**
+     * Compute the average graph quality of all vertices in the graph
+     */
+    static float calc_graph_quality(const deglib::search::SearchGraph& graph) {
+        const auto& feature_space = graph.getFeatureSpace();
+        const auto dist_func = feature_space.get_dist_func();
+        const auto dist_func_param = feature_space.get_dist_func_param();
+        const auto edges_per_vertex = (int)graph.getEdgesPerNode();
+        const auto vertex_count = (int)graph.size();
+
+        auto perfect_neighbor_counts = std::vector<double>(vertex_count);
+        #pragma omp parallel for
+        for (int n1 = 0; n1 < vertex_count; n1++) {
+            const auto fv1 = graph.getFeatureVector(n1);
+            const auto neighborIds = graph.getNeighborIndices(n1); 
+
+            // compute the distance to any other vertex in the graph and sort the list
+            auto perfect_neighbors = std::vector<std::pair<uint32_t,float>>(vertex_count);
+            MemoryCache::prefetch(reinterpret_cast<const char*>(graph.getFeatureVector(0)));
+            for (int n2 = 0; n2 < vertex_count; n2++) {
+                MemoryCache::prefetch(reinterpret_cast<const char*>(graph.getFeatureVector(std::min(n2 + 1, vertex_count - 1))));
+                const auto fv2 = graph.getFeatureVector(n2);
+                const auto dist = dist_func(fv1, fv2, dist_func_param);
+                perfect_neighbors[n2] = {n2,dist};
+            }
+            std::sort(perfect_neighbors.begin(), perfect_neighbors.end(), [](const auto& x, const auto& y){return x.second < y.second;});
+
+            // find the rank of each neighbor in the perfect neighbor list
+            auto perfect_neighbor_count = 0.0;
+            for (int e1 = 0; e1 < edges_per_vertex; e1++) {
+                const auto neighbor_id = neighborIds[e1];
+                for (int r = 1; r < edges_per_vertex + 1; r++) {    // skip self reference
+                    if(neighbor_id == perfect_neighbors[r].first) {
+                        perfect_neighbor_count++;                   // rank 0 is always a self reference
+                        break;
+                    }
+                }
+            }
+
+            #pragma omp critical
+            {
+                perfect_neighbor_counts[n1] = perfect_neighbor_count / std::min(vertex_count, edges_per_vertex);
+            }
+        }
+
+        auto perfect_neighbor_count = 0.0;
+        for (int n1 = 0; n1 < vertex_count; n1++) 
+            perfect_neighbor_count += perfect_neighbor_counts[n1];
+        return (float)(perfect_neighbor_count / vertex_count);
+    }
+
+    /**
+     * Compute the average neighbor rank of all vertices in the graph
+     */
+    static float calc_avg_neighbor_rank(const deglib::search::SearchGraph& graph) {
+        const auto& feature_space = graph.getFeatureSpace();
+        const auto dist_func = feature_space.get_dist_func();
+        const auto dist_func_param = feature_space.get_dist_func_param();
+        const auto edges_per_vertex = (int)graph.getEdgesPerNode();
+        const auto vertex_count = (int) graph.size();
+
+        auto average_neighbor_ranks = std::vector<double>(vertex_count);
+        #pragma omp parallel for
+        for (int n1 = 0; n1 < vertex_count; n1++) {
+            const auto fv1 = graph.getFeatureVector(n1);
+            const auto neighborIds = graph.getNeighborIndices(n1); 
+
+            // compute the distance to any other vertex in the graph and sort the list
+            auto perfect_neighbors = std::vector<std::pair<uint32_t,float>>(vertex_count);
+            MemoryCache::prefetch(reinterpret_cast<const char*>(graph.getFeatureVector(0)));
+            for (int n2 = 0; n2 < vertex_count; n2++) {
+                MemoryCache::prefetch(reinterpret_cast<const char*>(graph.getFeatureVector(std::min(n2 + 1, vertex_count - 1))));
+                const auto fv2 = graph.getFeatureVector(n2);
+                const auto dist = dist_func(fv1, fv2, dist_func_param);
+                perfect_neighbors[n2] = {n2,dist};
+            }
+            std::sort(perfect_neighbors.begin(), perfect_neighbors.end(), [](const auto& x, const auto& y){return x.second < y.second;});
+
+            // find the rank of each neighbor in the perfect neighbor list
+            double average_neighbor_rank = 0;
+            for (int e1 = 0; e1 < edges_per_vertex; e1++) {
+                const auto neighbor_id = neighborIds[e1];
+                for (int r = 1; r < vertex_count; r++) {           // skip self reference
+                    if(neighbor_id == perfect_neighbors[r].first) {
+                        average_neighbor_rank += (r - 1);               // rank 0 is always a self reference
+                        break;
+                    }
+                }
+            }
+
+            #pragma omp critical
+            {
+                average_neighbor_ranks[n1] = average_neighbor_rank / std::min(vertex_count, edges_per_vertex);
+            }
+        }
+
+        auto average_neighbor_rank = 0.0;
+        for (int n1 = 0; n1 < vertex_count; n1++) 
+            average_neighbor_rank += average_neighbor_ranks[n1];
+        return (float)(average_neighbor_rank / vertex_count);
     }
 
     /**
@@ -113,7 +221,7 @@ namespace deglib::analysis
     /**
      * Check if the weights of the graph are still the same to the distance of the vertices
      */
-    static float check_graph_weights(const deglib::graph::MutableGraph& graph) {
+    static auto check_graph_weights(const deglib::graph::MutableGraph& graph) {
         const auto& feature_space = graph.getFeatureSpace();
         const auto dist_func = feature_space.get_dist_func();
         const auto dist_func_param = feature_space.get_dist_func_param();

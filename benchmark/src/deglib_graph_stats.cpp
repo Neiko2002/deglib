@@ -35,10 +35,10 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
         auto top_list = all_top_list + n * top_list_dims;
 
         // check if every neighbor is from the perfect neighborhood
-         fmt::print("Neighbors of vertex {}\n", n);
+        //  fmt::print("Neighbors of vertex {}\n", n);
         for (uint32_t e = 0; e < edges_per_vertex; e++) {
             auto neighbor_index = neighbor_indices[e];
-            fmt::print("{} = {}\n", e, neighbor_indices[e]);
+            // fmt::print("{} = {}\n", e, neighbor_indices[e]);
 
             // find in the neighbor in the first few elements of the top list
             for (uint32_t i = 0; i < edges_per_vertex; i++) {
@@ -48,7 +48,7 @@ static void compute_graph_quality(const char* graph_file, const char* top_list_f
                 }
             }
         }
-        fmt::print("\n");
+        // fmt::print("\n");
     }
 
     auto perfect_neighbor_ratio = (float) perfect_neighbor_count / (graph_size * edges_per_vertex);
@@ -108,97 +108,28 @@ int main() {
     #endif
 
     const auto data_path = std::filesystem::path(DATA_PATH);
-    // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-    // const auto top_list_file  = (data_path / "glove-100" / "glove_base_top1000.ivecs").string(); 
-    const auto top_list_file  = (data_path / "base_top13.ivecs").string(); 
     auto graph_files = std::vector<std::string>();
 
-    // 2D Graph
-    graph_files.emplace_back((data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.deg").string()); 
-    graph_files.emplace_back((data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd10+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.deg").string()); 
+    // ------------------------------------- 2D Graph -------------------------------------------
+    // graph_files.emplace_back((data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd0+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.deg").string()); 
+    // graph_files.emplace_back((data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd10+0_improveTheBetterHalfOfTheNonPerfectEdges_RNGAddMinimalSwapAtStep0.deg").string()); 
+    // const auto top_list_file  = (data_path / "base_top13.ivecs").string(); 
 
+    // ------------------------------------- SIFT1M -------------------------------------------
+    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string()); // GQ 0.49960038
+    // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
 
-    // SIFT1M
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2.deg").string();  // GQ=0.47360423
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions/improve" / "deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it1m.deg").string();  // GQ=0.50627613
-    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions/improve" / "deg30_128D_L2_AddK30Eps0.2_Improve30Eps0.02_ImproveExt30-2StepEps0.02_Path15_it20m.deg").string();  // GQ=0.5304048
+    // ------------------------------------- Glove -------------------------------------------
+    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string()); // GQ 0.21667433
+    // const auto top_list_file  = (data_path / "glove-100" / "glove-100_base_top1000.ivecs").string(); 
 
-    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2Low.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd2+2_realHighLows_improveNonPerfectEdges.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd5+5_realHighLows_improveNonPerfectEdges.deg").string());
+    // ------------------------------------- Enron -------------------------------------------
+    // graph_files.emplace_back((data_path / "deg" / "1369D_L2_K30_AddK60Eps0.3High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string()); // GQ 0.36472255
+    // const auto top_list_file  = (data_path / "enron" / "enron_base_top1000.ivecs").string(); 
 
-    // graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
-    // graph_files.emplace_back((data_path / "deg" / "paper" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd0+0.deg").string());  
-
-    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd15+15.deg").string());  
-    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24-2StepEps0.02Low_Path10_Rnd1+1-rerun.deg").string());  
-
-    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24Eps0.02Low_ImproveExtK24-2StepEps0.02Low_Path10_Rnd1+1.deg").string());  
-    // graph_files.emplace_back((data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2High_ImproveK24Eps0.02Low_ImproveExtK24-2StepEps0.02Low_Path10_Rnd5+5.deg").string());  
-
-
-
-
-
-
-    // GloVe
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd0+0_improveNonPerfectEdges.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd0+0_realHighLow_improveNonPerfectEdges.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30-2StepEps0.02Low_Path10_Rnd3+3_realHighLow-rerun.deg").string());
-
-    // // Graph quality is 0.23271069, edges per vertex 30, graph size 1183514, connected true
-    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdges.deg").string());
-
-    // // Graph quality is 0.23340161, edges per vertex 30, graph size 1183514, connected true
-    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.2High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov.deg").string());
-
-    // // Graph quality is 0.23545972, edges per vertex 30, graph size 1183514, connected true
-    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.3High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov.deg").string()); // 30 best
-
-    // // Graph quality is 0.23538786, edges per vertex 30, graph size 1183514, connected true
-    // graph_files.emplace_back((data_path / "deg" / "100D_L2_K30_AddK30Eps0.3High_ImproveK30-0StepEps0.001Low_Path5_Rnd10+10_realHighLow_improveTheBetterHalfOfTheNonPerfectEdgesWithHighHighImprov_noLoopDetection.deg").string());
-
-    // // Graph quality is 0.23036574, edges per vertex 60, graph size 1183514, connected true
-    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.2High_ImproveK60Eps0.02Low_ImproveExtK60-3StepEps0.02Low_Path10_Rnd2+2.deg").string()); // 60 best
-
-
-    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.05High_ImproveK60-2StepEps0.001Low_Path10_Rnd0+0_realHighLow_improveNonPerfectEdges.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.05High_ImproveK60-2StepEps0.001Low_Path10_Rnd3+3_realHighLow.deg").string());
-    // graph_files.emplace_back((data_path / "deg" / "k60nns_100D_L2_AddK60Eps0.2High.deg").string());
-
-
-    
-    
-
-
-
-
-
-    
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30Eps0.02Low_ImproveExtK30-2StepEps0.02Low_Path10_Rnd4+4.deg").string());    // HighLowLow
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High_ImproveK30Eps0.02High_ImproveExtK30-2StepEps0.02High_Path10_Rnd2+2.deg").string());  // HighHighHigh
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2Low_ImproveK30Eps0.02Low_ImproveExtK30-2StepEps0.02Low_Path20_Rnd10+3.deg").string());    // LowLowLow
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2Low_ImproveK30Eps0.02High_ImproveExtK30-2StepEps0.02High_Path10_Rnd3+3.deg").string());   // LowHighHigh
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2High.deg").string());                                                                     // High
-    // graph_files.emplace_back((data_path / "deg" / "k30nns_100D_L2_AddK30Eps0.2Low.deg").string());                                                                      // Low
-
-    
-    
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15.deg").string();  // GQ=0.5285193
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15-rerun.deg").string();  // GQ=0.52845836
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k30nns_128D_L2_AddK30Eps0.2_ImproveK30Eps0.02_ImproveExtK30-2StepEps0.02_Path20_Rnd15+15-rerun2.deg").string();  // GQ=0.5281604
-
-
-    // const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k40nns_128D_L2_AddK40Eps0.1_ImproveK40Eps0.02_ImproveExtK40-2StepEps0.02_Path12_Rnd5+5.deg").string();  // GQ=0.5232597
-    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd5+5.deg").string();  // GQ=0.51845485
-    //const auto graph_file = (data_path / "deg" / "best_distortion_decisions" / "k24nns_128D_L2_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK24-2StepEps0.02_Path10_Rnd15+15.deg").string();  // GQ=0.52803755
-
-    //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02_ImproveExtK36-2StepEps0.02.deg").string(); // best with GQ=0.48901713
-    //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK20Eps0.2_ImproveK20Eps0.02_ImproveExtK12-2StepEps0.02.deg").string(); // fast with GQ=0.51287943
-    //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2_ImproveK24Eps0.02.deg").string(); // simple improve only with GQ=0.48969483
-    //const auto graph_file = (data_path / "deg" / "k24nns_128D_L2_Path10_Rnd3+3_AddK24Eps0.2.deg").string(); // build only with GQ=0.4492762
+    // ------------------------------------- Audio -------------------------------------------
+    graph_files.emplace_back((data_path / "deg" / "192D_L2_K20_AddK40Eps0.3High_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string()); // GQ 0.36472255
+    const auto top_list_file  = (data_path / "audio" / "audio_base_top1000.ivecs").string(); 
 
     for (auto &&graph_file : graph_files) {
         compute_graph_quality(graph_file.c_str(), top_list_file.c_str());

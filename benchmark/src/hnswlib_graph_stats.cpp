@@ -41,7 +41,8 @@ static uint32_t compute_reachablity_count(hnswlib::HierarchicalNSW<float>* graph
         // if the simple search was not successful use flood fill to find the target vertex
         if(found == false) {
 
-            // search the node in the higher layer to find the best entrance position on the base layer
+            // search the vertex in the higher layer to find the best entrance position on the base layer
+            // same code as in the searchKnn(const void* query_data, size_t k) method of the hnswalg.h file
             auto currObj = graph->enterpoint_node_;
             auto curdist = graph->fstdistfunc_(target_data, graph->getDataByInternalId(graph->enterpoint_node_), graph->dist_func_param_);
             for (int level = graph->maxlevel_; level > 0; level--)
@@ -258,6 +259,8 @@ static float compute_avg_reach(hnswlib::HierarchicalNSW<float>* graph) {
         if(counter % 10000 == 0)
             fmt::print("Avg reach is {:.2f} after checking {:7d} of {:7d} vertices after {:4d}s\n", ((float)avg_reach)/counter, counter, graph_size, stopw.getElapsedTimeMicro() / 1000000);
     }  
+
+    fmt::print("Avg reach is {:.2f} after checking {:7d} of {:7d} vertices after {:4d}s\n", ((float)avg_reach)/counter, counter, graph_size, stopw.getElapsedTimeMicro() / 1000000);
     return ((float)avg_reach)/graph_size;
 }
 
@@ -392,32 +395,47 @@ int main() {
 
     const auto data_path = std::filesystem::path(DATA_PATH);
 
+    // ------------------------------------ SIFT1M ----------------------------------------   
     // sift1m_ef_500_M_24 -> GQ 0.36061648, avg degree 29.743711, min_out 1, max_out 48, min_in 0, max_in 182, source nodes 3, search reachability count 999997, exploration avg reach 999997, node count 1000000, nodes per layer (999998,41583,1763,68)
     // ef_800_M_40_maxM0_50 -> GQ 0.34640437, avg degree 32.855633, min_out 1, max_out 50, min_in 1, max_in 151, source vertices 0, search reachability count 1000000, exploration avg reach 1000000.00, vertices per layer (1000000,24834,568,18,1)
     // const auto graph_file = (data_path / "hnsw" / "ef_800_M_40_maxM0_50.hnsw").string(); 
     // const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
     // const int feature_dims = 128;
 
+    // ------------------------------------ GloVe ----------------------------------------   
     // glove-100_ef_2500_M_25 -> GQ 0.23849423, avg degree 18.42118, min_out 1, max_out 50, min_in 0, max_in 1866, source nodes 30686, search reachability count 1152468, exploration avg reach 1152424, node count 1183514, nodes per layer (1183510,47260,1896,64)
     // glove-100_ef_700_M_50_maxM0_60 -> GQ 0.28946307, avg degree 14.822003, min_out 1, max_out 60, min_in 0, max_in 2161, source vertices 41294, vertices per layer (1183514,23565,433,11)
-    const auto graph_file = (data_path / "hnsw" / "glove-100_ef_700_M_50_maxM0_60.hnsw").string(); 
-    const auto top_list_file  = (data_path / "glove-100" / "glove-100_base_top1000.ivecs").string(); 
-    const int feature_dims = 100;
+    // const auto graph_file = (data_path / "hnsw" / "glove-100_ef_700_M_50_maxM0_60.hnsw").string(); 
+    // const auto top_list_file  = (data_path / "glove-100" / "glove-100_base_top1000.ivecs").string(); 
+    // const int feature_dims = 100;
 
+    // ------------------------------------ 2dgraph ----------------------------------------   
     // const auto graph_file = (data_path / "2dgraph_ef_500_M_4.hnsw").string(); 
     // const auto top_list_file  = (data_path / "base_top13.ivecs").string(); 
     // const int feature_dims = 2;
 
+    // ------------------------------------ uqv ----------------------------------------   
     // const auto graph_file = (data_path / "hnsw" / "uqv_ef_200_M_10_maxM0_40.hnsw").string(); 
     // const auto top_list_file  = (data_path / "uqv" / "uqv_base_top1000.ivecs").string(); 
     // const int feature_dims = 256;
 
+    // ------------------------------------ enron ----------------------------------------   
     // ef_900_M_50_maxM0_80 -> GQ 0.33040112, avg degree 21.918083, min_out 1, max_out 80, min_in 0, max_in 243, source vertices 34, search reachability count 94951, exploration avg reach 94951.00, vertices per layer (94987,1848,36)
-    // const auto graph_file = (data_path / "hnsw" / "ef_900_M_50_maxM0_80.hnsw").string(); 
-    // const auto top_list_file  = (data_path / "enron" / "enron_base_top1000.ivecs").string(); 
-    // const int feature_dims = 1368;
+    const auto graph_file = (data_path / "hnsw" / "ef_900_M_50_maxM0_80.hnsw").string(); 
+    const auto top_list_file  = (data_path / "enron" / "enron_base_top1000.ivecs").string(); 
+    const int feature_dims = 1368;
 
-    compute_stats(graph_file.c_str(), top_list_file.c_str(), feature_dims);
+    // ------------------------------------ audio ----------------------------------------   
+    // const auto graph_file = (data_path / "hnsw" / "ef_700_M_10_maxM0_50.hnsw").string(); 
+    // const auto top_list_file  = (data_path / "audio" / "audio_base_top1000.ivecs").string(); 
+    // const int feature_dims = 192;
+
+    // compute_stats(graph_file.c_str(), top_list_file.c_str(), feature_dims);
+    
+    auto l2space = hnswlib::L2Space(feature_dims);
+    auto graph = new hnswlib::HierarchicalNSW<float>(&l2space, graph_file, false);
+    auto reachability_count = compute_reachablity_count(graph);
+    fmt::print("search reachability count {}\n",  reachability_count);
 
     fmt::print("Test OK\n");
     return 0;

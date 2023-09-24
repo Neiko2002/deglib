@@ -29,6 +29,7 @@ static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg
 {
     size_t correct = 0;
     size_t total = 0;
+    size_t count = 0;
     for (int i = 0; i < ground_truth.size(); i++) {
         auto entry_node = entry_node_indices[i][0];
 
@@ -39,6 +40,7 @@ static float test_approx_explore(const hnswlib::HierarchicalNSW<float>& appr_alg
         while (result_queue.empty() == false){
             if (gt.find(result_queue.top().second) != gt.end()) correct++;
             result_queue.pop();
+            count++;
         }
     }
 
@@ -112,17 +114,23 @@ int main()
     // const auto path_entry = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
     // const auto path_index = (data_path / "hnsw/ef_800_M_40_maxM0_50.hnsw").string();
 
-    // ------------------------------------------ Enron ---------------------------------------------
-    size_t vecdim = 100;
-    const auto path_groundtruth = (data_path / "glove-100" / "glove-100_explore_ground_truth.ivecs").string();
-    const auto path_entry       = (data_path / "glove-100" / "glove-100_explore_entry_vertex.ivecs").string();
-    const auto path_index       = (data_path / "hnsw" / "glove-100_ef_700_M_50_maxM0_60.hnsw").string(); 
+    // // ------------------------------------------ glove ---------------------------------------------
+    // size_t vecdim = 100;
+    // const auto path_groundtruth = (data_path / "glove-100" / "glove-100_explore_ground_truth.ivecs").string();
+    // const auto path_entry       = (data_path / "glove-100" / "glove-100_explore_entry_vertex.ivecs").string();
+    // const auto path_index       = (data_path / "hnsw" / "glove-100_ef_700_M_50_maxM0_60.hnsw").string(); 
 
     // ------------------------------------------ Enron ---------------------------------------------
     // size_t vecdim = 1369;
     // const auto path_groundtruth = (data_path / "enron" / "enron_explore_ground_truth.ivecs").string();
     // const auto path_entry = (data_path / "enron" / "enron_explore_entry_vertex.ivecs").string();
     // const auto path_index = (data_path / "hnsw" / "ef_900_M_50_maxM0_80.hnsw").string(); 
+
+    // ------------------------------------------ Audio ---------------------------------------------
+    size_t vecdim = 192;
+    const auto path_groundtruth = (data_path / "audio" / "audio_explore_ground_truth.ivecs").string();
+    const auto path_entry       = (data_path / "audio" / "audio_explore_entry_vertex.ivecs").string();
+    const auto path_index       = (data_path / "hnsw" / "ef_700_M_10_maxM0_50.hnsw").string(); 
 
     // // 2D Graph
     // size_t vecdim = 2;

@@ -53,10 +53,12 @@ static float test_approx(const hnswlib::HierarchicalNSW<float>& appr_alg, const 
 
 static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const float* query_repository,
                            const std::vector<std::unordered_set<size_t>>& ground_truth, const size_t query_dims,
-                           const size_t k)
+                           const size_t k, const size_t repeat)
 {
-    std::vector<size_t> efs = { 100, 140, 171, 206, 249, 500, 1000 };                           // sift1m + UQ-V + crawl
-    // std::vector<size_t> efs = { 20, 30, 40, 50, 70, 100, 150, 300 };                           // audio + enron 
+    std::vector<size_t> efs = { 100, 120, 150, 200, 300 };                           // sift500k
+    // std::vector<size_t> efs = { 100, 140, 171, 206, 249, 500, 1000 };                           // sift1m + UQ-V + crawl
+    //std::vector<size_t> efs = { 20, 30, 40, 50, 70, 100, 150, 300 };                           // enron 
+    //std::vector<size_t> efs = { 20, 25, 30, 40, 56, 80, 300 };                           // audio  
     //std::vector<size_t> efs = { 1000, 1500, 2000, 2500, 5000, 10000, 20000, 40000, 80000 };   // GloVe
     
     for (size_t ef : efs)
@@ -66,8 +68,10 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
         appr_alg.metric_hops = 0;
 
         auto stopw = StopW();
-        auto recall = test_approx(appr_alg, query_repository, ground_truth, query_dims, k);
-        auto time_us_per_query = stopw.getElapsedTimeMicro() / ground_truth.size();
+        float recall = 0;
+        for (size_t i = 0; i < repeat; i++) 
+            recall = test_approx(appr_alg, query_repository, ground_truth, query_dims, k);
+        auto time_us_per_query = (stopw.getElapsedTimeMicro() / ground_truth.size()) / repeat;
 
         float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * ground_truth.size());
         float hops_per_query = appr_alg.metric_hops / (1.0f * ground_truth.size());
@@ -137,30 +141,31 @@ int main()
 
 
 
-    // // ------------------------------------ SIFT ------------------------------------
-    // size_t vecdim = 128;
-    // const size_t k = 100;  // k at test time
+    // ------------------------------------ SIFT ------------------------------------
+    size_t vecdim = 128;
+    const size_t k = 100;  // k at test time
+    const size_t repeat_test = 1;
 
-    // // const int efConstruction = 200; // HNSW default
-    // // const int M = 16;               // HNSW default
-    // // const int maxM0 = M * 2;        // HNSW default
-    // // const int seed = 100;           // HNSW default
-
-    // // const int efConstruction = 600; // SSG parameter
-    // // const int M = 25;               // SSG parameter
-    // // const int maxM0 = M * 2;        // HNSW default
-    // // const int seed = 100;           // HNSW default
-
-    // const int efConstruction = 800; // WEAVESS parameter
-    // const int M = 40;               // WEAVESS parameter
-    // const int maxM0 = 50;           // WEAVESS parameter
+    // const int efConstruction = 200; // HNSW default
+    // const int M = 16;               // HNSW default
+    // const int maxM0 = M * 2;        // HNSW default
     // const int seed = 100;           // HNSW default
 
-    // const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
-    // const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth.ivecs").string();
-    // const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
-    // // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
-    // const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
+    // const int efConstruction = 600; // SSG parameter
+    // const int M = 25;               // SSG parameter
+    // const int maxM0 = M * 2;        // HNSW default
+    // const int seed = 100;           // HNSW default
+
+    const int efConstruction = 800; // WEAVESS parameter
+    const int M = 40;               // WEAVESS parameter
+    const int maxM0 = 50;           // WEAVESS parameter
+    const int seed = 100;           // HNSW default
+
+    const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
+    const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth_base500000.ivecs").string();
+    const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
+    const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
 
 
 
@@ -212,6 +217,7 @@ int main()
     // // ------------------------------------ audio ------------------------------------
     // size_t vecdim = 192;
     // const size_t k = 20;  // k at test time
+    // const size_t repeat_test = 50;
 
     // const int efConstruction = 700; // WEAVESS parameter
     // const int M = 10;               // WEAVESS parameter
@@ -221,6 +227,7 @@ int main()
     // const auto path_query       = (data_path / "audio" / "audio_query.fvecs").string();
     // const auto path_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
     // const auto path_basedata    = (data_path / "audio" / "audio_base.fvecs").string();
+
 
 
 
@@ -237,25 +244,25 @@ int main()
     // const auto path_groundtruth = (data_path / "pixabay/pixabay_clipfv_groundtruth.ivecs").string();
     // const auto path_basedata    = (data_path / "pixabay/pixabay_clipfv_base.fvecs").string();
 
-    // ------------------------------------ Pixabay gpret ------------------------------------
-    size_t vecdim = 1024;
-    const size_t k = 100;  // k at test time
+    // // ------------------------------------ Pixabay gpret ------------------------------------
+    // size_t vecdim = 1024;
+    // const size_t k = 100;  // k at test time
 
-    const int efConstruction = 800; // WEAVESS parameter
-    const int M = 40;               // WEAVESS parameter
-    const int maxM0 = 50;           // WEAVESS parameter
-    const int seed = 100;           // HNSW default
+    // const int efConstruction = 800; // WEAVESS parameter
+    // const int M = 40;               // WEAVESS parameter
+    // const int maxM0 = 50;           // WEAVESS parameter
+    // const int seed = 100;           // HNSW default
 
-    const auto path_query       = (data_path / "pixabay/pixabay_gpret_query.fvecs").string();
-    const auto path_groundtruth = (data_path / "pixabay/pixabay_gpret_groundtruth.ivecs").string();
-    const auto path_basedata    = (data_path / "pixabay/pixabay_gpret_base.fvecs").string();
+    // const auto path_query       = (data_path / "pixabay/pixabay_gpret_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "pixabay/pixabay_gpret_groundtruth.ivecs").string();
+    // const auto path_basedata    = (data_path / "pixabay/pixabay_gpret_base.fvecs").string();
 
     // ------------------------------------------------------------------------------
     // ------------------------------------ HNSW ------------------------------------
     // ------------------------------------------------------------------------------
     char path_index[1024];
     {
-        const auto path_index_template = (data_path / "hnsw" / "ef_%d_M_%d_maxM0_%d.hnsw").string();
+        const auto path_index_template = (data_path / "hnsw" / "online" / "ef_%d_M_%d_maxM0_%d_add2_remove1_until500k.hnsw").string();
         std::sprintf(path_index, path_index_template.c_str(), efConstruction, M, maxM0);
     }
 
@@ -266,7 +273,7 @@ int main()
     {
         std::cout << "Loading index from " << path_index << ":" << std::endl;
         appr_alg = new hnswlib::HierarchicalNSW<float>(&l2space, path_index, false);
-        std::cout << "Actual memory usage: " << getCurrentRSS() / 1000000 << " Mb, Max memory usage: " << getPeakRSS() / 1000000 << " Mb after loading index" << std::endl;
+        std::cout << "Actual memory usage: " << getCurrentRSS() / 1000000 << " Mb, Max memory usage: " << getPeakRSS() / 1000000 << " Mb after loading index with " << appr_alg->cur_element_count << " elements" << std::endl;
     }
     else
     {
@@ -286,7 +293,7 @@ int main()
 
         std::cout << "Creating index:" << std::endl;
         appr_alg = new hnswlib::HierarchicalNSW<float>(&l2space, base_size, M, efConstruction, seed, maxM0);
-        std::cout << "Actual memory usage: " << getCurrentRSS() / 1000000 << " Mb, Max memory usage: " << getPeakRSS() / 1000000 << " Mb after creating index" << std::endl;
+        std::cout << "Actual memory usage: " << getCurrentRSS() / 1000000 << " Mb, Max memory usage: " << getPeakRSS() / 1000000 << " Mb after creating index with " << appr_alg->cur_element_count << " elements" << std::endl;
 
         std::cout << "Building index:" << std::endl;
         // add first data as a root node
@@ -301,6 +308,10 @@ int main()
         StopW stopw_full = StopW();
         size_t report_every = 10000;
 
+        // change for online testin
+        base_size = 500000;
+
+        // build the graph
         omp_set_num_threads(threads);
 #pragma omp parallel for
         for (int i = 1; i < base_size; i++)
@@ -323,10 +334,26 @@ int main()
 
             auto feature = base_features + vecdim * label;
             appr_alg->addPoint((void*)(feature), (size_t)label);
-        }
-        std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
 
-        std::cout << "Store graph " << path_index << std::endl;
+            // add from second half
+            size_t second_label = base_size+(i-1);
+            auto second_feature = base_features + vecdim * second_label;
+            appr_alg->addPoint((void*)(second_feature), second_label);
+            appr_alg->markDelete(second_label);
+        }
+        // std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
+        std::cout << "Build/delete time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
+
+        // remove half of the features
+        // stopw_full.reset();
+        // for (int i = base_size/2; i < base_size; i++)
+        // {
+        //     appr_alg->markDelete((size_t)i);
+        // }
+        // std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
+
+
+        std::cout << "Store graph " << path_index << appr_alg->cur_element_count << std::endl;
         appr_alg->saveIndex(path_index);
     }
 
@@ -342,7 +369,7 @@ int main()
     fmt::print("Parsing gt:\n");
     auto answer = get_ground_truth(ground_truth, query_size, top_k, k);
     fmt::print("Loaded gt with k={}\n", k);
-    test_vs_recall(*appr_alg, query_features, answer, vecdim, k);
+    test_vs_recall(*appr_alg, query_features, answer, vecdim, k, repeat_test);
     fmt::print("Actual memory usage: {} Mb\n", getCurrentRSS() / 1000000);
     fmt::print("Test ok\n");
 

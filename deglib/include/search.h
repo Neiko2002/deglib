@@ -84,6 +84,7 @@ class PQV : public std::vector<ObjectType> {
 typedef PQV<std::less<ObjectDistance>, ObjectDistance> ResultSet;
 
 // set of unchecked vertex ids
+// typedef std::priority_queue<ObjectDistance, std::vector<ObjectDistance>, std::greater<ObjectDistance>> UncheckedSet;
 typedef PQV<std::greater<ObjectDistance>, ObjectDistance> UncheckedSet;
 
 

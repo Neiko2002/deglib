@@ -81,6 +81,10 @@ public:
     return 0;
   }
 
+  std::vector<uint32_t> removeNode(const uint32_t external_labelr) override {
+    return std::vector<uint32_t>(0);
+  }
+
   bool changeEdge(const uint32_t internal_index, const uint32_t from_neighbor_index, const uint32_t to_neighbor_index, const float to_neighbor_weight) override {
     return true;
   }

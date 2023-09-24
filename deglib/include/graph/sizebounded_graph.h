@@ -4,6 +4,7 @@
 #include <limits>
 #include <queue>
 #include <math.h>
+#include <span>
 
 #include <fmt/core.h>
 #include <tsl/robin_hash.h>
@@ -388,8 +389,7 @@ public:
   inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
     auto neighbor_indices = neighbors_by_index(internal_index);
     auto neighbor_indices_end = neighbor_indices + this->edges_per_vertex_;  
-    auto neighbor_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, neighbor_index); 
-    return (*neighbor_ptr == neighbor_index);
+    return std::binary_search(neighbor_indices, neighbor_indices_end, neighbor_index);
   }
 
   bool reorderNodes(const std::vector<uint32_t> order_vector) override {
@@ -522,6 +522,52 @@ public:
   }
 
   /**
+    * Remove an existing vertex.
+    */
+  std::vector<uint32_t> removeNode(const uint32_t external_label) override {
+    const auto internal_index = getInternalIndex(external_label);
+    const auto last_internal_index = static_cast<uint32_t>(this->label_to_index_.size() - 1);
+
+    // since the last_internal_index will be moved to the internal_index, 
+    // update the current neighbor list if the last_internal_index is present
+    if(hasEdge(internal_index, last_internal_index)) {
+      changeEdge(internal_index, last_internal_index, internal_index, 0);
+      changeEdge(last_internal_index, internal_index, last_internal_index, 0);
+    }
+
+    // copy the neighbor list to return it later
+    const auto neighbor_indices = neighbors_by_index(internal_index);
+    const auto involved_indices = std::vector<uint32_t>(neighbor_indices, neighbor_indices + this->edges_per_vertex_);
+
+    // replace all references to the internal_index with a self-reference of the corresponding vertex
+    for (size_t index = 0; index < this->edges_per_vertex_; index++) 
+      changeEdge(neighbor_indices[index], internal_index, neighbor_indices[index], 0);
+
+    // the last index will be moved to the internal_index position and overwrite its content
+    if(internal_index != last_internal_index) {
+
+      // update the neighbor list of the last vertex to reflex its new vertex index
+      const auto last_neighbor_indices = neighbors_by_index(last_internal_index);
+      const auto last_neighbor_weights = weights_by_index(last_internal_index);
+      for (size_t index = 0; index < this->edges_per_vertex_; index++) 
+        changeEdge(last_neighbor_indices[index], last_internal_index, internal_index, last_neighbor_weights[index]);
+      
+      // copy the last vertex to the vertex which gets removed
+      std::memcpy(vertex_by_index(internal_index), vertex_by_index(last_internal_index), this->byte_size_per_vertex_);
+
+      // update the index position of the last label
+      const auto last_label = label_by_index(last_internal_index);
+      label_to_index_[last_label] = internal_index;
+    }
+
+    // remove the external label from the hash map
+    label_to_index_.erase(external_label);
+
+    // return all neighbors of the deleted vertex
+    return involved_indices;
+  }
+
+  /**
    * Swap a neighbor with another neighbor and its weight.
    * 
    * @param internal_index vertex index which neighbors should be changed
@@ -533,18 +579,20 @@ public:
   bool changeEdge(const uint32_t internal_index, const uint32_t from_neighbor_index, const uint32_t to_neighbor_index, const float to_neighbor_weight) override {
     auto vertex_memory = vertex_by_index(internal_index);
 
-    auto neighbor_indices = reinterpret_cast<uint32_t*>(vertex_memory + neighbor_indices_offset_);    // list of neighbor indizizes
-    auto neighbor_indices_end = neighbor_indices + this->edges_per_vertex_;                           // end of the list
+    auto neighbor_indices = reinterpret_cast<uint32_t*>(vertex_memory + neighbor_indices_offset_);  // list of neighbor indizizes
+    auto neighbor_indices_end = neighbor_indices + this->edges_per_vertex_;                         // end of the list
     auto from_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, from_neighbor_index);  // possible position of the from_neighbor_index in the neighbor list
-
+  
     // from_neighbor_index not found in the neighbor list
-    if(*from_ptr != from_neighbor_index)
+    if(*from_ptr != from_neighbor_index) {
+      fmt::print(stderr, "changeEdge: vertex {} does not have an edge to {} and therefore can not swap it with {} and with distance {}\n", internal_index, from_neighbor_index, to_neighbor_index, to_neighbor_weight);
       return false;
+    }
 
-    auto neighbor_weights = reinterpret_cast<float*>(vertex_memory + neighbor_weights_offset_);         // list of neighbor weights
+    auto neighbor_weights = reinterpret_cast<float*>(vertex_memory + neighbor_weights_offset_);     // list of neighbor weights
     auto to_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, to_neighbor_index);      // neighbor in the list which has a lower index number than to_neighbor_index
-    auto from_list_idx = uint32_t(from_ptr - neighbor_indices);                                      // index of the from_neighbor_index in the neighbor list
-    auto to_list_idx = uint32_t(to_ptr - neighbor_indices);                                          // index where to place the to_neighbor_index 
+    auto from_list_idx = uint32_t(from_ptr - neighbor_indices);                                     // index of the from_neighbor_index in the neighbor list
+    auto to_list_idx = uint32_t(to_ptr - neighbor_indices);                                         // index where to place the to_neighbor_index 
 
     // Make same space before inserting the new values
     if(from_list_idx < to_list_idx) {
@@ -555,6 +603,8 @@ public:
       std::memmove(neighbor_indices + to_list_idx + 1, neighbor_indices + to_list_idx, (from_list_idx - to_list_idx) * sizeof(uint32_t));
       std::memmove(neighbor_weights + to_list_idx + 1, neighbor_weights + to_list_idx, (from_list_idx - to_list_idx) * sizeof(float));
     }
+
+    auto idxs = std::span<uint32_t>(neighbor_indices, this->edges_per_vertex_);
 
     neighbor_indices[to_list_idx] = to_neighbor_index;
     neighbor_weights[to_list_idx] = to_neighbor_weight;
@@ -957,7 +1007,7 @@ public:
     // search radius
     auto r = std::numeric_limits<float>::max();
 
-    // iterate as long as good elements are in the next_vertices queue     
+    // iterate as long as good elements are in the next_vertices queue
     auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
     while (next_vertices.empty() == false)
     {

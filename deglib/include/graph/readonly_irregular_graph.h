@@ -527,8 +527,7 @@ public:
     auto neighbor_size = neighbor_size_by_index(internal_index);
     auto neighbor_indices = neighbor_indices_by_index(internal_index);
     auto neighbor_indices_end = neighbor_indices + neighbor_size;  
-    auto neighbor_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, neighbor_index); 
-    return (*neighbor_ptr == neighbor_index);
+    return std::binary_search(neighbor_indices, neighbor_indices_end, neighbor_index); 
   }
 
   const bool saveGraph(const char* path_to_graph) const override {
