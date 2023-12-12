@@ -645,7 +645,8 @@ static float test_limit_distance_computation(const char* graph_file, const degli
     float best_precision = 0;
     float best_eps = 0;
 
-    std::vector<float> eps_parameter = { 0.2f };
+    std::vector<float> eps_parameter = { 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.1f, 0.2f  };     // SIFT500k k=100
+    // std::vector<float> eps_parameter = { 0.2f };
     //std::vector<float> eps_parameter = { 1.5, 2.0, 2.25, 2.5, 2.75, 3, 3.5, 4 };
     //td::vector<float> eps_parameter = { 0.05, 0.06, 0.07, 0.075, 0.08, 0.085, 0.09, 0.095, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22, 0.24, 0.26, 0.28, 0.3, 0.35, 0.4, 0.5, 0.6, 0.8, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3, 3.5, 4 };
     for (float eps : eps_parameter)
@@ -719,20 +720,18 @@ static void improve_and_test_deg(const char* initial_graph_file, const std::file
 
     auto initial_recall = test_limit_distance_computation(initial_graph_file, query_repository, answer, max_distance_count, k_test);
     auto initial_graph_quality = 0.0f;//deglib::analysis::calc_graph_quality(graph);
-    auto initial_avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, 1);
+    auto initial_avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, 1) * 1000;
     auto initial_avg_neighbor_rank = 0.0f;//deglib::analysis::calc_avg_neighbor_rank(graph);
     fmt::print("Improve and test graph {} with initial GQ {:.4f}, AEW {:.2f}, ANR {:.2f}, Recall {:.4f}, \n", initial_graph_file, initial_graph_quality, initial_avg_edge_weight, initial_avg_neighbor_rank, initial_recall);
 
     // const tsl::robin_set<uint64_t> log_after = {100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 2000000, 3000000, 4000000, 5000000, 6000000, 7000000, 8000000, 9000000, 10000000, 20000000};
-   const tsl::robin_set<uint64_t> log_after = { 5000000, 6000000, 7000000, 8000000, 9000000, 10000000, 20000000, 30000000, 40000000, 50000000};
-    // const tsl::robin_set<uint64_t> log_after = { 4651400, 4651410, 4651420, 4651430, 4651440, 4651450, 4651460, 4651470, 4651480, 4651490, 4651500};
-
+   const tsl::robin_set<uint64_t> log_after = { 1000000, 2000000, 3000000, 4000000, 5000000, 10000000, 20000000, 30000000, 40000000, 50000000};
     auto start = std::chrono::steady_clock::now();
     auto last_status = deglib::builder::BuilderStatus{};
-    uint64_t duration_ms = 6412 * 1000;
+    uint64_t duration_ms = 0;
     const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
-        const auto tries = status.tries + 4000000;
-        const auto improved = status.improved + 2082004;
+        const auto tries = status.tries;
+        const auto improved = status.improved;
         if(log_after.find(tries) != log_after.end()) {
             duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
             auto duration = duration_ms / 1000;
@@ -852,57 +851,57 @@ int main() {
         fmt::print("use arch  ...\n");
     #endif
 
-    omp_set_num_threads(8);
+    omp_set_num_threads(1);
     std::cout << "_OPENMP " << omp_get_num_threads() << " threads" << std::endl;
 
-    const auto repeat_test = 3;
+    const auto repeat_test = 1;
     const auto data_path = std::filesystem::path(DATA_PATH);
 
     // convert top list of all database elements
-    {
-        const auto numpy_file = (data_path / "SIFT1M" / "sift_base_top1001.npd").string();
-        const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
-        store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1000000);
+    // {
+    //     const auto numpy_file = (data_path / "SIFT1M" / "sift_base_top1001.npd").string();
+    //     const auto top_list_file = (data_path / "SIFT1M" / "sift_base_top1000.ivecs").string();
+    //     store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1000000);
 
-        // const auto numpy_file = (data_path / "glove-100" / "glove_base_top1001.npd").string();
-        // const auto top_list_file = (data_path / "glove-100" / "glove_base_top1000.ivecs").string();
-        // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1183514);
+    //     // const auto numpy_file = (data_path / "glove-100" / "glove_base_top1001.npd").string();
+    //     // const auto top_list_file = (data_path / "glove-100" / "glove_base_top1000.ivecs").string();
+    //     // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 1183514);
 
-        // const auto numpy_file = (data_path / "Enron" / "enron_base_top1001.npd").string();
-        // const auto top_list_file = (data_path / "Enron" / "enron_base_top100.ivecs").string();
-        // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 94987);
-    }
+    //     // const auto numpy_file = (data_path / "Enron" / "enron_base_top1001.npd").string();
+    //     // const auto top_list_file = (data_path / "Enron" / "enron_base_top100.ivecs").string();
+    //     // store_top_list(numpy_file.c_str(), top_list_file.c_str(), 94987);
+    // }
 
     // create exploration query and ground truth data
-    {
-        const auto repository_file           = (data_path / "SIFT1M/sift_base.fvecs").string();
-        const auto top_list_file             = (data_path / "SIFT1M/sift_base_top1000.ivecs").string();
-        const auto explore_feature_file      = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
-        const auto explore_entry_vertex_file = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
-        const auto explore_ground_truth_file = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
+    // {
+    //     const auto repository_file           = (data_path / "SIFT1M/sift_base.fvecs").string();
+    //     const auto top_list_file             = (data_path / "SIFT1M/sift_base_top1000.ivecs").string();
+    //     const auto explore_feature_file      = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
+    //     const auto explore_entry_vertex_file = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
+    //     const auto explore_ground_truth_file = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
 
-        // const auto repository_file           = (data_path / "glove-100/glove-100_base.fvecs").string();
-        // const auto top_list_file             = (data_path / "glove-100/glove-100_base_top1000.ivecs").string();
-        // const auto explore_feature_file      = (data_path / "glove-100/glove-100_explore_query.fvecs").string();
-        // const auto explore_entry_vertex_file = (data_path / "glove-100/glove-100_explore_entry_vertex.ivecs").string();
-        // const auto explore_ground_truth_file = (data_path / "glove-100/glove-100_explore_ground_truth.ivecs").string();
+    //     // const auto repository_file           = (data_path / "glove-100/glove-100_base.fvecs").string();
+    //     // const auto top_list_file             = (data_path / "glove-100/glove-100_base_top1000.ivecs").string();
+    //     // const auto explore_feature_file      = (data_path / "glove-100/glove-100_explore_query.fvecs").string();
+    //     // const auto explore_entry_vertex_file = (data_path / "glove-100/glove-100_explore_entry_vertex.ivecs").string();
+    //     // const auto explore_ground_truth_file = (data_path / "glove-100/glove-100_explore_ground_truth.ivecs").string();
 
-        // const auto repository_file           = (data_path / "Enron/enron_base.fvecs").string();
-        // const auto top_list_file             = (data_path / "Enron/enron_base_top1000.ivecs").string();
-        // const auto explore_feature_file      = (data_path / "Enron/enron_explore_query.fvecs").string();
-        // const auto explore_entry_vertex_file = (data_path / "Enron/enron_explore_entry_vertex.ivecs").string();
-        // const auto explore_ground_truth_file = (data_path / "Enron/enron_explore_ground_truth.ivecs").string();
+    //     // const auto repository_file           = (data_path / "Enron/enron_base.fvecs").string();
+    //     // const auto top_list_file             = (data_path / "Enron/enron_base_top1000.ivecs").string();
+    //     // const auto explore_feature_file      = (data_path / "Enron/enron_explore_query.fvecs").string();
+    //     // const auto explore_entry_vertex_file = (data_path / "Enron/enron_explore_entry_vertex.ivecs").string();
+    //     // const auto explore_ground_truth_file = (data_path / "Enron/enron_explore_ground_truth.ivecs").string();
 
-        // const auto repository_file           = (data_path / "audio/audio_base.fvecs").string();
-        // const auto top_list_file             = (data_path / "audio/audio_base_top1000.ivecs").string();
-        // const auto explore_feature_file      = (data_path / "audio/audio_explore_query.fvecs").string();
-        // const auto explore_entry_vertex_file = (data_path / "audio/audio_explore_entry_vertex.ivecs").string();
-        // const auto explore_ground_truth_file = (data_path / "audio/audio_explore_ground_truth.ivecs").string();
+    //     // const auto repository_file           = (data_path / "audio/audio_base.fvecs").string();
+    //     // const auto top_list_file             = (data_path / "audio/audio_base_top1000.ivecs").string();
+    //     // const auto explore_feature_file      = (data_path / "audio/audio_explore_query.fvecs").string();
+    //     // const auto explore_entry_vertex_file = (data_path / "audio/audio_explore_entry_vertex.ivecs").string();
+    //     // const auto explore_ground_truth_file = (data_path / "audio/audio_explore_ground_truth.ivecs").string();
 
-        const auto query_count = 10000;
-        const auto repository = deglib::load_static_repository(repository_file.c_str());
-        create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_vertex_file.c_str(), query_count);
-    }
+    //     const auto query_count = 10000;
+    //     const auto repository = deglib::load_static_repository(repository_file.c_str());
+    //     create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_vertex_file.c_str(), query_count);
+    // }
 
     // create KNN graph with the help of database top list
     // {
@@ -959,50 +958,66 @@ int main() {
     //     randomize_and_test_knng(graph_file.c_str(), (data_path / "knng/rnd"), query_repository, answer, max_distance_count, k);
     // }
 
-    // {
-    //     // ------------------------------------------- SIFT1m -----------------------------------------
-    //     const uint8_t  degree = 30;
-    //     const uint32_t k_test = 100;
-    //     const uint32_t max_distance_count = 20000;
+    {
+        // // ------------------------------------------- SIFT1m -----------------------------------------
+        // const uint8_t  degree = 30;
+        // const uint32_t k_test = 100;
+        // const uint32_t max_distance_count = 2000;
 
-    //     const auto graph_dir        = (data_path / "deg" / "average_neighbor_rank2");
-    //     // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd.deg").string();
-    //     const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it4000000.deg").string();
+        // const auto graph_dir        = (data_path / "deg" / "online" / "improve");
+        // // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd.deg").string();
+        // // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it4000000.deg").string();
+        // const auto graph_file       = (data_path / "deg" / "online" / "K30_AddK60Eps0.2_SwapK30Eps0.001_add500k.deg").string();
 
-    //     const auto repository_file        = (data_path / "SIFT1M" / "sift_base.fvecs").string();
-    //     const auto path_query_repository  = (data_path / "SIFT1M" / "sift_query.fvecs").string();
-    //     const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth.ivecs").string();
-
-    //     // ------------------------------------------- Audio -----------------------------------------
-    //     // const uint8_t  degree = 20;
-    //     // const uint32_t k_test = 20;
-    //     // const uint32_t max_distance_count = 20000;
-
-    //     // const auto graph_dir        = (data_path / "deg" / "average_neighbor_rank3");
-    //     // const auto graph_file       = (graph_dir / "192D_L2_K20_RndAdd.deg").string();
-
-    //     // const auto repository_file        = (data_path / "audio" / "audio_base.fvecs").string();
-    //     // const auto path_query_repository  = (data_path / "audio" / "audio_query.fvecs").string();
-    //     // const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
+        // const auto repository_file        = (data_path / "SIFT1M" / "sift_base.fvecs").string();
+        // const auto path_query_repository  = (data_path / "SIFT1M" / "sift_query.fvecs").string();
+        // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth_base500000.ivecs").string();
 
 
+        // ------------------------------------------- GloVe -----------------------------------------
+        const uint8_t  degree = 30;
+        const uint32_t k_test = 100;
+        const uint32_t max_distance_count = 5000;
 
-    //     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
-    //     fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
+        const auto graph_dir        = (data_path / "deg" / "online" / "improve");
+        // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd.deg").string();
+        // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it4000000.deg").string();
+        const auto graph_file       = (data_path / "deg" / "online" / "K30_AddK30Eps0.2_SwapK30Eps0.001_add500k.deg").string();
 
-    //     size_t ground_truth_dims;
-    //     size_t ground_truth_count;
-    //     auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), ground_truth_dims, ground_truth_count);
-    //     const auto ground_truth = (uint32_t*) ground_truth_f.release(); // not very clean, works as long as sizeof(int) == sizeof(float)
-    //     const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), (uint32_t)ground_truth_dims, k_test);
-    //     delete ground_truth;
-    //     fmt::print("{} ground truth {} dimensions \n", ground_truth_count, ground_truth_dims);
+        const auto repository_file        = (data_path / "glove-100" / "glove-100_base.fvecs").string();
+        const auto path_query_repository  = (data_path / "glove-100" / "glove-100_query.fvecs").string();
+        const auto path_query_groundtruth = (data_path / "glove-100" / "glove-100_groundtruth_base591757.ivecs").string();
 
-    //     // const auto repository = deglib::load_static_repository(repository_file.c_str());
-    //     // create_random_deg(repository, graph_file, degree);
+        // ------------------------------------------- Audio -----------------------------------------
+        // const uint8_t  degree = 20;
+        // const uint32_t k_test = 20;
+        // const uint32_t max_distance_count = 20000;
 
-    //     improve_and_test_deg(graph_file.c_str(), graph_dir, query_repository, answer, max_distance_count, k_test);
-    // }
+        // const auto graph_dir        = (data_path / "deg" / "average_neighbor_rank3");
+        // const auto graph_file       = (graph_dir / "192D_L2_K20_RndAdd.deg").string();
+
+        // const auto repository_file        = (data_path / "audio" / "audio_base.fvecs").string();
+        // const auto path_query_repository  = (data_path / "audio" / "audio_query.fvecs").string();
+        // const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
+
+
+
+        const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
+        fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
+
+        size_t ground_truth_dims;
+        size_t ground_truth_count;
+        auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), ground_truth_dims, ground_truth_count);
+        const auto ground_truth = (uint32_t*) ground_truth_f.release(); // not very clean, works as long as sizeof(int) == sizeof(float)
+        const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), (uint32_t)ground_truth_dims, k_test);
+        delete ground_truth;
+        fmt::print("{} ground truth {} dimensions \n", ground_truth_count, ground_truth_dims);
+
+        // const auto repository = deglib::load_static_repository(repository_file.c_str());
+        // create_random_deg(repository, graph_file, degree);
+
+        improve_and_test_deg(graph_file.c_str(), graph_dir, query_repository, answer, max_distance_count, k_test);
+    }
     
 
     fmt::print("Test OK\n");

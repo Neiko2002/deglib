@@ -119,14 +119,16 @@ static void test_graph_anns(const deglib::search::SearchGraph& graph, const degl
     fmt::print("internal id {} \n", graph.getInternalIndex(entry_vertex_indices[0]));
 
     // test ground truth
-    fmt::print("Parsing gt:\n");
+    fmt::print("Parsing gt to get the TOP{} results:\n", k);
     auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), ground_truth_dims, k);
-    fmt::print("Loaded gt:\n");
+    fmt::print("Loaded gt\n");
 
     // try different eps values for the search radius
     // std::vector<float> eps_parameter = { 0.05f, 0.06f, 0.07f, 0.08f, 0.09f, 0.11f, 0.15f, 0.2f };       // crawl
     // std::vector<float> eps_parameter = { 0.05f, 0.06f, 0.07f, 0.08f, 0.1f, 0.12f, 0.18f, 0.2f,   };             // enron
+    // std::vector<float> eps_parameter = { 0.00f, 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.1f, 0.2f,   };             // enron top100
     // std::vector<float> eps_parameter = { 0.01f, 0.05f, 0.1f, 0.2f, 0.4f, 0.8f  };             // UQ-V
+    std::vector<float> eps_parameter = { 0.00f, 0.03f, 0.05f, 0.07f, 0.09f, 0.12f, 0.2f, 0.3f, };             // audio top100
     // std::vector<float> eps_parameter = { 0.00f, 0.03f, 0.05f, 0.07f, 0.09f, 0.12f, 0.2f, 0.3f, };             // audio
     // std::vector<float> eps_parameter = { 0.01f, 0.05f, 0.1f, 0.12f, 0.14f, 0.16f, 0.18f, 0.2f  };     // SIFT1M k=100
     // std::vector<float> eps_parameter = { 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.1f, 0.2f  };     // SIFT500k k=100
@@ -134,7 +136,7 @@ static void test_graph_anns(const deglib::search::SearchGraph& graph, const degl
     // std::vector<float> eps_parameter = { 0.00f, 0.01f, 0.05f, 0.1f, 0.15f, 0.2f };     // SIFT1M k=1
     // std::vector<float> eps_parameter = { 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.08f, 0.09f, 0.1f, 0.2f  };     // clipfv
     // std::vector<float> eps_parameter = { 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.08f, 0.09f, 0.1f, 0.2f  };     // gpret
-    std::vector<float> eps_parameter = { 0.12f, 0.14f, 0.16f, 0.18f, 0.2f, 0.3f, 0.4f };             // GloVe
+    // std::vector<float> eps_parameter = { 0.12f, 0.14f, 0.16f, 0.18f, 0.2f, 0.3f, 0.4f };             // GloVe
     // std::vector<float> eps_parameter = {  0.01f, 0.06f, 0.07f, 0.08f, 0.09f, 0.11f, 0.13f, 0.15f, 0.20f };             // GloVe DEG90
     for (float eps : eps_parameter)
     {

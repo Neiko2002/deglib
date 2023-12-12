@@ -72,7 +72,7 @@ void reorder_graph(const std::string graph_file_in, const std::string order_file
 void reduce_graph(const std::string repository_file, const std::string initial_graph, const std::string graph_file) {
 
     auto rnd = std::mt19937(7);  // default 7
-    const int weight_scale = 1; // SIFT+Glove+enron+crawl=1 UQ-V=100000
+    const int weight_scale = 1; // SIFT+enron+crawl=1 UQ-V=100000 Glove=1000
     const uint8_t edges_per_vertex = 30;
     const deglib::Metric metric = deglib::Metric::L2;
     const uint8_t extend_k = 30; // should be greater or equals to edges_per_vertex
@@ -100,12 +100,19 @@ void reduce_graph(const std::string repository_file, const std::string initial_g
     fmt::print("Start graph builder \n");   
     auto builder = deglib::builder::EvenRegularGraphBuilderExperimental(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
   
-    // delete second half
+    // // delete second half
+    // const auto base_size = uint32_t(repository.size());
+    // for (uint32_t i = base_size/2; i < base_size; i++) 
+    //     builder.removeEntry(i);
+    // repository.clear();
+    // const uint32_t final_size = base_size/2;
+
+    // delete all
     const auto base_size = uint32_t(repository.size());
-    for (uint32_t i = base_size/2; i < base_size; i++) 
+    for (uint32_t i = 0; i < base_size; i++) 
         builder.removeEntry(i);
     repository.clear();
-    const uint32_t final_size = base_size/2;
+    const uint32_t final_size = 0;
     fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after setup graph builder\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
 
     fmt::print("Start building \n");    
@@ -125,10 +132,10 @@ void reduce_graph(const std::string repository_file, const std::string initial_g
             auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(graph, false, weight_scale);
             auto valid_weights = deglib::analysis::check_graph_weights(graph) && deglib::analysis::check_graph_validation(graph, uint32_t(size), true);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
-            auto duration = duration_ms / 1000;
+            auto duration = duration_ms ;
             auto currRSS = getCurrentRSS() / 1000000;
             auto peakRSS = getPeakRSS() / 1000000;
-            fmt::print("{:7} vertices, {:5}s, {:8} / {:8} improv, AEW: {:4.2f} -> Sorted:{:.1f}, InOrder:{:.1f}, {} connected & {}, RSS {} & peakRSS {}\n", 
+            fmt::print("{:7} vertices, {:8}ms, {:8} / {:8} improv, AEW: {:4.2f} -> Sorted:{:.1f}, InOrder:{:.1f}, {} connected & {}, RSS {} & peakRSS {}\n", 
                         size, duration, status.improved, status.tries, avg_edge_weight, fmt::join(weight_histogram_sorted, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid", currRSS, peakRSS);
             start = std::chrono::steady_clock::now();
         }
@@ -136,10 +143,10 @@ void reduce_graph(const std::string repository_file, const std::string initial_g
         if(status.step % (log_after/10) == 0) {    
             duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
             auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, weight_scale);
-            auto duration = duration_ms / 1000;
+            auto duration = duration_ms ;
             auto currRSS = getCurrentRSS() / 1000000;
             auto peakRSS = getPeakRSS() / 1000000;
-            fmt::print("{:7} vertices, {:5}s, {:8} / {:8} improv, AEW: {:4.2f}, RSS {} & peakRSS {}\n", size, duration, status.improved, status.tries, avg_edge_weight, currRSS, peakRSS);
+            fmt::print("{:7} vertices, {:8}ms, {:8} / {:8} improv, AEW: {:4.2f}, RSS {} & peakRSS {}\n", size, duration, status.improved, status.tries, avg_edge_weight, currRSS, peakRSS);
             start = std::chrono::steady_clock::now();
         }
     };
@@ -162,10 +169,10 @@ void reduce_graph(const std::string repository_file, const std::string initial_g
 void create_graph(const std::string repository_file, const std::string order_file, const std::string graph_file) {
     
     auto rnd = std::mt19937(7);  // default 7
-    const int weight_scale = 1; // SIFT+Glove+enron+crawl=1 UQ-V=100000
+    const int weight_scale = 1; // SIFT+enron+crawl=1 UQ-V=100000 Glove=1000
     const uint8_t edges_per_vertex = 30;
     const deglib::Metric metric = deglib::Metric::L2;
-    const uint8_t extend_k = 30; // should be greater or equals to edges_per_vertex
+    const uint8_t extend_k = 60; // should be greater or equals to edges_per_vertex
     const float extend_eps = 0.2f;
     const bool extend_highLID = true;
     const uint8_t improve_k = 30;
@@ -202,26 +209,47 @@ void create_graph(const std::string repository_file, const std::string order_fil
     // ifstream.close();
 
     // provide all features to the graph builder at once. In an online system this will be called 
-    // auto base_size = uint32_t(repository.size());
-    auto base_size = uint32_t(repository.size()/2); // HALF
+    auto base_size = uint32_t(repository.size());
+    // auto base_size = uint32_t(repository.size()/2); // HALF
     for (uint32_t i = 0; i < base_size; i++) { 
-        auto label = i;
-
-        //auto label = order_array[i];
-        auto feature = reinterpret_cast<const std::byte*>(repository.getFeature(label));
+        auto feature = reinterpret_cast<const std::byte*>(repository.getFeature(i));
         auto feature_vector = std::vector<std::byte>{feature, feature + dims * sizeof(float)};
-        builder.addEntry(label, std::move(feature_vector));
-
-        // add from second half
-        // auto second_label = base_size+(i-1);
-        // auto second_feature = reinterpret_cast<const std::byte*>(repository.getFeature(second_label));
-        // auto second_feature_vector = std::vector<std::byte>{second_feature, second_feature + dims * sizeof(float)};
-        // builder.addEntry(second_label, std::move(second_feature_vector));
-        // builder.removeEntry(second_label);
+        builder.addEntry(i, std::move(feature_vector));
     }
     // delete second half
     // for (uint32_t i = base_size/2; i < base_size; i++) 
     //     builder.removeEntry(i);
+
+    // auto base_size = uint32_t(repository.size());
+    // auto base_size_half = base_size / 2; // HALF
+    // auto base_size_fourth = base_size / 4;
+    // for (uint32_t i = 0; i < base_size_fourth; i++) { 
+
+    //     auto first_label = 0 + i;
+    //     auto feature = reinterpret_cast<const std::byte*>(repository.getFeature(first_label));
+    //     auto feature_vector = std::vector<std::byte>{feature, feature + dims * sizeof(float)};
+    //     builder.addEntry(first_label, std::move(feature_vector));
+
+    //     auto second_label = base_size_half + i;
+    //     auto second_feature = reinterpret_cast<const std::byte*>(repository.getFeature(second_label));
+    //     auto second_feature_vector = std::vector<std::byte>{second_feature, second_feature + dims * sizeof(float)};
+    //     builder.addEntry(second_label, std::move(second_feature_vector));
+    // }
+    // for (uint32_t i = 0; i < base_size_fourth; i++) { 
+
+    //     auto first_label = base_size_fourth + i;
+    //     auto feature = reinterpret_cast<const std::byte*>(repository.getFeature(first_label));
+    //     auto feature_vector = std::vector<std::byte>{feature, feature + dims * sizeof(float)};
+    //     builder.addEntry(first_label, std::move(feature_vector));
+
+    //     auto second_label = base_size_half + base_size_fourth + i;
+    //     auto second_feature = reinterpret_cast<const std::byte*>(repository.getFeature(second_label));
+    //     auto second_feature_vector = std::vector<std::byte>{second_feature, second_feature + dims * sizeof(float)};
+    //     builder.addEntry(second_label, std::move(second_feature_vector));
+
+    //     builder.removeEntry(base_size_half + (i * 2) + 0);
+    //     builder.removeEntry(base_size_half + (i * 2) + 1);
+    // }
     repository.clear();
     fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after setup graph builder\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
 
@@ -307,15 +335,16 @@ void test_graph(const std::filesystem::path data_path, const std::string graph_f
     // const auto path_query_repository = (data_path / "query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "query_gt.ivecs").string();
     // const auto path_query_repository = (data_path / "SIFT1M" / "sift_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth_base.ivecs").string();
     // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth_base500000.ivecs").string();
-    const auto path_query_repository = (data_path / "glove-100" / "glove-100_query.fvecs").string();
-    const auto path_query_groundtruth = (data_path / "glove-100" / "glove-100_groundtruth_base591757.ivecs").string();
+    // const auto path_query_repository = (data_path / "glove-100" / "glove-100_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "glove-100" / "glove-100_groundtruth_base591757.ivecs").string();
     // const auto path_query_repository = (data_path / "uqv" / "uqv_query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "uqv" / "uqv_groundtruth.ivecs").string();
-    // const auto path_query_repository = (data_path / "audio" / "audio_query.fvecs").string();
-    // const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
+    const auto path_query_repository = (data_path / "audio" / "audio_query.fvecs").string();
+    const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth_top1000.ivecs").string();
     // const auto path_query_repository = (data_path / "enron" / "enron_query.fvecs").string();
-    // const auto path_query_groundtruth = (data_path / "enron" / "enron_groundtruth.ivecs").string();
+    // const auto path_query_groundtruth = (data_path / "enron" / "enron_groundtruth_top1000.ivecs").string();
     // const auto path_query_repository = (data_path / "pixabay" / "pixabay_clipfv_query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "pixabay" / "pixabay_clipfv_groundtruth.ivecs").string();
     //   const auto path_query_repository = (data_path / "pixabay" / "pixabay_gpret_query.fvecs").string();
@@ -382,22 +411,22 @@ int main() {
 
     // SIFT1M
     // const auto repository_file      = (data_path / "SIFT1M/sift_base.fvecs").string();
-    // const auto graph_file           = (data_path / "deg" / "online" / "K30_AddK60Eps0.2_SwapK30Eps0.001_add500k.deg").string();
-    // // const auto graph_file           = (data_path / "deg" / "online" / "K30_AddK60Eps0.2_SwapK30Eps0.001_add500k.deg").string();
+    // // const auto graph_file           = (data_path / "deg" / "online" / "improve" / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it500000.deg").string();
+    // // const auto graph_file           = (data_path / "deg" / "online" / "K30_AddK60Eps0.2_SwapK30Eps0.001_remove1m_improveBadEdges_iso_opt.deg").string();
     // // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "128D_L2_K30_AddK60Eps0.2Low_schemeD_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
-    // // const auto graph_file           = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto graph_file           = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_withoutImproveAndRNG.deg").string();
     // const auto optimized_graph_file = (data_path / "deg" / "online" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
     
-    const auto order_file = (data_path / "ignore").string();
+    // const auto order_file = (data_path / "ignore").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order359635264.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order223619312.int").string();
 
     // GLOVE
-    const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();    
-    const auto graph_file = (data_path / "deg" / "online" / "K30_AddK30Eps0.2_SwapK30Eps0.001_add1m_remove500k.deg").string();
-    const auto optimized_graph_file = (data_path / "deg" / "online" / "100D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
+    // const auto graph_file = (data_path / "deg" / "online" / "K30_AddK30Eps0.2_SwapK30Eps0.001_removeAll_improveBadEdges_iso_opt.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "online" / "100D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
 
     // // UQ-V    
     // const auto repository_file      = (data_path / "uqv" / "uqv_base.fvecs").string();
@@ -406,12 +435,12 @@ int main() {
     // const auto optimized_graph_file = (data_path / "deg" / "256D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
 
     // // enron
-    // test_k = 20;
+    // test_k = 100;
     // repeat_test = 20;
     // const auto repository_file      = (data_path / "enron" / "enron_base.fvecs").string();
     // const auto order_file           = (data_path / "enron" / "sift_base_order232076720.int").string();
-    // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "1369D_L2_K30_AddK60Eps0.3High_schemeC.deg").string();
-    // // const auto graph_file           = (data_path / "deg" / "1369D_L2_K30_AddK60Eps0.3High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "1369D_L2_K30_AddK60Eps0.3High_schemeC.deg").string();
+    // const auto graph_file           = (data_path / "deg" / "1369D_L2_K30_AddK60Eps0.3High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
     // const auto optimized_graph_file = (data_path / "deg" / "1369D_L2_K20_AddK20Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
 
     // pixabay clipfv
@@ -434,19 +463,19 @@ int main() {
     // const auto optimized_graph_file = (data_path / "deg" / "300D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
 
     // audio
-    // test_k = 20;
-    // repeat_test = 50;
-    // const auto repository_file      = (data_path / "audio" / "audio_base.fvecs").string();
-    // const auto order_file           = (data_path / "audio" / "sift_base_order232076720.int").string();
+    test_k = 100;
+    repeat_test = 40;
+    const auto repository_file      = (data_path / "audio" / "audio_base.fvecs").string();
+    const auto order_file           = (data_path / "audio" / "sift_base_order232076720.int").string();
     // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "192D_L2_K20_AddK40Eps0.3Low_schemeA.deg").string();
-    // // const auto graph_file           = (data_path / "deg" / "average_neighbor_rank" / "192D_L2_K20_RndAdd_SwapK20-0StepEps0.001LowPath5Rnd0+0_it10000000.deg").string();
-    // // const auto graph_file           = (data_path / "deg" / "192D_L2_K20_AddK40Eps0.3High_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_again.deg").string();
+    // const auto graph_file           = (data_path / "deg" / "average_neighbor_rank" / "192D_L2_K20_RndAdd_SwapK20-0StepEps0.001LowPath5Rnd0+0_it10000000.deg").string();
+    const auto graph_file           = (data_path / "deg" / "192D_L2_K20_AddK40Eps0.3High_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
     // const auto optimized_graph_file = (data_path / "deg" / "192D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
 
     // load the base features and creates a DEG graph with them. The graph is than stored on the drive.
     if(std::filesystem::exists(graph_file.c_str()) == false) {
-        reduce_graph(repository_file, optimized_graph_file, graph_file);
-        // create_graph(repository_file, order_file, graph_file);
+        // reduce_graph(repository_file, optimized_graph_file, graph_file);
+        create_graph(repository_file, order_file, graph_file);
     }
 
     // loads the graph from the drive and test it against the SIFT query data

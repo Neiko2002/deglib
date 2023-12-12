@@ -55,12 +55,14 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
                            const std::vector<std::unordered_set<size_t>>& ground_truth, const size_t query_dims,
                            const size_t k, const size_t repeat)
 {
-    std::vector<size_t> efs = { 100, 120, 150, 200, 300 };                           // sift500k
+    // std::vector<size_t> efs = { 100, 120, 150, 200, 300 };                           // sift500k
     // std::vector<size_t> efs = { 100, 140, 171, 206, 249, 500, 1000 };                           // sift1m + UQ-V + crawl
-    //std::vector<size_t> efs = { 20, 30, 40, 50, 70, 100, 150, 300 };                           // enron 
+    // std::vector<size_t> efs = { 20, 30, 40, 50, 70, 100, 150, 300 };                           // enron top20
+    // std::vector<size_t> efs = { 100, 125, 150, 200, 300, 600 };                           // enron top100
+    std::vector<size_t> efs = { 100, 125, 150, 200, 300, 600  };                           // audio  top100
     //std::vector<size_t> efs = { 20, 25, 30, 40, 56, 80, 300 };                           // audio  
     //std::vector<size_t> efs = { 1000, 1500, 2000, 2500, 5000, 10000, 20000, 40000, 80000 };   // GloVe
-    
+    // std::vector<size_t> efs = { 500, 1000, 1500, 2000, 2500, 5000, 10000, 20000, 40000, 80000 };   // GloVe
     for (size_t ef : efs)
     {
         appr_alg.setEf(ef);
@@ -121,9 +123,10 @@ int main()
     // const auto path_groundtruth = (data_path / "query_gt.ivecs").string();
     // const auto path_basedata = (data_path / "base.fvecs").string();
     
-    // // ------------------------------------ GloVe ------------------------------------
+    // // // ------------------------------------ GloVe ------------------------------------
     // size_t vecdim = 100;
     // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 1;
 
     // // const int efConstruction = 2500;     // HNSW default
     // // const int M = 25;                    // HNSW default
@@ -136,36 +139,36 @@ int main()
     // const int seed = 100;           // HNSW default
 
     // const auto path_query       = (data_path / "glove-100/glove-100_query.fvecs").string();
-    // const auto path_groundtruth = (data_path / "glove-100/glove-100_groundtruth.ivecs").string();
+    // const auto path_groundtruth = (data_path / "glove-100/glove-100_groundtruth_base591757.ivecs").string();
     // const auto path_basedata    = (data_path / "glove-100/glove-100_base.fvecs").string();
 
 
 
-    // ------------------------------------ SIFT ------------------------------------
-    size_t vecdim = 128;
-    const size_t k = 100;  // k at test time
-    const size_t repeat_test = 1;
+    //------------------------------------ SIFT ------------------------------------
+    // size_t vecdim = 128;
+    // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 1;
 
-    // const int efConstruction = 200; // HNSW default
-    // const int M = 16;               // HNSW default
-    // const int maxM0 = M * 2;        // HNSW default
+    // // const int efConstruction = 200; // HNSW default
+    // // const int M = 16;               // HNSW default
+    // // const int maxM0 = M * 2;        // HNSW default
+    // // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 600; // SSG parameter
+    // // const int M = 25;               // SSG parameter
+    // // const int maxM0 = M * 2;        // HNSW default
+    // // const int seed = 100;           // HNSW default
+
+    // const int efConstruction = 800; // WEAVESS parameter
+    // const int M = 40;               // WEAVESS parameter
+    // const int maxM0 = 50;           // WEAVESS parameter
     // const int seed = 100;           // HNSW default
 
-    // const int efConstruction = 600; // SSG parameter
-    // const int M = 25;               // SSG parameter
-    // const int maxM0 = M * 2;        // HNSW default
-    // const int seed = 100;           // HNSW default
-
-    const int efConstruction = 800; // WEAVESS parameter
-    const int M = 40;               // WEAVESS parameter
-    const int maxM0 = 50;           // WEAVESS parameter
-    const int seed = 100;           // HNSW default
-
-    const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
-    const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth_base500000.ivecs").string();
-    const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
-    // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
-    const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
+    // const auto path_query = (data_path / "SIFT1M/sift_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "SIFT1M/sift_groundtruth_base500000.ivecs").string();
+    // const auto path_basedata = (data_path / "SIFT1M/sift_base.fvecs").string();
+    // // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
+    // const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
 
 
 
@@ -186,7 +189,8 @@ int main()
 
     // ------------------------------------ enron ------------------------------------
     // size_t vecdim = 1369;
-    // const size_t k = 20;  // k at test time
+    // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 20;
 
     // const int efConstruction = 900; // WEAVESS parameter
     // const int M = 50;               // WEAVESS parameter
@@ -194,7 +198,7 @@ int main()
     // const int seed = 100;           // HNSW default
 
     // const auto path_query       = (data_path / "enron" / "enron_query.fvecs").string();
-    // const auto path_groundtruth = (data_path / "enron" / "enron_groundtruth.ivecs").string();
+    // const auto path_groundtruth = (data_path / "enron" / "enron_groundtruth_top1000.ivecs").string();
     // const auto path_basedata    = (data_path / "enron" / "enron_base.fvecs").string();
 
 
@@ -215,18 +219,18 @@ int main()
 
 
     // // ------------------------------------ audio ------------------------------------
-    // size_t vecdim = 192;
-    // const size_t k = 20;  // k at test time
-    // const size_t repeat_test = 50;
+    size_t vecdim = 192;
+    const size_t k = 100;  // k at test time
+    const size_t repeat_test = 50;
 
-    // const int efConstruction = 700; // WEAVESS parameter
-    // const int M = 10;               // WEAVESS parameter
-    // const int maxM0 = 50;           // WEAVESS parameter
-    // const int seed = 100;           // HNSW default
+    const int efConstruction = 700; // WEAVESS parameter
+    const int M = 10;               // WEAVESS parameter
+    const int maxM0 = 50;           // WEAVESS parameter
+    const int seed = 100;           // HNSW default
 
-    // const auto path_query       = (data_path / "audio" / "audio_query.fvecs").string();
-    // const auto path_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
-    // const auto path_basedata    = (data_path / "audio" / "audio_base.fvecs").string();
+    const auto path_query       = (data_path / "audio" / "audio_query.fvecs").string();
+    const auto path_groundtruth = (data_path / "audio" / "audio_groundtruth_top1000.ivecs").string();
+    const auto path_basedata    = (data_path / "audio" / "audio_base.fvecs").string();
 
 
 
@@ -262,7 +266,8 @@ int main()
     // ------------------------------------------------------------------------------
     char path_index[1024];
     {
-        const auto path_index_template = (data_path / "hnsw" / "online" / "ef_%d_M_%d_maxM0_%d_add2_remove1_until500k.hnsw").string();
+        // const auto path_index_template = (data_path / "hnsw" / "online" / "ef_%d_M_%d_maxM0_%d_add500k_add2_remove2_until500k.hnsw").string();
+        const auto path_index_template = (data_path / "hnsw" / "ef_%d_M_%d_maxM0_%d.hnsw").string();
         std::sprintf(path_index, path_index_template.c_str(), efConstruction, M, maxM0);
     }
 
@@ -271,7 +276,7 @@ int main()
     hnswlib::HierarchicalNSW<float>* appr_alg;
     if (exists_test(path_index))
     {
-        std::cout << "Loading index from " << path_index << ":" << std::endl;
+        std::cout << "Loading index from " << path_index << std::endl;
         appr_alg = new hnswlib::HierarchicalNSW<float>(&l2space, path_index, false);
         std::cout << "Actual memory usage: " << getCurrentRSS() / 1000000 << " Mb, Max memory usage: " << getPeakRSS() / 1000000 << " Mb after loading index with " << appr_alg->cur_element_count << " elements" << std::endl;
     }
@@ -297,52 +302,51 @@ int main()
 
         std::cout << "Building index:" << std::endl;
         // add first data as a root node
-        {
-            auto label = 0;
-            // auto label = order_array[0];
-            auto feature = base_features + vecdim * label;
-            appr_alg->addPoint((void*)(feature), (size_t)label);
-        }
+        // {
+        //     auto label = 0;
+        //     // auto label = order_array[0];
+        //     auto feature = base_features + vecdim * label;
+        //     appr_alg->addPoint((void*)(feature), (size_t)label);
+        // }
 
         StopW stopw = StopW();
         StopW stopw_full = StopW();
         size_t report_every = 10000;
 
-        // change for online testin
-        base_size = 500000;
+        // change for online testing
+        // base_size = base_size/2; 
 
         // build the graph
         omp_set_num_threads(threads);
-#pragma omp parallel for
-        for (int i = 1; i < base_size; i++)
-        {
-            int label = 0;
+// #pragma omp parallel for
+//         for (int i = 0; i < base_size; i++)
+//         {
+//             int label = 0;
 
-#pragma omp critical
-            {
-                label = i;
-                // label = order_array[i];
-                if (i % report_every == 0)
-                {
-                    std::cout << i / (0.01 * base_size) << " %, "
-                              << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
-                              << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
-                              << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
-                    stopw.reset();
-                }
-            }
+// #pragma omp critical
+//             {
+//                 label = i;
+//                 // label = order_array[i];
+//                 if (i % report_every == 0)
+//                 {
+//                     std::cout << i / (0.01 * base_size) << " %, "
+//                               << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
+//                               << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
+//                               << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
+//                     stopw.reset();
+//                 }
+//             }
 
-            auto feature = base_features + vecdim * label;
-            appr_alg->addPoint((void*)(feature), (size_t)label);
+//             auto feature = base_features + vecdim * label;
+//             appr_alg->addPoint((void*)(feature), (size_t)label);
 
-            // add from second half
-            size_t second_label = base_size+(i-1);
-            auto second_feature = base_features + vecdim * second_label;
-            appr_alg->addPoint((void*)(second_feature), second_label);
-            appr_alg->markDelete(second_label);
-        }
+//             // add from second half
+//             // size_t second_label = base_size+(i-1);
+//             // auto second_feature = base_features + vecdim * second_label;
+//             // appr_alg->addPoint((void*)(second_feature), second_label);
+//             // appr_alg->markDelete(second_label);
+//         }
         // std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
-        std::cout << "Build/delete time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
 
         // remove half of the features
         // stopw_full.reset();
@@ -353,7 +357,52 @@ int main()
         // std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
 
 
-        std::cout << "Store graph " << path_index << appr_alg->cur_element_count << std::endl;
+        auto base_size_half = base_size / 2; // HALF
+        auto base_size_fourth = base_size / 4;
+        for (size_t i = 0; i < base_size_fourth; i++) { 
+
+            auto first_label = 0 + i;
+            auto first_feature = base_features + vecdim * first_label;
+            appr_alg->addPoint((void*)(first_feature), (size_t)first_label);
+
+            auto second_label = base_size_half + i;
+            auto second_feature = base_features + vecdim * second_label;
+            appr_alg->addPoint((void*)(second_feature), (size_t)second_label);
+
+            if (i % report_every == 0)
+            {
+                std::cout << i / (0.01 * base_size) << " %, "
+                          << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
+                          << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
+                          << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
+                stopw.reset();
+            }
+        }
+        for (size_t i = 0; i < base_size_fourth; i++) { 
+
+            auto first_label = base_size_fourth + i;
+            auto first_feature = base_features + vecdim * first_label;
+            appr_alg->addPoint((void*)(first_feature), (size_t)first_label);
+
+            auto second_label = base_size_half + base_size_fourth + i;
+            auto second_feature = base_features + vecdim * second_label;
+            appr_alg->addPoint((void*)(second_feature), (size_t)second_label);
+
+            appr_alg->markDelete(base_size_half + (i * 2) + 0);
+            appr_alg->markDelete(base_size_half + (i * 2) + 1);
+
+            if (i % report_every == 0)
+            {
+                std::cout << i / (0.01 * base_size) << " %, "
+                          << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
+                          << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
+                          << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
+                stopw.reset();
+            }
+        }
+        std::cout << "Build/delete time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
+
+        std::cout << "Store graph " << path_index << " with " << appr_alg->cur_element_count << " elements" << std::endl;
         appr_alg->saveIndex(path_index);
     }
 
