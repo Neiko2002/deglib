@@ -30,17 +30,22 @@ static std::vector<std::unordered_set<size_t>> get_ground_truth(const uint32_t* 
 
 static float test_approx(const hnswlib::HierarchicalNSW<float>& appr_alg, const float* query_repository,
                          const std::vector<std::unordered_set<size_t>>& ground_truth, const size_t query_dims,
-                         const size_t k)
+                         const size_t k, uint32_t test_size)
 {
     size_t correct = 0;
     size_t total = 0;
-    for (int i = 0; i < ground_truth.size(); i++)
+    for (int i = 0; i < test_size; i++)
     {
-        auto gt = ground_truth[i];
         auto query = query_repository + query_dims * i;
         auto result_queue = appr_alg.searchKnn(query, k);
 
-        total += gt.size();
+        if (result_queue.size() != k) {
+            fmt::print(stderr, "ANNS with k={} got only {} results for query {}\n", k, result_queue.size(), i);
+            abort();
+        }
+
+        total += k;
+        auto gt = ground_truth[i];
         while (result_queue.empty() == false)
         {
             if (gt.find(result_queue.top().second) != gt.end()) correct++;
@@ -56,10 +61,10 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
                            const size_t k, const size_t repeat)
 {
     // std::vector<size_t> efs = { 100, 120, 150, 200, 300 };                           // sift500k
-    // std::vector<size_t> efs = { 100, 140, 171, 206, 249, 500, 1000 };                           // sift1m + UQ-V + crawl
+    std::vector<size_t> efs = { 100, 140, 171, 206, 249, 500, 1000 };                           // sift1m + UQ-V + crawl
     // std::vector<size_t> efs = { 20, 30, 40, 50, 70, 100, 150, 300 };                           // enron top20
     // std::vector<size_t> efs = { 100, 125, 150, 200, 300, 600 };                           // enron top100
-    std::vector<size_t> efs = { 100, 125, 150, 200, 300, 600  };                           // audio  top100
+    // std::vector<size_t> efs = { 100, 125, 150, 200, 300, 600  };                           // audio  top100
     //std::vector<size_t> efs = { 20, 25, 30, 40, 56, 80, 300 };                           // audio  
     //std::vector<size_t> efs = { 1000, 1500, 2000, 2500, 5000, 10000, 20000, 40000, 80000 };   // GloVe
     // std::vector<size_t> efs = { 500, 1000, 1500, 2000, 2500, 5000, 10000, 20000, 40000, 80000 };   // GloVe
@@ -71,14 +76,15 @@ static void test_vs_recall(hnswlib::HierarchicalNSW<float>& appr_alg, const floa
 
         auto stopw = StopW();
         float recall = 0;
+        uint32_t test_size = uint32_t(ground_truth.size());
         for (size_t i = 0; i < repeat; i++) 
-            recall = test_approx(appr_alg, query_repository, ground_truth, query_dims, k);
-        auto time_us_per_query = (stopw.getElapsedTimeMicro() / ground_truth.size()) / repeat;
+            recall = test_approx(appr_alg, query_repository, ground_truth, query_dims, k, test_size);
+        auto time_us_per_query = (stopw.getElapsedTimeMicro() / test_size) / repeat;
 
-        float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * ground_truth.size());
-        float hops_per_query = appr_alg.metric_hops / (1.0f * ground_truth.size());
+        float distance_comp_per_query = appr_alg.metric_distance_computations / (1.0f * test_size);
+        float hops_per_query = appr_alg.metric_hops / (1.0f * test_size);
 
-        fmt::print("ef {} \t recall {} \t time_us_per_query {}us, avg distance computations {}, avg hops {}\n", ef,
+        fmt::print("ef {:4} \t recall {} \t time_us_per_query {}us, avg distance computations {}, avg hops {}\n", ef,
                    recall, time_us_per_query, distance_comp_per_query, hops_per_query);
         if (recall > 1.0)
         {
@@ -219,25 +225,155 @@ int main()
 
 
     // // ------------------------------------ audio ------------------------------------
-    size_t vecdim = 192;
-    const size_t k = 100;  // k at test time
-    const size_t repeat_test = 50;
+    // size_t vecdim = 192;
+    // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 50;
 
-    const int efConstruction = 700; // WEAVESS parameter
-    const int M = 10;               // WEAVESS parameter
-    const int maxM0 = 50;           // WEAVESS parameter
+    // const int efConstruction = 700; // WEAVESS parameter
+    // const int M = 10;               // WEAVESS parameter
+    // const int maxM0 = 50;           // WEAVESS parameter
+    // const int seed = 100;           // HNSW default
+
+    // const auto path_query       = (data_path / "audio" / "audio_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "audio" / "audio_groundtruth_top1000.ivecs").string();
+    // const auto path_basedata    = (data_path / "audio" / "audio_base.fvecs").string();
+
+
+    // // ------------------------------------ ImageNet1k clipfv ------------------------------------
+
+    // size_t vecdim = 768;
+    // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 1;
+
+    // // const int efConstruction = 800; // WEAVESS parameter for SIFT
+    // // const int M = 40;               // WEAVESS parameter for SIFT
+    // // const int maxM0 = 50;           // WEAVESS parameter for SIFT
+    // // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 600; // SSG parameter for SIFT
+    // // const int M = 25;               // SSG parameter for SIFT
+    // // const int maxM0 = M * 2;        // HNSW default
+    // // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 700; // WEAVESS parameter for GloVe
+    // // const int M = 50;               // WEAVESS parameter for GloVe 
+    // // const int maxM0 = 60;           // WEAVESS parameter for GloVe 
+    // // const int seed = 100;           // HNSW default
+
+    // const int efConstruction = 700; // WEAVESS parameter for audio
+    // const int M = 10;               // WEAVESS parameter for audio
+    // const int maxM0 = 50;           // WEAVESS parameter for audio
+    // const int seed = 100;           // HNSW default
+
+    // const auto path_query       = (data_path / "ImageNet1kRand" / "clip_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "ImageNet1kRand" / "clip_groundtruth.ivecs").string();
+    // const auto path_basedata    = (data_path / "ImageNet1kRand" / "clip_base.fvecs").string();
+
+
+    // ------------------------------------ unsplash clipfv ------------------------------------
+
+    size_t vecdim = 768;
+    const size_t k = 100;  // k at test time
+    const size_t repeat_test = 1;
+
+    const int efConstruction = 800; // WEAVESS parameter for SIFT
+    const int M = 40;               // WEAVESS parameter for SIFT
+    const int maxM0 = 50;           // WEAVESS parameter for SIFT
     const int seed = 100;           // HNSW default
 
-    const auto path_query       = (data_path / "audio" / "audio_query.fvecs").string();
-    const auto path_groundtruth = (data_path / "audio" / "audio_groundtruth_top1000.ivecs").string();
-    const auto path_basedata    = (data_path / "audio" / "audio_base.fvecs").string();
+    // const int efConstruction = 600; // SSG parameter for SIFT
+    // const int M = 25;               // SSG parameter for SIFT
+    // const int maxM0 = M * 2;        // HNSW default
+    // const int seed = 100;           // HNSW default
 
+    // const int efConstruction = 700; // WEAVESS parameter for GloVe
+    // const int M = 50;               // WEAVESS parameter for GloVe 
+    // const int maxM0 = 60;           // WEAVESS parameter for GloVe 
+    // const int seed = 100;           // HNSW default
+
+    // const int efConstruction = 700; // WEAVESS parameter for audio
+    // const int M = 10;               // WEAVESS parameter for audio
+    // const int maxM0 = 50;           // WEAVESS parameter for audio
+    // const int seed = 100;           // HNSW default
+
+    // const auto path_query       = (data_path / "unsplash" / "unsplash_clip_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "unsplash" / "unsplash_clip_groundtruth.ivecs").string();
+    // const auto path_basedata    = (data_path / "unsplash" / "unsplash_clip_base.fvecs").string();
+
+    const auto path_query       = (data_path / "unsplash1m" / "unsplash1m_clip_query.fvecs").string();
+    const auto path_groundtruth = (data_path / "unsplash1m" / "unsplash1m_clip_groundtruth.ivecs").string();
+    const auto path_basedata    = (data_path / "unsplash1m" / "unsplash1m_clip_base.fvecs").string();
+
+    // const auto path_query       = (data_path / "unsplash_uint8" / "unsplash_clip_uint8_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "unsplash_uint8" / "unsplash_clip_uint8_groundtruth.ivecs").string();
+    // const auto path_basedata    = (data_path / "unsplash_uint8" / "unsplash_clip_uint8_base.fvecs").string();
+
+    // // ------------------------------------ deep1m ------------------------------------
+    // size_t vecdim = 96;
+    // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 1;
+
+    // // const int efConstruction = 800; // WEAVESS parameter for SIFT
+    // // const int M = 40;               // WEAVESS parameter for SIFT
+    // // const int maxM0 = 50;           // WEAVESS parameter for SIFT
+    // // const int seed = 100;           // HNSW default
+
+    // const int efConstruction = 600; // SSG parameter for SIFT
+    // const int M = 25;               // SSG parameter for SIFT
+    // const int maxM0 = M * 2;        // HNSW default
+    // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 700; // WEAVESS parameter for GloVe
+    // // const int M = 50;               // WEAVESS parameter for GloVe 
+    // // const int maxM0 = 60;           // WEAVESS parameter for GloVe 
+    // // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 700; // WEAVESS parameter for audio
+    // // const int M = 10;               // WEAVESS parameter for audio
+    // // const int maxM0 = 50;           // WEAVESS parameter for audio
+    // // const int seed = 100;           // HNSW default
+
+    // const auto path_query       = (data_path / "deep1m" / "deep1m_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "deep1m" / "deep1m_groundtruth.ivecs").string();
+    // const auto path_basedata    = (data_path / "deep1m" / "deep1m_base.fvecs").string();
+
+
+
+    // // ------------------------------------ deep10m ------------------------------------
+    // size_t vecdim = 96;
+    // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 1;
+
+    // const int efConstruction = 800; // WEAVESS parameter for SIFT
+    // const int M = 40;               // WEAVESS parameter for SIFT
+    // const int maxM0 = 50;           // WEAVESS parameter for SIFT
+    // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 600; // SSG parameter for SIFT
+    // // const int M = 25;               // SSG parameter for SIFT
+    // // const int maxM0 = M * 2;        // HNSW default
+    // // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 700; // WEAVESS parameter for GloVe
+    // // const int M = 50;               // WEAVESS parameter for GloVe 
+    // // const int maxM0 = 60;           // WEAVESS parameter for GloVe 
+    // // const int seed = 100;           // HNSW default
+
+    // // const int efConstruction = 700; // WEAVESS parameter for audio
+    // // const int M = 10;               // WEAVESS parameter for audio
+    // // const int maxM0 = 50;           // WEAVESS parameter for audio
+    // // const int seed = 100;           // HNSW default
+
+    // const auto path_query       = (data_path / "deep10m" / "deep10m_query.fvecs").string();
+    // const auto path_groundtruth = (data_path / "deep10m" / "deep10m_groundtruth.ivecs").string();
+    // const auto path_basedata    = (data_path / "deep10m" / "deep10m_base.fvecs").string();
 
 
 
     // // ------------------------------------ Pixabay clipfv ------------------------------------
     // size_t vecdim = 768;
     // const size_t k = 100;  // k at test time
+    // const size_t repeat_test = 1;
 
     // const int efConstruction = 800; // WEAVESS parameter
     // const int M = 40;               // WEAVESS parameter
@@ -247,6 +383,7 @@ int main()
     // const auto path_query       = (data_path / "pixabay/pixabay_clipfv_query.fvecs").string();
     // const auto path_groundtruth = (data_path / "pixabay/pixabay_clipfv_groundtruth.ivecs").string();
     // const auto path_basedata    = (data_path / "pixabay/pixabay_clipfv_base.fvecs").string();
+
 
     // // ------------------------------------ Pixabay gpret ------------------------------------
     // size_t vecdim = 1024;
@@ -318,35 +455,29 @@ int main()
 
         // build the graph
         omp_set_num_threads(threads);
-// #pragma omp parallel for
-//         for (int i = 0; i < base_size; i++)
-//         {
-//             int label = 0;
+#pragma omp parallel for
+        for (int i = 0; i < base_size; i++)
+        {
+            int label = 0;
 
-// #pragma omp critical
-//             {
-//                 label = i;
-//                 // label = order_array[i];
-//                 if (i % report_every == 0)
-//                 {
-//                     std::cout << i / (0.01 * base_size) << " %, "
-//                               << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
-//                               << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
-//                               << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
-//                     stopw.reset();
-//                 }
-//             }
+#pragma omp critical
+            {
+                label = i;
+                // label = order_array[i];
+                if (i % report_every == 0)
+                {
+                    std::cout << i / (0.01 * base_size) << " %, "
+                              << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
+                              << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
+                              << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
+                    stopw.reset();
+                }
+            }
 
-//             auto feature = base_features + vecdim * label;
-//             appr_alg->addPoint((void*)(feature), (size_t)label);
-
-//             // add from second half
-//             // size_t second_label = base_size+(i-1);
-//             // auto second_feature = base_features + vecdim * second_label;
-//             // appr_alg->addPoint((void*)(second_feature), second_label);
-//             // appr_alg->markDelete(second_label);
-//         }
-        // std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
+            auto feature = base_features + vecdim * label;
+            appr_alg->addPoint((void*)(feature), (size_t)label);
+        }
+        std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
 
         // remove half of the features
         // stopw_full.reset();
@@ -357,50 +488,50 @@ int main()
         // std::cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
 
 
-        auto base_size_half = base_size / 2; // HALF
-        auto base_size_fourth = base_size / 4;
-        for (size_t i = 0; i < base_size_fourth; i++) { 
+        // auto base_size_half = base_size / 2; // HALF
+        // auto base_size_fourth = base_size / 4;
+        // for (size_t i = 0; i < base_size_fourth; i++) { 
 
-            auto first_label = 0 + i;
-            auto first_feature = base_features + vecdim * first_label;
-            appr_alg->addPoint((void*)(first_feature), (size_t)first_label);
+        //     auto first_label = 0 + i;
+        //     auto first_feature = base_features + vecdim * first_label;
+        //     appr_alg->addPoint((void*)(first_feature), (size_t)first_label);
 
-            auto second_label = base_size_half + i;
-            auto second_feature = base_features + vecdim * second_label;
-            appr_alg->addPoint((void*)(second_feature), (size_t)second_label);
+        //     auto second_label = base_size_half + i;
+        //     auto second_feature = base_features + vecdim * second_label;
+        //     appr_alg->addPoint((void*)(second_feature), (size_t)second_label);
 
-            if (i % report_every == 0)
-            {
-                std::cout << i / (0.01 * base_size) << " %, "
-                          << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
-                          << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
-                          << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
-                stopw.reset();
-            }
-        }
-        for (size_t i = 0; i < base_size_fourth; i++) { 
+        //     if (i % report_every == 0)
+        //     {
+        //         std::cout << i / (0.01 * base_size) << " %, "
+        //                   << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
+        //                   << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
+        //                   << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
+        //         stopw.reset();
+        //     }
+        // }
+        // for (size_t i = 0; i < base_size_fourth; i++) { 
 
-            auto first_label = base_size_fourth + i;
-            auto first_feature = base_features + vecdim * first_label;
-            appr_alg->addPoint((void*)(first_feature), (size_t)first_label);
+        //     auto first_label = base_size_fourth + i;
+        //     auto first_feature = base_features + vecdim * first_label;
+        //     appr_alg->addPoint((void*)(first_feature), (size_t)first_label);
 
-            auto second_label = base_size_half + base_size_fourth + i;
-            auto second_feature = base_features + vecdim * second_label;
-            appr_alg->addPoint((void*)(second_feature), (size_t)second_label);
+        //     auto second_label = base_size_half + base_size_fourth + i;
+        //     auto second_feature = base_features + vecdim * second_label;
+        //     appr_alg->addPoint((void*)(second_feature), (size_t)second_label);
 
-            appr_alg->markDelete(base_size_half + (i * 2) + 0);
-            appr_alg->markDelete(base_size_half + (i * 2) + 1);
+        //     appr_alg->markDelete(base_size_half + (i * 2) + 0);
+        //     appr_alg->markDelete(base_size_half + (i * 2) + 1);
 
-            if (i % report_every == 0)
-            {
-                std::cout << i / (0.01 * base_size) << " %, "
-                          << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
-                          << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
-                          << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
-                stopw.reset();
-            }
-        }
-        std::cout << "Build/delete time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
+        //     if (i % report_every == 0)
+        //     {
+        //         std::cout << i / (0.01 * base_size) << " %, "
+        //                   << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips "
+        //                   << 1e-6 * stopw_full.getElapsedTimeMicro() << "s "
+        //                   << " Mem: " << getCurrentRSS() / 1000000 << " Mb" << std::endl;
+        //         stopw.reset();
+        //     }
+        // }
+        // std::cout << "Build/delete time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds. Mem: " << getCurrentRSS() / 1000000 << " Mb. Peak Mem: " << getPeakRSS() / 1000000 << " Mb." << std::endl;
 
         std::cout << "Store graph " << path_index << " with " << appr_alg->cur_element_count << " elements" << std::endl;
         appr_alg->saveIndex(path_index);

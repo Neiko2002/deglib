@@ -9,6 +9,72 @@
 
 
 
+void optimize_graph(const std::string& graph_file, const std::string& optimized_graph_file) {
+
+    auto rnd = std::mt19937(7);  // default 7
+    const int weight_scale = 100; // SIFT+enron+crawl=1 UQ-V=100000 Glove=1000
+    const uint8_t edges_per_vertex = 30;
+    const deglib::Metric metric = deglib::Metric::L2;
+    const uint8_t extend_k = 60; // should be greater or equals to edges_per_vertex
+    const float extend_eps = 0.1f;
+    const bool extend_highLID = true;
+    const uint8_t improve_k = 30;
+    const float improve_eps = 0.001f;
+    const bool improve_highLID = false;
+    const uint8_t improve_step_factor = 0;
+    const uint8_t max_path_length = 5; 
+    const uint32_t swap_tries = 1;
+    const uint32_t additional_swap_tries = 0;
+
+    fmt::print("Load graph {} \n", graph_file);
+    auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str());
+    fmt::print("Graph with {} vertices and an avg edge weight of {} \n", graph.size(), deglib::analysis::calc_avg_edge_weight(graph, weight_scale));
+
+    // create a graph builder to add vertices to the new graph and improve its edges
+    fmt::print("Start graph builder \n");   
+    auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
+    // auto builder = deglib::builder::EvenRegularGraphBuilderExperimental(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
+ 
+    // check the integrity of the graph during the graph build process
+    const auto log_after = 1000000;
+    auto start = std::chrono::steady_clock::now();
+    uint64_t duration_ms = 0;
+    const auto improvement_callback = [&](deglib::builder::BuilderStatus& status) {
+        const auto size = graph.size();
+
+        if(status.step % log_after == 0) {
+
+            duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+            auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, weight_scale);
+            auto weight_histogram_sorted = deglib::analysis::calc_edge_weight_histogram(graph, true, weight_scale);
+            auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(graph, false, weight_scale);
+            auto valid_weights = /*deglib::analysis::check_graph_weights(graph) && */deglib::analysis::check_graph_validation(graph, uint32_t(size), true);
+            auto connected = deglib::analysis::check_graph_connectivity(graph);
+            auto duration = duration_ms / 1000;
+            fmt::print("{:7} step, {:8}s, AEW: {:4.2f} -> Sorted:{:.1f}, InOrder:{:.1f}, {} connected & {}\n", 
+                        status.step, duration, avg_edge_weight, fmt::join(weight_histogram_sorted, " "), fmt::join(weight_histogram, " "), connected ? "" : "not", valid_weights ? "valid" : "invalid");
+            start = std::chrono::steady_clock::now();
+
+            auto partial_graph_file = optimized_graph_file.substr(0, optimized_graph_file.length() - 4);
+            partial_graph_file.append("_it");
+            partial_graph_file.append(std::to_string(status.step));
+            partial_graph_file.append(".deg");
+            graph.saveGraph(partial_graph_file.c_str());
+        }
+        else 
+        if(status.step % (log_after/10) == 0) {    
+            duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+            auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, weight_scale);
+            auto duration = duration_ms / 1000;
+            fmt::print("{:7} step, {:8}s, AEW: {:4.2f}\n", status.step, duration, avg_edge_weight);
+            start = std::chrono::steady_clock::now();            
+        }
+    };
+
+    // start the build process
+    builder.build(improvement_callback, true);
+    fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after building the graph in {} secs\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000, duration_ms / 1000);
+}
 
 void rng_optimize_graph(const std::string& graph_file, const std::string& optimized_graph_file) {
 
@@ -169,13 +235,13 @@ void reduce_graph(const std::string repository_file, const std::string initial_g
 void create_graph(const std::string repository_file, const std::string order_file, const std::string graph_file) {
     
     auto rnd = std::mt19937(7);  // default 7
-    const int weight_scale = 1; // SIFT+enron+crawl=1 UQ-V=100000 Glove=1000
-    const uint8_t edges_per_vertex = 30;
+    const int weight_scale = 100; // SIFT+enron+crawl=1 UQ-V=100000 Glove=1000 CLIP=1000
+    const uint8_t edges_per_vertex = 16;
     const deglib::Metric metric = deglib::Metric::L2;
-    const uint8_t extend_k = 60; // should be greater or equals to edges_per_vertex
-    const float extend_eps = 0.2f;
-    const bool extend_highLID = true;
-    const uint8_t improve_k = 30;
+    const uint8_t extend_k = 16; // should be greater or equals to edges_per_vertex
+    const float extend_eps = 0.0f;
+    const bool extend_highLID = true; // true=SchemaC false=SchemaD
+    const uint8_t improve_k = 0;
     const float improve_eps = 0.001f;
     const bool improve_highLID = false;
     const uint8_t improve_step_factor = 0;
@@ -194,27 +260,31 @@ void create_graph(const std::string repository_file, const std::string order_fil
     const uint32_t max_vertex_count = uint32_t(repository.size());
     const auto feature_space = deglib::FloatSpace(dims, metric);
     auto graph = deglib::graph::SizeBoundedGraph(max_vertex_count, edges_per_vertex, feature_space);
+    // auto graph = deglib::graph::load_sizebounded_graph(graph_file.c_str(), max_vertex_count);
     fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after setup empty graph\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
 
     // create a graph builder to add vertices to the new graph and improve its edges
     fmt::print("Start graph builder \n");   
-    //auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
+    // auto builder = deglib::builder::EvenRegularGraphBuilder(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
     auto builder = deglib::builder::EvenRegularGraphBuilderExperimental(graph, rnd, extend_k, extend_eps, extend_highLID, improve_k, improve_eps, improve_highLID, improve_step_factor, max_path_length, swap_tries, additional_swap_tries);
     
     // the order in which the features should be used
-    // std::error_code ec{};
-    // auto ifstream = std::ifstream(order_file.c_str(), std::ios::binary);
-    // auto order_array = std::make_unique<uint32_t[]>(max_vertex_count);
-    // ifstream.read(reinterpret_cast<char*>(order_array.get()), max_vertex_count * sizeof(uint32_t));
-    // ifstream.close();
+    std::error_code ec{};
+    auto ifstream = std::ifstream(order_file.c_str(), std::ios::binary);
+    auto order_array = std::make_unique<uint32_t[]>(max_vertex_count);
+    ifstream.read(reinterpret_cast<char*>(order_array.get()), max_vertex_count * sizeof(uint32_t));
+    ifstream.close();
 
     // provide all features to the graph builder at once. In an online system this will be called 
     auto base_size = uint32_t(repository.size());
     // auto base_size = uint32_t(repository.size()/2); // HALF
     for (uint32_t i = 0; i < base_size; i++) { 
-        auto feature = reinterpret_cast<const std::byte*>(repository.getFeature(i));
+    // for (uint32_t i = 4200000; i < base_size; i++) { 
+        // auto label = i;
+        auto label = order_array[i];
+        auto feature = reinterpret_cast<const std::byte*>(repository.getFeature(label));
         auto feature_vector = std::vector<std::byte>{feature, feature + dims * sizeof(float)};
-        builder.addEntry(i, std::move(feature_vector));
+        builder.addEntry(label, std::move(feature_vector));
     }
     // delete second half
     // for (uint32_t i = base_size/2; i < base_size; i++) 
@@ -255,7 +325,7 @@ void create_graph(const std::string repository_file, const std::string order_fil
 
     fmt::print("Start building \n");    
     // check the integrity of the graph during the graph build process
-    const auto log_after = 100000;
+    const auto log_after = base_size / 10;
     auto start = std::chrono::steady_clock::now();
     uint64_t duration_ms = 0;
     bool valid = true;
@@ -270,7 +340,7 @@ void create_graph(const std::string repository_file, const std::string order_fil
             // auto graph_quality = deglib::analysis::calc_graph_quality(graph);
             auto weight_histogram_sorted = deglib::analysis::calc_edge_weight_histogram(graph, true, weight_scale);
             auto weight_histogram = deglib::analysis::calc_edge_weight_histogram(graph, false, weight_scale);
-            auto valid_weights = deglib::analysis::check_graph_weights(graph) && deglib::analysis::check_graph_validation(graph, uint32_t(size), true);
+            auto valid_weights = /*deglib::analysis::check_graph_weights(graph) &&*/ deglib::analysis::check_graph_validation(graph, uint32_t(size), true);
             auto connected = deglib::analysis::check_graph_connectivity(graph);
             auto duration = duration_ms / 1000;
             auto currRSS = getCurrentRSS() / 1000000;
@@ -280,7 +350,7 @@ void create_graph(const std::string repository_file, const std::string order_fil
             start = std::chrono::steady_clock::now();
         }
         else 
-        if(status.step % (log_after/10) == 0) {    
+        if(status.step % (log_after/10) == 0) {
             duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
             auto avg_edge_weight = deglib::analysis::calc_avg_edge_weight(graph, weight_scale);
             // auto avg_neighbor_rank = deglib::analysis::calc_avg_neighbor_rank(graph);
@@ -288,11 +358,30 @@ void create_graph(const std::string repository_file, const std::string order_fil
             auto duration = duration_ms / 1000;
             auto currRSS = getCurrentRSS() / 1000000;
             auto peakRSS = getPeakRSS() / 1000000;
-            fmt::print("{:7} vertices, {:5}s, {:8} / {:8} improv, AEW: {:4.2f}, RSS {} & peakRSS {}\n", size, duration, status.improved, status.tries, avg_edge_weight, currRSS, peakRSS);
+
+            auto avg_hop = builder.getAvgHops();
+            auto avg_dists = builder.getAvgDistCalcs();
+            auto avg_checked = builder.getAvgCheckedVertices();
+            builder.clearSearchStats();
+
+            fmt::print("{:7} vertices, {:5}s, {:8} / {:8} improv, AEW: {:4.2f}, Hops: {:4.0f}, Dists: {:5.0f}, Checked: {:6.0f}, RSS {} & peakRSS {}\n", size, duration, status.improved, status.tries, avg_edge_weight, avg_hop, avg_dists, avg_checked, currRSS, peakRSS);
             // fmt::print("{:7} vertices, {:5}s, {:8} / {:8} improv, GQ: {:4.2f}, AEW: {:4.2f}, ANR: {:4.2f}, vRSS {} & peakRSS {}\n", status.added, duration, status.improved, status.tries, graph_quality, avg_edge_weight, avg_neighbor_rank, currRSS, peakRSS);
 
             start = std::chrono::steady_clock::now();
         }
+
+        // if(graph.size() > 1290550) {
+        //     duration_ms += uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+        //     valid = deglib::analysis::check_graph_validation(graph, uint32_t(size), true);
+        //     auto valid_weights = deglib::analysis::check_graph_weights(graph);
+        //     auto valid_graph = deglib::analysis::check_graph_validation(graph, uint32_t(size), true);
+        //     if(valid_weights == false || valid_graph == false) {
+        //         valid = false;
+        //         builder.stop();
+        //         fmt::print("{:7} vertices, invalid graph, build process is stopped\n", size);
+        //     }
+        //     start = std::chrono::steady_clock::now();
+        // }
 
         // check the graph from time to time
         // if(status.added % log_after == 0) {
@@ -320,7 +409,7 @@ void create_graph(const std::string repository_file, const std::string order_fil
     fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb after building the graph in {} secs\n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000, duration_ms / 1000);
 
 
-   // store the graph
+    // store the graph
     if(valid)
         graph.saveGraph(graph_file.c_str());
 
@@ -335,19 +424,36 @@ void test_graph(const std::filesystem::path data_path, const std::string graph_f
     // const auto path_query_repository = (data_path / "query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "query_gt.ivecs").string();
     // const auto path_query_repository = (data_path / "SIFT1M" / "sift_query.fvecs").string();
-    // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth_base.ivecs").string();
+    // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth.ivecs").string();
     // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth_base500000.ivecs").string();
     // const auto path_query_repository = (data_path / "glove-100" / "glove-100_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "glove-100" / "glove-100_groundtruth.ivecs").string();
     // const auto path_query_groundtruth = (data_path / "glove-100" / "glove-100_groundtruth_base591757.ivecs").string();
     // const auto path_query_repository = (data_path / "uqv" / "uqv_query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "uqv" / "uqv_groundtruth.ivecs").string();
-    const auto path_query_repository = (data_path / "audio" / "audio_query.fvecs").string();
-    const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth_top1000.ivecs").string();
+    // const auto path_query_repository = (data_path / "audio" / "audio_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth_top1000.ivecs").string();
     // const auto path_query_repository = (data_path / "enron" / "enron_query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "enron" / "enron_groundtruth_top1000.ivecs").string();
+    // const auto path_query_repository = (data_path / "ImageNet1k" / "clip_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "ImageNet1k" / "clip_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "ImageNet1kRand" / "clip_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "ImageNet1kRand" / "clip_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "unsplash" / "unsplash_clip_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "unsplash" / "unsplash_clip_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "unsplash1m" / "unsplash1m_clip_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "unsplash1m" / "unsplash1m_clip_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "unsplash" / "unsplash_clip_explore_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "unsplash" / "unsplash_clip_explore_ground_truth.ivecs").string();
+    // const auto path_query_repository = (data_path / "unsplash_uint8" / "unsplash_clip_uint8_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "unsplash_uint8" / "unsplash_clip_uint8_groundtruth.ivecs").string();
     // const auto path_query_repository = (data_path / "pixabay" / "pixabay_clipfv_query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "pixabay" / "pixabay_clipfv_groundtruth.ivecs").string();
-    //   const auto path_query_repository = (data_path / "pixabay" / "pixabay_gpret_query.fvecs").string();
+    // const auto path_query_repository = (data_path / "deep1m" / "deep1m_query.fvecs").string();
+    // const auto path_query_groundtruth = (data_path / "deep1m" / "deep1m_groundtruth.ivecs").string();
+    const auto path_query_repository = (data_path / "deep10m" / "deep10m_query.fvecs").string();
+    const auto path_query_groundtruth = (data_path / "deep10m" / "deep10m_groundtruth.ivecs").string();
+    // const auto path_query_repository = (data_path / "pixabay" / "pixabay_gpret_query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "pixabay" / "pixabay_gpret_groundtruth.ivecs").string();
     // const auto path_query_repository = (data_path / "crawl" / "crawl_query.fvecs").string();
     // const auto path_query_groundtruth = (data_path / "crawl" / "crawl_groundtruth.ivecs").string();
@@ -395,7 +501,7 @@ int main() {
     #endif
     fmt::print("Actual memory usage: {} Mb, Max memory usage: {} Mb \n", getCurrentRSS() / 1000000, getPeakRSS() / 1000000);
 
-    omp_set_num_threads(8);
+    omp_set_num_threads(1);
     std::cout << "_OPENMP " << omp_get_num_threads() << " threads" << std::endl;
 
     const auto data_path = std::filesystem::path(DATA_PATH);
@@ -409,24 +515,21 @@ int main() {
     // const auto graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd100+0_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.deg").string();
     // const auto optimized_graph_file = (data_path / "L2_K4_AddK10Eps0.2High_SwapK10-0StepEps0.001LowPath5Rnd100+0_improveNonRNGAndSecondHalfOfNonPerfectEdges_RNGAddMinimalSwapAtStep0.add_rng_opt.remove_non_rng_edges.deg").string();
 
-    // SIFT1M
-    // const auto repository_file      = (data_path / "SIFT1M/sift_base.fvecs").string();
-    // // const auto graph_file           = (data_path / "deg" / "online" / "improve" / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it500000.deg").string();
-    // // const auto graph_file           = (data_path / "deg" / "online" / "K30_AddK60Eps0.2_SwapK30Eps0.001_remove1m_improveBadEdges_iso_opt.deg").string();
-    // // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "128D_L2_K30_AddK60Eps0.2Low_schemeD_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
-    // const auto graph_file           = (data_path / "deg" / "best_distortion_decisions" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_withoutImproveAndRNG.deg").string();
-    // const auto optimized_graph_file = (data_path / "deg" / "online" / "128D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    //  ---------------------------- SIFT1M ------------------------------
+    // const auto repository_file      = (data_path / "SIFT1M" / "sift_base.fvecs").string();
+    // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "128D_L2_K30_AddK200Eps0.01Low_schemeD.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "crEG" / "128D_L2_K30_AddK60Eps0.2High_schemeRust.deg").string();
     
     // const auto order_file = (data_path / "ignore").string();
-    // // const auto order_file = (data_path / "SIFT1M/sift_base_initial_order.int").string();
+    // const auto order_file = (data_path / "SIFT1M" / "sift_base_initial_order.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order359635264.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order232076720.int").string();
     // // const auto order_file = (data_path / "SIFT1M/sift_base_order223619312.int").string();
 
-    // GLOVE
-    // const auto repository_file = (data_path / "glove-100/glove-100_base.fvecs").string();
-    // const auto graph_file = (data_path / "deg" / "online" / "K30_AddK30Eps0.2_SwapK30Eps0.001_removeAll_improveBadEdges_iso_opt.deg").string();
-    // const auto optimized_graph_file = (data_path / "deg" / "online" / "100D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    //  ---------------------------- GLOVE ------------------------------
+    // const auto repository_file      = (data_path / "glove-100" / "glove-100_base.fvecs").string();
+    // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "100D_L2_K30_AddK60Eps0.1Low_schemeD.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "crEG" / "100D_L2_K30_AddK30Eps0.2High_schemeC_OptAfterwardsWith_SwapK30-0StepEps0.001LowPath5_it4000000.deg").string();
 
     // // UQ-V    
     // const auto repository_file      = (data_path / "uqv" / "uqv_base.fvecs").string();
@@ -443,12 +546,55 @@ int main() {
     // const auto graph_file           = (data_path / "deg" / "1369D_L2_K30_AddK60Eps0.3High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
     // const auto optimized_graph_file = (data_path / "deg" / "1369D_L2_K20_AddK20Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
 
-    // pixabay clipfv
+    // // ImageNet1k clipfv
+    // const auto order_file           = (data_path / "ignore").string();
+    // const auto repository_file      = (data_path / "ImageNet1kRand" / "clip_base.fvecs").string();
+    // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK60Eps0.1High_schemeRust.deg").string();
+    // // const auto optimized_graph_file = (data_path / "deg" / "crEG" / "768D_L2_K30_AddK30Eps0.2High_schemeC_OptAfterwardsWith_SwapK30-0StepEps0.001LowPath5.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "crEG" / "768D_L2_K30_AddK30Eps0.2High_schemeC_OptAfterwardsWith_SwapK30-0StepEps0.001LowPath5_it1000000.deg").string();
+
+
+    // // unsplash clipfv
+    // const auto order_file           = (data_path / "ignore").string();
+    // const auto repository_file      = (data_path / "unsplash" / "unsplash_clip_base.fvecs").string();
+    // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK60Eps0.1High_schemaRust.deg").string();
+    // // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK30Eps0.1High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "crEG" / "768D_L2_K30_AddK30Eps0.1High_schemaD_OptAfterwardsWith_SwapK30-0StepEps0.001LowPath5.deg").string();
+
+    // ---------------------------- unsplash1m ------------------------------
+    // const auto order_file           = (data_path / "unsplash1m" / "unsplash1m_clip_base_order232076720.int").string();
+    // const auto repository_file      = (data_path / "unsplash1m" / "unsplash1m_clip_base.fvecs").string();
+    // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK60Eps0.1High_schemaD.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "crEG1" / "768D_L2_K30_AddK60Eps0.1High_schemaC_OptAfterwardsWith_SwapK30-0StepEps0.001LowPath5_it900000.deg").string();
+
+    // unsplash uint8 clipfv
+    // const auto order_file           = (data_path / "ignore").string();
+    // const auto repository_file      = (data_path / "unsplash_uint8" / "unsplash_clip_uint8_base.fvecs").string();
+    // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK30Eps0.1High_schemaD.deg").string();
+    // // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK30Eps0.1High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "crEG" / "768D_L2_K30_AddK30Eps0.1High_schemaD_OptAfterwardsWith_SwapK30-0StepEps0.001LowPath5.deg").string();
+
+    // // ---------------------------- Deep1M ------------------------------
+    // const auto order_file           = (data_path / "deep1m" / "sift_base_order232076720.int").string();
+    // const auto repository_file      = (data_path / "deep1m" / "deep1m_base.fvecs").string();
+    // const auto graph_file           = (data_path / "deg" / "96D_L2_K30_AddK100Eps0.1High_schemaD.deg").string();
+    // const auto optimized_graph_file = (data_path / "deg" / "96D_L2_K20_AddK20Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+
+
+    // ---------------------------- Deep10M ------------------------------
+    const auto order_file           = (data_path / "deep10m" / "deep10m_base_orderRnd7.int").string();
+    const auto repository_file      = (data_path / "deep10m" / "deep10m_base.fvecs").string();
+    const auto graph_file           = (data_path / "deg" / "96D_L2_K16_AddK16Eps0.0High_schemaC_rndOrder1.deg").string();
+    // const auto graph_file           = (data_path / "deg" / "96D_L2_K30_AddK60Eps0.1High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    const auto optimized_graph_file = (data_path / "deg" / "crEG1" / "96D_L2_K30_AddK60Eps0.1High_schemaC_OptAfterwardsWith_SwapK30-0StepEps0.001LowPath5_it900000.deg").string();
+
+
+    // ---------------------------- pixabay clipfv ------------------------------
     // const auto repository_file      = (data_path / "pixabay" / "pixabay_clipfv_base.fvecs").string();
     // const auto order_file           = (data_path / "pixabay" / "sift_base_order232076720.int").string();
-    // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK30Eps0.1High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_1.deg").string();
+    // const auto graph_file           = (data_path / "deg" / "768D_L2_K30_AddK60Eps0.1High_schemaD.deg").string();
     // const auto optimized_graph_file = (data_path / "deg" / "768D_L2_K20_AddK20Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
-
 
     // // pixabay gpret
     // const auto repository_file      = (data_path / "pixabay" / "pixabay_gpret_base.fvecs").string();
@@ -463,23 +609,30 @@ int main() {
     // const auto optimized_graph_file = (data_path / "deg" / "300D_L2_K30_AddK30Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
 
     // audio
-    test_k = 100;
-    repeat_test = 40;
-    const auto repository_file      = (data_path / "audio" / "audio_base.fvecs").string();
-    const auto order_file           = (data_path / "audio" / "sift_base_order232076720.int").string();
-    // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "192D_L2_K20_AddK40Eps0.3Low_schemeA.deg").string();
-    // const auto graph_file           = (data_path / "deg" / "average_neighbor_rank" / "192D_L2_K20_RndAdd_SwapK20-0StepEps0.001LowPath5Rnd0+0_it10000000.deg").string();
-    const auto graph_file           = (data_path / "deg" / "192D_L2_K20_AddK40Eps0.3High_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
-    // const auto optimized_graph_file = (data_path / "deg" / "192D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
+    // test_k = 100;
+    // repeat_test = 40;
+    // const auto repository_file      = (data_path / "audio" / "audio_base.fvecs").string();
+    // const auto order_file           = (data_path / "audio" / "sift_base_order232076720.int").string();
+    // // const auto graph_file           = (data_path / "deg" / "neighbor_choice" / "192D_L2_K20_AddK40Eps0.3Low_schemeA.deg").string();
+    // // const auto graph_file           = (data_path / "deg" / "average_neighbor_rank" / "192D_L2_K20_RndAdd_SwapK20-0StepEps0.001LowPath5Rnd0+0_it10000000.deg").string();
+    // const auto graph_file           = (data_path / "deg" / "192D_L2_K20_AddK40Eps0.3High_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string();
+    // // const auto optimized_graph_file = (data_path / "deg" / "192D_L2_K30_AddK60Eps0.2High_SwapK30-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge_opt.deg").string();
 
     // load the base features and creates a DEG graph with them. The graph is than stored on the drive.
-    if(std::filesystem::exists(graph_file.c_str()) == false) {
+    // if(std::filesystem::exists(graph_file.c_str()) == false) {
         // reduce_graph(repository_file, optimized_graph_file, graph_file);
         create_graph(repository_file, order_file, graph_file);
-    }
+    // }
+
+    // // loads the graph from the drive and test it against the SIFT query data
+    test_graph(data_path, graph_file, repeat_test, test_k);
+
+    // if(std::filesystem::exists(graph_file.c_str()) == true) 
+    //     optimize_graph(graph_file, optimized_graph_file);
 
     // loads the graph from the drive and test it against the SIFT query data
-    test_graph(data_path, graph_file, repeat_test, test_k);
+    // test_graph(data_path, optimized_graph_file, repeat_test, test_k);
+
 
 
     // // load the SIFT base features and creates a DEG graph with them. The graph is than stored on the drive.

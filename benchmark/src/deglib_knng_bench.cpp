@@ -873,35 +873,35 @@ int main() {
     // }
 
     // create exploration query and ground truth data
-    // {
-    //     const auto repository_file           = (data_path / "SIFT1M/sift_base.fvecs").string();
-    //     const auto top_list_file             = (data_path / "SIFT1M/sift_base_top1000.ivecs").string();
-    //     const auto explore_feature_file      = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
-    //     const auto explore_entry_vertex_file = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
-    //     const auto explore_ground_truth_file = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
+    {
+        const auto repository_file           = (data_path / "SIFT1M/sift_base.fvecs").string();
+        const auto top_list_file             = (data_path / "SIFT1M/sift_base_top1000.ivecs").string();
+        const auto explore_feature_file      = (data_path / "SIFT1M/sift_explore_query.fvecs").string();
+        const auto explore_entry_vertex_file = (data_path / "SIFT1M/sift_explore_entry_vertex.ivecs").string();
+        const auto explore_ground_truth_file = (data_path / "SIFT1M/sift_explore_ground_truth.ivecs").string();
 
-    //     // const auto repository_file           = (data_path / "glove-100/glove-100_base.fvecs").string();
-    //     // const auto top_list_file             = (data_path / "glove-100/glove-100_base_top1000.ivecs").string();
-    //     // const auto explore_feature_file      = (data_path / "glove-100/glove-100_explore_query.fvecs").string();
-    //     // const auto explore_entry_vertex_file = (data_path / "glove-100/glove-100_explore_entry_vertex.ivecs").string();
-    //     // const auto explore_ground_truth_file = (data_path / "glove-100/glove-100_explore_ground_truth.ivecs").string();
+        // const auto repository_file           = (data_path / "glove-100/glove-100_base.fvecs").string();
+        // const auto top_list_file             = (data_path / "glove-100/glove-100_base_top1000.ivecs").string();
+        // const auto explore_feature_file      = (data_path / "glove-100/glove-100_explore_query.fvecs").string();
+        // const auto explore_entry_vertex_file = (data_path / "glove-100/glove-100_explore_entry_vertex.ivecs").string();
+        // const auto explore_ground_truth_file = (data_path / "glove-100/glove-100_explore_ground_truth.ivecs").string();
 
-    //     // const auto repository_file           = (data_path / "Enron/enron_base.fvecs").string();
-    //     // const auto top_list_file             = (data_path / "Enron/enron_base_top1000.ivecs").string();
-    //     // const auto explore_feature_file      = (data_path / "Enron/enron_explore_query.fvecs").string();
-    //     // const auto explore_entry_vertex_file = (data_path / "Enron/enron_explore_entry_vertex.ivecs").string();
-    //     // const auto explore_ground_truth_file = (data_path / "Enron/enron_explore_ground_truth.ivecs").string();
+        // const auto repository_file           = (data_path / "Enron/enron_base.fvecs").string();
+        // const auto top_list_file             = (data_path / "Enron/enron_base_top1000.ivecs").string();
+        // const auto explore_feature_file      = (data_path / "Enron/enron_explore_query.fvecs").string();
+        // const auto explore_entry_vertex_file = (data_path / "Enron/enron_explore_entry_vertex.ivecs").string();
+        // const auto explore_ground_truth_file = (data_path / "Enron/enron_explore_ground_truth.ivecs").string();
 
-    //     // const auto repository_file           = (data_path / "audio/audio_base.fvecs").string();
-    //     // const auto top_list_file             = (data_path / "audio/audio_base_top1000.ivecs").string();
-    //     // const auto explore_feature_file      = (data_path / "audio/audio_explore_query.fvecs").string();
-    //     // const auto explore_entry_vertex_file = (data_path / "audio/audio_explore_entry_vertex.ivecs").string();
-    //     // const auto explore_ground_truth_file = (data_path / "audio/audio_explore_ground_truth.ivecs").string();
+        // const auto repository_file           = (data_path / "audio/audio_base.fvecs").string();
+        // const auto top_list_file             = (data_path / "audio/audio_base_top1000.ivecs").string();
+        // const auto explore_feature_file      = (data_path / "audio/audio_explore_query.fvecs").string();
+        // const auto explore_entry_vertex_file = (data_path / "audio/audio_explore_entry_vertex.ivecs").string();
+        // const auto explore_ground_truth_file = (data_path / "audio/audio_explore_ground_truth.ivecs").string();
 
-    //     const auto query_count = 10000;
-    //     const auto repository = deglib::load_static_repository(repository_file.c_str());
-    //     create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_vertex_file.c_str(), query_count);
-    // }
+        const auto query_count = 10000;
+        const auto repository = deglib::load_static_repository(repository_file.c_str());
+        create_explore_ground_truth(repository, top_list_file.c_str(), explore_feature_file.c_str(), explore_ground_truth_file.c_str(), explore_entry_vertex_file.c_str(), query_count);
+    }
 
     // create KNN graph with the help of database top list
     // {
@@ -958,66 +958,66 @@ int main() {
     //     randomize_and_test_knng(graph_file.c_str(), (data_path / "knng/rnd"), query_repository, answer, max_distance_count, k);
     // }
 
-    {
-        // // ------------------------------------------- SIFT1m -----------------------------------------
-        // const uint8_t  degree = 30;
-        // const uint32_t k_test = 100;
-        // const uint32_t max_distance_count = 2000;
+    // {
+    //     // // ------------------------------------------- SIFT1m -----------------------------------------
+    //     // const uint8_t  degree = 30;
+    //     // const uint32_t k_test = 100;
+    //     // const uint32_t max_distance_count = 2000;
 
-        // const auto graph_dir        = (data_path / "deg" / "online" / "improve");
-        // // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd.deg").string();
-        // // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it4000000.deg").string();
-        // const auto graph_file       = (data_path / "deg" / "online" / "K30_AddK60Eps0.2_SwapK30Eps0.001_add500k.deg").string();
+    //     // const auto graph_dir        = (data_path / "deg" / "online" / "improve");
+    //     // // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd.deg").string();
+    //     // // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it4000000.deg").string();
+    //     // const auto graph_file       = (data_path / "deg" / "online" / "K30_AddK60Eps0.2_SwapK30Eps0.001_add500k.deg").string();
 
-        // const auto repository_file        = (data_path / "SIFT1M" / "sift_base.fvecs").string();
-        // const auto path_query_repository  = (data_path / "SIFT1M" / "sift_query.fvecs").string();
-        // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth_base500000.ivecs").string();
-
-
-        // ------------------------------------------- GloVe -----------------------------------------
-        const uint8_t  degree = 30;
-        const uint32_t k_test = 100;
-        const uint32_t max_distance_count = 5000;
-
-        const auto graph_dir        = (data_path / "deg" / "online" / "improve");
-        // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd.deg").string();
-        // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it4000000.deg").string();
-        const auto graph_file       = (data_path / "deg" / "online" / "K30_AddK30Eps0.2_SwapK30Eps0.001_add500k.deg").string();
-
-        const auto repository_file        = (data_path / "glove-100" / "glove-100_base.fvecs").string();
-        const auto path_query_repository  = (data_path / "glove-100" / "glove-100_query.fvecs").string();
-        const auto path_query_groundtruth = (data_path / "glove-100" / "glove-100_groundtruth_base591757.ivecs").string();
-
-        // ------------------------------------------- Audio -----------------------------------------
-        // const uint8_t  degree = 20;
-        // const uint32_t k_test = 20;
-        // const uint32_t max_distance_count = 20000;
-
-        // const auto graph_dir        = (data_path / "deg" / "average_neighbor_rank3");
-        // const auto graph_file       = (graph_dir / "192D_L2_K20_RndAdd.deg").string();
-
-        // const auto repository_file        = (data_path / "audio" / "audio_base.fvecs").string();
-        // const auto path_query_repository  = (data_path / "audio" / "audio_query.fvecs").string();
-        // const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
+    //     // const auto repository_file        = (data_path / "SIFT1M" / "sift_base.fvecs").string();
+    //     // const auto path_query_repository  = (data_path / "SIFT1M" / "sift_query.fvecs").string();
+    //     // const auto path_query_groundtruth = (data_path / "SIFT1M" / "sift_groundtruth_base500000.ivecs").string();
 
 
+    //     // ------------------------------------------- GloVe -----------------------------------------
+    //     const uint8_t  degree = 30;
+    //     const uint32_t k_test = 100;
+    //     const uint32_t max_distance_count = 5000;
 
-        const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
-        fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
+    //     const auto graph_dir        = (data_path / "deg" / "online" / "improve");
+    //     // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd.deg").string();
+    //     // const auto graph_file       = (graph_dir / "128D_L2_K30_RndAdd_SwapK30-0StepEps0.001LowPath5Rnd0+0_it4000000.deg").string();
+    //     const auto graph_file       = (data_path / "deg" / "online" / "K30_AddK30Eps0.2_SwapK30Eps0.001_add500k.deg").string();
 
-        size_t ground_truth_dims;
-        size_t ground_truth_count;
-        auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), ground_truth_dims, ground_truth_count);
-        const auto ground_truth = (uint32_t*) ground_truth_f.release(); // not very clean, works as long as sizeof(int) == sizeof(float)
-        const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), (uint32_t)ground_truth_dims, k_test);
-        delete ground_truth;
-        fmt::print("{} ground truth {} dimensions \n", ground_truth_count, ground_truth_dims);
+    //     const auto repository_file        = (data_path / "glove-100" / "glove-100_base.fvecs").string();
+    //     const auto path_query_repository  = (data_path / "glove-100" / "glove-100_query.fvecs").string();
+    //     const auto path_query_groundtruth = (data_path / "glove-100" / "glove-100_groundtruth_base591757.ivecs").string();
 
-        // const auto repository = deglib::load_static_repository(repository_file.c_str());
-        // create_random_deg(repository, graph_file, degree);
+    //     // ------------------------------------------- Audio -----------------------------------------
+    //     // const uint8_t  degree = 20;
+    //     // const uint32_t k_test = 20;
+    //     // const uint32_t max_distance_count = 20000;
 
-        improve_and_test_deg(graph_file.c_str(), graph_dir, query_repository, answer, max_distance_count, k_test);
-    }
+    //     // const auto graph_dir        = (data_path / "deg" / "average_neighbor_rank3");
+    //     // const auto graph_file       = (graph_dir / "192D_L2_K20_RndAdd.deg").string();
+
+    //     // const auto repository_file        = (data_path / "audio" / "audio_base.fvecs").string();
+    //     // const auto path_query_repository  = (data_path / "audio" / "audio_query.fvecs").string();
+    //     // const auto path_query_groundtruth = (data_path / "audio" / "audio_groundtruth.ivecs").string();
+
+
+
+    //     const auto query_repository = deglib::load_static_repository(path_query_repository.c_str());
+    //     fmt::print("{} Query Features with {} dimensions \n", query_repository.size(), query_repository.dims());
+
+    //     size_t ground_truth_dims;
+    //     size_t ground_truth_count;
+    //     auto ground_truth_f = deglib::fvecs_read(path_query_groundtruth.c_str(), ground_truth_dims, ground_truth_count);
+    //     const auto ground_truth = (uint32_t*) ground_truth_f.release(); // not very clean, works as long as sizeof(int) == sizeof(float)
+    //     const auto answer = deglib::benchmark::get_ground_truth(ground_truth, query_repository.size(), (uint32_t)ground_truth_dims, k_test);
+    //     delete ground_truth;
+    //     fmt::print("{} ground truth {} dimensions \n", ground_truth_count, ground_truth_dims);
+
+    //     // const auto repository = deglib::load_static_repository(repository_file.c_str());
+    //     // create_random_deg(repository, graph_file, degree);
+
+    //     improve_and_test_deg(graph_file.c_str(), graph_dir, query_repository, answer, max_distance_count, k_test);
+    // }
     
 
     fmt::print("Test OK\n");

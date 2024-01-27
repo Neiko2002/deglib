@@ -20,132 +20,6 @@
 
 namespace deglib::builder
 {
-
-/**
- * A UnionFind class to represent disjoint set.
- * https://www.tutorialspoint.com/cplusplus-program-to-implement-disjoint-set-data-structure
- **/
-class UnionFind { 
-  private:
-    uint32_t default_value;
-    std::unordered_map<uint32_t, uint32_t> parents; // TODO replace with robin_map
-
-  public:
-
-    /**
-     * Reserves space in the internal map
-     */
-    UnionFind(int expected_size) {
-      parents.reserve(expected_size);
-      default_value = std::numeric_limits<uint32_t>::max();
-    }
-
-    /**
-     * get the default value if an element in not in the unsion
-     */
-    uint32_t getDefaultValue() {
-      return default_value;
-    }
-
-    /**
-     * Find the root of the set in which element belongs
-     */
-    uint32_t Find(uint32_t l) const {
-      auto it = parents.find(l);
-      if(it == parents.end())
-        return default_value;
-
-      auto entry = it->second;
-      if (entry == l) // if l is root
-         return l;
-      return Find(entry); // recurs for parent till we find root
-    }
-
-    /**
-     * perform Union of two subsets element1 and element2  
-     */
-    void Union(uint32_t m, uint32_t n) {
-      uint32_t x = Find(m);
-      uint32_t y = Find(n);
-      Update(x, y);
-    }
-
-    /**
-     * If the parents are known via find this method can be called instead of union
-     */
-    void Update(uint32_t element, uint32_t parent) {
-      parents[element] = parent;
-    }
-};
-
-/**
- * A group of vertices which can reach each other. Some of them might be missing edges.
- * A vertex index is associated with this group to make it unique.
- */
-struct ReachableGroup {
-  uint32_t vertex_index_;
-  std::unordered_set<uint32_t> missing_edges_;      // TODO replace with robin_set
-  std::unordered_set<uint32_t> reachable_vertices_; // TODO replace with robin_set
-
-  ReachableGroup(uint32_t vertex_index, uint32_t expected_size) : vertex_index_(vertex_index) {
-    missing_edges_.reserve(expected_size);
-    reachable_vertices_.reserve(expected_size);
-    missing_edges_.insert(vertex_index);
-    reachable_vertices_.insert(vertex_index);
-  }
-
-   /**
-   * removed the element from the list of vertices with missing edges
-   */
-  void hasEdge(uint32_t element) {
-    missing_edges_.erase(element);
-  }
-
-  /**
-   * return the vertex associated with this group
-   */
-  uint32_t getVertexIndex() const {
-    return vertex_index_;
-  }
-
-  /**
-   * get the number of vertices which can be reached by this group
-   */
-  size_t size() const {
-    return reachable_vertices_.size();
-  }
-
-  /**
-   * get the number of vertices in this group which are missing an edge
-   */
-  size_t getMissingEdgeSize() const {
-    return missing_edges_.size();
-  }
-
-  /**
-   * get the vertices which are missing an edges
-   */
-  const auto& getMissingEdges() {
-    return missing_edges_;
-  }
-
-  /**
-   * Copy the data from the other group to this group
-   */
-  void copyFrom(ReachableGroup& otherGroup) {
-
-	  // skip if both are the same object
-		if(vertex_index_ == otherGroup.vertex_index_)
-			return;
-
-    missing_edges_.insert(otherGroup.missing_edges_.begin(), otherGroup.missing_edges_.end());
-    reachable_vertices_.insert(otherGroup.reachable_vertices_.begin(), otherGroup.reachable_vertices_.end());
-    // std::copy(otherGroup.missing_edges_.begin(), otherGroup.missing_edges_.end(), std::back_inserter(missing_edges_));
-    // std::copy(otherGroup.reachable_vertices_.begin(), otherGroup.reachable_vertices_.end(), std::back_inserter(reachable_vertices_));
-  }
-};
-
-
 class EvenRegularGraphBuilderExperimental {
 
     const uint8_t extend_k_;            // k value for extending the graph
@@ -180,8 +54,12 @@ class EvenRegularGraphBuilderExperimental {
     std::vector<float> sum_fv_;
     std::vector<uint32_t> entry_vertex_indices_;
 
-  public:
+    uint64_t hop_sum_ = 0;
+    uint64_t dist_cal_sum_ = 0;
+    uint64_t checked_vertices_sum_ = 0;
+    uint64_t search_count_ = 0;
 
+  public:
     EvenRegularGraphBuilderExperimental(deglib::graph::MutableGraph& graph, std::mt19937& rnd, 
                             const uint8_t extend_k, const float extend_eps, const bool extend_highLID, 
                             const uint8_t improve_k, const float improve_eps, const bool improve_highLID, const uint8_t improve_step_factor = 2,
@@ -213,6 +91,25 @@ class EvenRegularGraphBuilderExperimental {
 
     EvenRegularGraphBuilderExperimental(deglib::graph::MutableGraph& graph, std::mt19937& rnd) 
       : EvenRegularGraphBuilderExperimental(graph, rnd, 1) {
+    }
+
+    void clearSearchStats() {
+      hop_sum_ = 0;
+      dist_cal_sum_ = 0;
+      checked_vertices_sum_ = 0;
+      search_count_ = 0;
+    }
+
+    double getAvgHops() const {
+      return ((double)hop_sum_) / search_count_;
+    }
+
+    double getAvgDistCalcs() const {
+      return ((double)dist_cal_sum_) / search_count_;
+    }
+
+     double getAvgCheckedVertices() const {
+      return ((double)checked_vertices_sum_) / search_count_;
     }
 
     /**
@@ -264,6 +161,11 @@ class EvenRegularGraphBuilderExperimental {
         const auto seed = std::vector<uint32_t> { entry_vertex_indices_[0] };
         auto result_queue = graph_.search(seed, reinterpret_cast<const std::byte*>(avg_fv.data()), extend_eps_, extend_k_);
         entry_vertex_indices_[0] = result_queue.top().getInternalIndex();
+
+        this->hop_sum_ += result_queue.hop_sum_;
+        this->dist_cal_sum_ += result_queue.dist_cal_sum_;
+        this->checked_vertices_sum_ += result_queue.checked_vertices_sum_;
+        this->search_count_++;
       }
     }
   
@@ -377,7 +279,7 @@ class EvenRegularGraphBuilderExperimental {
       if(graph.size() < edges_per_vertex+1) {
 
         // add an empty vertex to the graph (no neighbor information yet)
-        addFeatureToMean(new_vertex_feature);
+        //addFeatureToMean(new_vertex_feature);
         const auto internal_index = graph.addNode(external_label, new_vertex_feature);
 
         // connect the new vertex to all other vertices in the graph
@@ -400,6 +302,11 @@ class EvenRegularGraphBuilderExperimental {
       auto top_list = graph.search(entry_vertex_indices, new_vertex_feature, this->extend_eps_, std::max(uint32_t(this->extend_k_), edges_per_vertex));
       const auto results = topListAscending(top_list);
 
+      this->hop_sum_ += top_list.hop_sum_;
+      this->dist_cal_sum_ += top_list.dist_cal_sum_;
+      this->checked_vertices_sum_ += top_list.checked_vertices_sum_;
+      this->search_count_++;
+
       // their should always be enough neighbors (search results), otherwise the graph would be broken
       if(results.size() < edges_per_vertex) {
         fmt::print(stderr, "the graph search for the new vertex {} did only provided {} results \n", external_label, results.size());
@@ -408,7 +315,7 @@ class EvenRegularGraphBuilderExperimental {
       }
 
       // add an empty vertex to the graph (no neighbor information yet)
-      addFeatureToMean(new_vertex_feature);
+      // addFeatureToMean(new_vertex_feature);
       const auto internal_index = graph.addNode(external_label, new_vertex_feature);
 
       // for computing distances to neighbors not in the result queue
@@ -616,44 +523,44 @@ class EvenRegularGraphBuilderExperimental {
 
 
       // try to improve some of the non-perfect edges (not part of the range-search)
-      // {
-      //   auto nonperfect_neighbors = std::vector<BoostedEdge>();
-      //   for (size_t i = 0; i < new_neighbors.size(); i++) {
-      //     const auto& neighbor = new_neighbors[i];
+      if(improve_k_ > 0) {
+        auto nonperfect_neighbors = std::vector<BoostedEdge>();
+        for (size_t i = 0; i < new_neighbors.size(); i++) {
+          const auto& neighbor = new_neighbors[i];
 
-      //     // was the new neighbor found by the range-search or is just a neighbor of a neighbor
-      //     bool perfect = false;
-      //     for (size_t r = 0; r < results.size(); r++) {
-      //       const auto& result = results[r];
-      //       if(result.getInternalIndex() == neighbor.first) {
-      //         perfect = true;
-      //         break;
-      //       }
-      //     } 
+          // was the new neighbor found by the range-search or is just a neighbor of a neighbor
+          bool perfect = false;
+          for (size_t r = 0; r < results.size(); r++) {
+            const auto& result = results[r];
+            if(result.getInternalIndex() == neighbor.first) {
+              perfect = true;
+              break;
+            }
+          } 
 
-      //     if(perfect == false && graph.hasEdge(internal_index, neighbor.first)) {
-      //       // bool rng = deglib::analysis::check_SSG_RNG(graph, neighbor.first, neighbor.second, 60, new_neighbors);
-      //       bool rng = deglib::analysis::checkRNG(graph, edges_per_vertex, internal_index, neighbor.first, neighbor.second);
-      //       // bool rng = deglib::analysis::check_NSW_RNG(graph, edges_per_vertex, internal_index, neighbor.first, neighbor.second);
-      //       nonperfect_neighbors.emplace_back(internal_index, neighbor.first, neighbor.second, neighbor.second, rng);
-      //       // nonperfect_neighbors.emplace_back(neighbor.first, neighbor.second, neighbor.second * (rng ? 1.0f : rng_factor_), rng);
-      //     }
-      //   }
+          if(perfect == false && graph.hasEdge(internal_index, neighbor.first)) {
+            // bool rng = deglib::analysis::check_SSG_RNG(graph, neighbor.first, neighbor.second, 60, new_neighbors);
+            bool rng = deglib::analysis::checkRNG(graph, edges_per_vertex, internal_index, neighbor.first, neighbor.second);
+            // bool rng = deglib::analysis::check_NSW_RNG(graph, edges_per_vertex, internal_index, neighbor.first, neighbor.second);
+            nonperfect_neighbors.emplace_back(internal_index, neighbor.first, neighbor.second, neighbor.second, rng);
+            // nonperfect_neighbors.emplace_back(neighbor.first, neighbor.second, neighbor.second * (rng ? 1.0f : rng_factor_), rng);
+          }
+        }
 
-      //   std::sort(nonperfect_neighbors.begin(), nonperfect_neighbors.end(), [](const auto& x, const auto& y){return x.boost < y.boost;}); // low to high
-      //   for (size_t i = 0; i < nonperfect_neighbors.size(); i++) {
-      //     // if(nonperfect_neighbors[i].rng == false) { // none rng 
-      //     // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex)) { // slow
-      //     if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (i % 2 == 0)) { // normal
-      //     // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && nonperfect_neighbors[i].rng == false) { // fast
-      //     // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (i < nonperfect_neighbors.size() / 2)) { // normal            
-      //     // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (i >= nonperfect_neighbors.size() / 2)) {
-      //     // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (nonperfect_neighbors[i].rng == false || i < nonperfect_neighbors.size() / 2)) {
-      //     // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (nonperfect_neighbors[i].rng == false || i >= nonperfect_neighbors.size() / 2)) {
-      //       improveEdges(internal_index, nonperfect_neighbors[i].to_vertex, nonperfect_neighbors[i].weight); 
-      //     }
-      //   }
-      // }
+        std::sort(nonperfect_neighbors.begin(), nonperfect_neighbors.end(), [](const auto& x, const auto& y){return x.boost < y.boost;}); // low to high
+        for (size_t i = 0; i < nonperfect_neighbors.size(); i++) {
+          // if(nonperfect_neighbors[i].rng == false) { // none rng 
+          // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex)) { // slow
+          if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (i % 2 == 0)) { // normal
+          // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && nonperfect_neighbors[i].rng == false) { // fast
+          // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (i < nonperfect_neighbors.size() / 2)) { // normal            
+          // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (i >= nonperfect_neighbors.size() / 2)) {
+          // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (nonperfect_neighbors[i].rng == false || i < nonperfect_neighbors.size() / 2)) {
+          // if(graph.hasEdge(internal_index, nonperfect_neighbors[i].to_vertex) && (nonperfect_neighbors[i].rng == false || i >= nonperfect_neighbors.size() / 2)) {
+            improveEdges(internal_index, nonperfect_neighbors[i].to_vertex, nonperfect_neighbors[i].weight); 
+          }
+        }
+      }
     }
 
     /**
@@ -1005,6 +912,11 @@ class EvenRegularGraphBuilderExperimental {
           const std::vector<uint32_t> entry_vertex_indices = { vertex3, vertex4 };
           auto top_list = graph.search(entry_vertex_indices, vertex2_feature, search_eps, search_k);
 
+          this->hop_sum_ += top_list.hop_sum_;
+          this->dist_cal_sum_ += top_list.dist_cal_sum_;
+          this->checked_vertices_sum_ += top_list.checked_vertices_sum_;
+          this->search_count_++;
+
           // find a good new vertex3
           for(auto&& result : topListAscending(top_list)) {
 
@@ -1069,6 +981,11 @@ class EvenRegularGraphBuilderExperimental {
           const auto vertex2_feature = graph.getFeatureVector(vertex2);
           const std::vector<uint32_t> entry_vertex_indices = { vertex3, vertex4 };
           auto top_list = graph.search(entry_vertex_indices, vertex2_feature, search_eps, search_k);
+
+          this->hop_sum_ += top_list.hop_sum_;
+          this->dist_cal_sum_ += top_list.dist_cal_sum_;
+          this->checked_vertices_sum_ += top_list.checked_vertices_sum_;
+          this->search_count_++;
 
           // find a good new vertex3
           float best_gain = total_gain;
@@ -1177,6 +1094,11 @@ class EvenRegularGraphBuilderExperimental {
             const auto vertex4_feature = graph.getFeatureVector(vertex4);
             auto top_list = graph.search(entry_vertex_indices, vertex4_feature, search_eps, search_k);
 
+            this->hop_sum_ += top_list.hop_sum_;
+            this->dist_cal_sum_ += top_list.dist_cal_sum_;
+            this->checked_vertices_sum_ += top_list.checked_vertices_sum_;
+            this->search_count_++;
+
             for(auto&& result : topListAscending(top_list)) {
               const auto good_vertex = result.getInternalIndex();
 
@@ -1225,6 +1147,11 @@ class EvenRegularGraphBuilderExperimental {
             const std::vector<uint32_t> entry_vertex_indices = { vertex2, vertex3 };
             const auto vertex4_feature = graph.getFeatureVector(vertex4);
             auto top_list = graph.search(entry_vertex_indices, vertex4_feature, search_eps, search_k);
+
+            this->hop_sum_ += top_list.hop_sum_;
+            this->dist_cal_sum_ += top_list.dist_cal_sum_;
+            this->checked_vertices_sum_ += top_list.checked_vertices_sum_;
+            this->search_count_++;
 
             float best_gain = 0;
             uint32_t best_selected_neighbor = 0;
@@ -1362,7 +1289,7 @@ class EvenRegularGraphBuilderExperimental {
       uint32_t vertex1 = distrib(this->rnd_);
 
       // auto boolean_distrib = std::uniform_int_distribution<uint32_t>(0, 1);
-      bool find_rng = true; //boolean_distrib(this->rnd_) == 1;
+      bool find_rng = false; //boolean_distrib(this->rnd_) == 1;
 
       // 1.2 find the worst edge of this vertex
       uint32_t bad_neighbor_index = 0;

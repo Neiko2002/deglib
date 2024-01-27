@@ -327,7 +327,7 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
 
 private:  
   inline std::byte* vertex_by_index(const uint32_t internal_idx) const {
-    return vertices_memory_ + internal_idx * byte_size_per_vertex_;
+    return vertices_memory_ + size_t(internal_idx) * byte_size_per_vertex_;
   }
 
   inline const uint32_t label_by_index(const uint32_t internal_idx) const {
@@ -410,8 +410,8 @@ public:
       auto new_vertices_ptr = new_vertices.get();
       auto old_vertices_ptr = this->vertices_.get();
       for (uint32_t from_index = 0; from_index < vertex_count; from_index++)  {
-        auto from_offset = from_index * bytes_per_vertex;
-        auto to_offset = order_vector[from_index] * bytes_per_vertex;
+        auto from_offset = size_t(from_index) * bytes_per_vertex;
+        auto to_offset = size_t(order_vector[from_index]) * bytes_per_vertex;
         std::memcpy(new_vertices_ptr + to_offset, old_vertices_ptr + from_offset, bytes_per_vertex);
       }
       std::memcpy(old_vertices_ptr, new_vertices_ptr, size_t(vertex_count) * bytes_per_vertex + object_alignment);
@@ -971,6 +971,11 @@ public:
   template <typename COMPARATOR, bool use_max_distance_count>
   deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
   {
+    uint64_t hop_sum = 0;
+    uint64_t dist_cal_sum = 0;
+    uint64_t checked_vertices_sum = 0;
+
+
     const auto dist_func_param = this->feature_space_.get_dist_func_param();
     uint32_t distance_computation_count = 0;
 
@@ -984,10 +989,15 @@ public:
     // result set
     // TODO: custom priority queue with an internal Variable Length Array wrapped in a macro with linear-scan search and memcopy 
     auto results = deglib::search::ResultSet();   
-    results.reserve(k);
+    results.reserve(k+1);
+
+    // add backlog
+    // auto backlog = deglib::search::ResultSet();
+    // backlog.reserve(k+1);
 
     // copy the initial entry vertices and their distances to the query into the three containers
     for (auto&& index : entry_vertex_indices) {
+      checked_vertices_sum++;
       if(checked_ids[index] == false) {
         checked_ids[index] = true;
 
@@ -997,6 +1007,7 @@ public:
         results.emplace(index, distance);
 
         // early stop after to many computations
+        dist_cal_sum++;
         if constexpr (use_max_distance_count) {
           if(distance_computation_count++ >= max_distance_computation_count)
             return results;
@@ -1014,6 +1025,7 @@ public:
       // next vertex to check
       const auto next_vertex = next_vertices.top();
       next_vertices.pop();
+      hop_sum++;
 
       // max distance reached
       if (next_vertex.getDistance() > r * (1 + eps)) 
@@ -1023,6 +1035,7 @@ public:
       const auto neighbor_indices = this->neighbors_by_index(next_vertex.getInternalIndex());
       for (size_t i = 0; i < this->edges_per_vertex_; i++) {
         const auto neighbor_index = neighbor_indices[i];
+        checked_vertices_sum++;
         if (checked_ids[neighbor_index] == false)  {
           checked_ids[neighbor_index] = true;
           good_neighbors[good_neighbor_count++] = neighbor_index;
@@ -1050,22 +1063,137 @@ public:
 
             // update the search radius
             if (results.size() > k) {
+
+              // update backlog
+              // backlog.emplace(results.top().getInternalIndex(), results.top().getDistance());
+              // if (backlog.size() > k) 
+              //   backlog.pop();
+
+              // limit result list
               results.pop();
               r = results.top().getDistance();
             }
           }
         }
-      }
-
-      // early stop after to many computations
-      if constexpr (use_max_distance_count) {
-        if(distance_computation_count++ >= max_distance_computation_count)
-          return results;
+      
+        // early stop after to many computations
+        dist_cal_sum++;
+        if constexpr (use_max_distance_count) {
+          if(distance_computation_count++ >= max_distance_computation_count)           
+            return results;
+        }
       }
     }
 
+    results.hop_sum_ = hop_sum;
+    results.dist_cal_sum_ = dist_cal_sum;
+    results.checked_vertices_sum_ = checked_vertices_sum;
+
+    // add backlog to results
+    // while(backlog.size() > 0) {
+    //   results.emplace(backlog.top().getInternalIndex(), backlog.top().getDistance());
+    //   backlog.pop();
+    // }
     return results;
   }
+  // template <typename COMPARATOR, bool use_max_distance_count>
+  // deglib::search::ResultSet searchImpl(const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count) const
+  // {
+  //   const auto dist_func_param = this->feature_space_.get_dist_func_param();
+  //   uint32_t distance_computation_count = 0;
+
+  //   // set of checked vertex ids
+  //   auto checked_ids = std::vector<bool>(this->size());
+
+  //   // items to traverse next
+  //   auto next_vertices = deglib::search::UncheckedSet();
+  //   next_vertices.reserve(k*this->edges_per_vertex_);
+
+  //   // result set
+  //   // TODO: custom priority queue with an internal Variable Length Array wrapped in a macro with linear-scan search and memcopy 
+  //   auto results = deglib::search::ResultSet();   
+  //   results.reserve(k);
+
+  //   // copy the initial entry vertices and their distances to the query into the three containers
+  //   for (auto&& index : entry_vertex_indices) {
+  //     if(checked_ids[index] == false) {
+  //       checked_ids[index] = true;
+
+  //       const auto feature = reinterpret_cast<const float*>(this->feature_by_index(index));
+  //       const auto distance = COMPARATOR::compare(query, feature, dist_func_param);
+  //       next_vertices.emplace(index, distance);
+  //       results.emplace(index, distance);
+
+  //       // early stop after to many computations
+  //       if constexpr (use_max_distance_count) {
+  //         if(distance_computation_count++ >= max_distance_computation_count)
+  //           return results;
+  //       }
+  //     }
+  //   }
+
+  //   // search radius
+  //   auto r = std::numeric_limits<float>::max();
+
+  //   // iterate as long as good elements are in the next_vertices queue
+  //   auto good_neighbors = std::array<uint32_t, 256>();    // this limits the neighbor count to 256 using Variable Length Array wrapped in a macro
+  //   while (next_vertices.empty() == false)
+  //   {
+  //     // next vertex to check
+  //     const auto next_vertex = next_vertices.top();
+  //     next_vertices.pop();
+
+  //     // max distance reached
+  //     if (next_vertex.getDistance() > r * (1 + eps)) 
+  //       break;
+
+  //     size_t good_neighbor_count = 0;
+  //     const auto neighbor_indices = this->neighbors_by_index(next_vertex.getInternalIndex());
+  //     for (size_t i = 0; i < this->edges_per_vertex_; i++) {
+  //       const auto neighbor_index = neighbor_indices[i];
+  //       if (checked_ids[neighbor_index] == false)  {
+  //         checked_ids[neighbor_index] = true;
+  //         good_neighbors[good_neighbor_count++] = neighbor_index;
+  //       }
+  //     }
+
+  //     if (good_neighbor_count == 0)
+  //       continue;
+
+  //     MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[0])));
+  //     for (size_t i = 0; i < good_neighbor_count; i++) {
+  //       MemoryCache::prefetch(reinterpret_cast<const char*>(this->feature_by_index(good_neighbors[std::min(i + 1, good_neighbor_count - 1)])));
+
+  //       const auto neighbor_index = good_neighbors[i];
+  //       const auto neighbor_feature_vector = this->feature_by_index(neighbor_index);
+  //       const auto neighbor_distance = COMPARATOR::compare(query, neighbor_feature_vector, dist_func_param);
+             
+  //       // check the neighborhood of this vertex later, if its good enough
+  //       if (neighbor_distance <= r * (1 + eps)) {
+  //           next_vertices.emplace(neighbor_index, neighbor_distance);
+
+  //         // remember the vertex, if its better than the worst in the result list
+  //         if (neighbor_distance < r) {
+  //           results.emplace(neighbor_index, neighbor_distance);
+
+  //           // update the search radius
+  //           if (results.size() > k) {
+  //             results.pop();
+  //             r = results.top().getDistance();
+  //           }
+  //         }
+  //       }
+  //     }
+
+  //     // early stop after to many computations
+  //     if constexpr (use_max_distance_count) {
+  //       if(distance_computation_count++ >= max_distance_computation_count)
+  //         return results;
+  //     }
+  //   }
+
+  //   return results;
+  // }
 
   /**
    * The result set contains internal indices. 

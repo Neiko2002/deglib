@@ -38,9 +38,14 @@ int main() {
     // const auto path_entry_vertex        = (data_path / "enron" / "enron_explore_entry_vertex.ivecs").string();
 
     // ------------------------------------------ Audio ---------------------------------------------
-    const auto graph_file               = (data_path / "deg" / "192D_L2_K20_AddK40Eps0.3High_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string(); 
-    const auto path_query_groundtruth   = (data_path / "audio" / "audio_explore_ground_truth.ivecs").string();
-    const auto path_entry_vertex        = (data_path / "audio" / "audio_explore_entry_vertex.ivecs").string();
+    // const auto graph_file               = (data_path / "deg" / "192D_L2_K20_AddK40Eps0.3High_SwapK20-0StepEps0.001LowPath5Rnd0+0_improveEvery2ndNonPerfectEdge.deg").string(); 
+    // const auto path_query_groundtruth   = (data_path / "audio" / "audio_explore_ground_truth.ivecs").string();
+    // const auto path_entry_vertex        = (data_path / "audio" / "audio_explore_entry_vertex.ivecs").string();
+
+    // ------------------------------------------ ImageNet1kRand ---------------------------------------------
+    const auto graph_file               = (data_path / "deg" / "768D_L2_K30_AddK60Eps0.1High_schemeRust.deg").string(); 
+    const auto path_query_groundtruth   = (data_path / "ImageNet1kRand" / "clip_explore_ground_truth.ivecs").string();
+    const auto path_entry_vertex        = (data_path / "ImageNet1kRand" / "clip_explore_entry_vertex.ivecs").string();
     
     // 2DGraph
     // const uint32_t k = 10; 

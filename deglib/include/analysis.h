@@ -56,7 +56,7 @@ namespace deglib::analysis
                 }
 
                 if(check_back_link && graph.hasEdge(neighbor_index, n) == false) {
-                    fmt::print(stderr, "the neighbor {} of vertex {} does not have a back link to the vertex \n", neighbor_index, n);
+                    fmt::print(stderr, " vertex {} has an edge to {}, but {} is missing a back link \n", n, neighbor_index, neighbor_index);
                     return false;
                 }
 
@@ -319,7 +319,34 @@ namespace deglib::analysis
       return true;
     }
 
-    // NSW edge selection strategy for approximating RNG
+    /**
+     * IPMG edge selection strategy 
+     */
+    static auto check_IPMG(const deglib::graph::MutableGraph& graph, const uint32_t candidate_index, const float vertex_candidate_weight, const std::vector<std::pair<uint32_t, float>>& new_neighbors) {
+        const auto neighbor_size = new_neighbors.size();
+        if(neighbor_size > 0) {
+            const auto dist_func = graph.getFeatureSpace().get_dist_func();
+            const auto dist_func_param = graph.getFeatureSpace().get_dist_func_param();
+            const auto candidate_feature = graph.getFeatureVector(candidate_index);
+
+            MemoryCache::prefetch(reinterpret_cast<const char*>(graph.getFeatureVector(new_neighbors[0].first)));
+            for (size_t n = 0; n < neighbor_size; n++) {
+                MemoryCache::prefetch(reinterpret_cast<const char*>(graph.getFeatureVector(new_neighbors[std::min(n + 1, neighbor_size - 1)].first)));
+
+                const auto& new_neighbor = new_neighbors[n];
+                const auto distance_candidate_neighbor = dist_func(candidate_feature, graph.getFeatureVector(new_neighbor.first), dist_func_param); 
+                
+                if(distance_candidate_neighbor < vertex_candidate_weight) { // incompleteRNG
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * NSW edge selection strategy for approximating RNG
+     */
     static auto check_NSW_RNG(const deglib::graph::MutableGraph& graph, const uint32_t edges_per_vertex, const uint32_t vertex_index, const uint32_t target_index, const float vertex_target_weight) {
         const auto neighbor_indices = graph.getNeighborIndices(vertex_index);
         for (size_t edge_idx = 0; edge_idx < edges_per_vertex; edge_idx++) {

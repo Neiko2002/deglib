@@ -78,6 +78,11 @@ class PQV : public std::vector<ObjectType> {
       std::pop_heap(this->begin(),this->end(), comp);
       this->pop_back();
     }
+
+  
+  uint64_t hop_sum_ = 0;
+  uint64_t dist_cal_sum_ = 0;
+  uint64_t checked_vertices_sum_ = 0;
 };
 
 // search result set containing vertex ids and distances

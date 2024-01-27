@@ -328,7 +328,7 @@ public:
     
 private:  
   inline std::byte* vertex_by_index(const uint32_t internal_idx) const {
-    return vertices_memory_ + internal_idx * byte_size_per_vertex_;
+    return vertices_memory_ + size_t(internal_idx) * byte_size_per_vertex_;
   }
 
   inline const uint32_t label_by_index(const uint32_t internal_idx) const {
@@ -493,6 +493,8 @@ public:
    */
   deglib::search::ResultSet search(const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const override
   {
+    // return searchImpl<deglib::distances::L2Float16Ext, false>(entry_vertex_indices, query, eps, k, 0);
+    // return greedySearchImpl<deglib::distances::L2Float16Ext, false>(entry_vertex_indices, query, eps, k, 0);
     if(max_distance_computation_count == 0)
       return search_func_(*this, entry_vertex_indices, query, eps, k, 0);
     else {
@@ -503,6 +505,8 @@ public:
 
 
   /**
+   * Greedy Search. Slower than RangeSearch for DEG.
+   * 
    * The result set contains internal indices. 
    */
   template <typename COMPARATOR, bool use_max_distance_count>

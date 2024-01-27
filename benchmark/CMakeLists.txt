@@ -45,3 +45,14 @@ add_executable(deglib_knng_bench ${PROJECT_SOURCE_DIR}/src/deglib_knng_bench.cpp
 target_link_libraries(deglib_knng_bench PUBLIC DEG_LIB compile-options
                                                 fmt::fmt-header-only tsl::robin_map)
 target_compile_definitions(deglib_knng_bench PUBLIC "DATA_PATH=\"${DATA_PATH}\"")
+
+add_executable(deglib_groundtruth_create ${PROJECT_SOURCE_DIR}/src/deglib_groundtruth_create.cpp)
+target_link_libraries(deglib_groundtruth_create PUBLIC DEG_LIB compile-options
+                                                fmt::fmt-header-only tsl::robin_map)
+target_compile_definitions(deglib_groundtruth_create PUBLIC "DATA_PATH=\"${DATA_PATH}\"")
+
+
+add_executable(deglib_build_only ${PROJECT_SOURCE_DIR}/src/deglib_build_only.cpp)
+target_link_libraries(deglib_build_only PUBLIC DEG_LIB compile-options
+                                                fmt::fmt-header-only tsl::robin_map)
+target_compile_definitions(deglib_build_only PUBLIC "DATA_PATH=\"${DATA_PATH}\"")

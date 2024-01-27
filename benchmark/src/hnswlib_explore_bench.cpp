@@ -127,9 +127,15 @@ int main()
     // const auto path_index = (data_path / "hnsw" / "ef_900_M_50_maxM0_80.hnsw").string(); 
 
     // ------------------------------------------ Audio ---------------------------------------------
-    size_t vecdim = 192;
-    const auto path_groundtruth = (data_path / "audio" / "audio_explore_ground_truth.ivecs").string();
-    const auto path_entry       = (data_path / "audio" / "audio_explore_entry_vertex.ivecs").string();
+    // size_t vecdim = 192;
+    // const auto path_groundtruth = (data_path / "audio" / "audio_explore_ground_truth.ivecs").string();
+    // const auto path_entry       = (data_path / "audio" / "audio_explore_entry_vertex.ivecs").string();
+    // const auto path_index       = (data_path / "hnsw" / "ef_700_M_10_maxM0_50.hnsw").string(); 
+
+    // ------------------------------------------ ImageNet1kRand ---------------------------------------------
+    size_t vecdim = 768;
+    const auto path_groundtruth = (data_path / "ImageNet1kRand" / "clip_explore_ground_truth.ivecs").string();
+    const auto path_entry       = (data_path / "ImageNet1kRand" / "clip_explore_entry_vertex.ivecs").string();
     const auto path_index       = (data_path / "hnsw" / "ef_700_M_10_maxM0_50.hnsw").string(); 
 
     // // 2D Graph
