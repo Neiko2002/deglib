@@ -1,13 +1,14 @@
 #pragma once
 
 #include <omp.h>
-#include <math.h>
+#include <cmath>
 #include <algorithm>
 #include <fmt/core.h>
 #include <span>
 
 #include "search.h"
 #include "graph.h"
+#include "memory.h"
 
 namespace deglib::analysis
 {
