@@ -4,6 +4,7 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <concepts>
 #include <functional>
 #include <span>
 #include <array>
@@ -201,6 +202,27 @@ struct BuilderStatus {
   uint64_t tries;     // number of improvement tries
 };
 
+template<class Graph>
+concept BuildableGraphConcept = requires(const Graph& graph, Graph& mut_graph, const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query,
+                                         const uint32_t to_vertex, const float eps, const uint32_t k, const uint32_t max_distance_computation_count,
+                                         const uint32_t* neighbor_indices, const float* neighbor_weights) {
+  { graph.getFeatureSpace() } -> std::same_as<const deglib::SpaceInterface<float>&>;
+  { graph.size() } -> std::same_as<uint32_t>;
+  { graph.getEdgesPerNode() } -> std::same_as<uint8_t>;
+  { graph.getNeighborIndices(uint32_t{}) } -> std::same_as<const uint32_t*>;
+  { graph.getNeighborWeights(uint32_t{}) } -> std::same_as<const float*>;
+  { graph.getFeatureVector(uint32_t{}) } -> std::same_as<const std::byte*>;
+  { graph.hasNode(uint32_t{}) } -> std::same_as<bool>;
+  { graph.hasEdge(uint32_t{}, uint32_t{}) } -> std::same_as<bool>;
+  { mut_graph.addNode(uint32_t{}, query) } -> std::same_as<uint32_t>;
+  { mut_graph.removeNode(uint32_t{}) } -> std::same_as<std::vector<uint32_t>>;
+  { mut_graph.changeEdge(uint32_t{}, uint32_t{}, uint32_t{}, float{}) } -> std::same_as<bool>;
+  { mut_graph.changeEdges(uint32_t{}, neighbor_indices, neighbor_weights) } -> std::same_as<void>;
+  { graph.hasPath(entry_vertex_indices, to_vertex, eps, k) } -> std::same_as<std::vector<deglib::search::ObjectDistance>>;
+  { graph.search(entry_vertex_indices, query, eps, k, max_distance_computation_count) } -> std::same_as<deglib::search::ResultSet>;
+};
+
+template<BuildableGraphConcept Graph>
 class EvenRegularGraphBuilder {
 
     const uint8_t extend_k_;            // k value for extending the graph
@@ -215,7 +237,7 @@ class EvenRegularGraphBuilder {
     const uint32_t additional_swap_tries_;
 
     std::mt19937& rnd_;
-    deglib::graph::MutableGraph& graph_;
+    Graph& graph_;
 
     std::atomic<uint64_t> manipulation_counter_;
     std::deque<BuilderAddTask> new_entry_queue_;
@@ -235,7 +257,7 @@ class EvenRegularGraphBuilder {
     uint64_t search_count_ = 0;
 
   public:
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, 
+    EvenRegularGraphBuilder(Graph& graph, std::mt19937& rnd, 
                             const uint8_t extend_k, const float extend_eps, const bool extend_highLID, 
                             const uint8_t improve_k, const float improve_eps, const bool improve_highLID, const uint8_t improve_step_factor = 0,
                             const uint8_t max_path_length = 5, const uint32_t swap_tries = 0, const uint32_t additional_swap_tries = 0) 
@@ -256,14 +278,14 @@ class EvenRegularGraphBuilder {
         updateEntryNode();
     }
 
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd, const uint32_t swaps) 
+    EvenRegularGraphBuilder(Graph& graph, std::mt19937& rnd, const uint32_t swaps) 
       : EvenRegularGraphBuilder(graph, rnd, 
                                 graph.getEdgesPerNode(), 0.2f, true,
                                 graph.getEdgesPerNode(), 0.02f, false,
                                 2, 10, swaps, swaps) {
     }
 
-    EvenRegularGraphBuilder(deglib::graph::MutableGraph& graph, std::mt19937& rnd) 
+    EvenRegularGraphBuilder(Graph& graph, std::mt19937& rnd) 
       : EvenRegularGraphBuilder(graph, rnd, 1) {
     }
 

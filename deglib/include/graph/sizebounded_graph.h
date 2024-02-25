@@ -13,6 +13,7 @@
 #include "graph.h"
 #include "repository.h"
 #include "search.h"
+#include "memory.h"
 
 namespace deglib::graph
 {
@@ -310,18 +311,18 @@ class SizeBoundedGraph : public deglib::graph::MutableGraph {
   /**
    * Number of vertices in the graph
    */
-  const uint32_t size() const override {
+  const uint32_t size() const final {
     return (uint32_t) this->label_to_index_.size();
   }
 
   /**
    * Number of edges per vertex 
    */
-  const uint8_t getEdgesPerNode() const override {
+  const uint8_t getEdgesPerNode() const final {
     return this->edges_per_vertex_;
   }
 
-  const deglib::SpaceInterface<float>& getFeatureSpace() const override {
+  const deglib::SpaceInterface<float>& getFeatureSpace() const final {
     return this->feature_space_;
   }
 
@@ -351,27 +352,27 @@ public:
   /**
    * convert an external label to an internal index
    */ 
-  inline const uint32_t getInternalIndex(const uint32_t external_label) const override {
+  inline const uint32_t getInternalIndex(const uint32_t external_label) const final {
     return label_to_index_.find(external_label)->second;
   }
 
-  inline const uint32_t getExternalLabel(const uint32_t internal_idx) const override {
+  inline const uint32_t getExternalLabel(const uint32_t internal_idx) const final {
     return label_by_index(internal_idx);
   }
 
-  inline const std::byte* getFeatureVector(const uint32_t internal_idx) const override{
+  inline const std::byte* getFeatureVector(const uint32_t internal_idx) const final{
     return feature_by_index(internal_idx);
   }
 
-  inline const uint32_t* getNeighborIndices(const uint32_t internal_idx) const override {
+  inline const uint32_t* getNeighborIndices(const uint32_t internal_idx) const final {
     return neighbors_by_index(internal_idx);
   }
 
-  inline const float* getNeighborWeights(const uint32_t internal_idx) const override {
+  inline const float* getNeighborWeights(const uint32_t internal_idx) const final {
     return weights_by_index(internal_idx);
   }
 
-  inline const float getEdgeWeight(const uint32_t internal_index, const uint32_t neighbor_index) const override {
+  inline const float getEdgeWeight(const uint32_t internal_index, const uint32_t neighbor_index) const final {
     auto neighbor_indices = neighbors_by_index(internal_index);
     auto neighbor_indices_end = neighbor_indices + this->edges_per_vertex_;  
     auto neighbor_ptr = std::lower_bound(neighbor_indices, neighbor_indices_end, neighbor_index); 
@@ -382,17 +383,17 @@ public:
     return -1;
   }
 
-  inline const bool hasNode(const uint32_t external_label) const override {
+  inline const bool hasNode(const uint32_t external_label) const final {
     return label_to_index_.contains(external_label);
   }
 
-  inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const override {
+  inline const bool hasEdge(const uint32_t internal_index, const uint32_t neighbor_index) const final {
     auto neighbor_indices = neighbors_by_index(internal_index);
     auto neighbor_indices_end = neighbor_indices + this->edges_per_vertex_;  
     return std::binary_search(neighbor_indices, neighbor_indices_end, neighbor_index);
   }
 
-  bool reorderNodes(const std::vector<uint32_t> order_vector) override {
+  bool reorderNodes(const std::vector<uint32_t> order_vector) final {
     const uint32_t vertex_count = this->size();
     const uint32_t bytes_per_vertex = this->byte_size_per_vertex_;
     const uint32_t edges_per_vertex = this->edges_per_vertex_;
@@ -474,7 +475,7 @@ public:
     return false;
   }
 
-  const bool saveGraph(const char* path_to_graph) const override {
+  const bool saveGraph(const char* path_to_graph) const final {
     auto out = std::ofstream(path_to_graph, std::ios::out | std::ios::binary);
 
     // check open file for write
@@ -508,7 +509,7 @@ public:
    * 
    * @return the internal index of the new vertex
    */
-  uint32_t addNode(const uint32_t external_label, const std::byte* feature_vector) override {
+  uint32_t addNode(const uint32_t external_label, const std::byte* feature_vector) final {
     const auto new_internal_index = static_cast<uint32_t>(label_to_index_.size());
     label_to_index_.emplace(external_label, new_internal_index);
 
@@ -524,7 +525,7 @@ public:
   /**
     * Remove an existing vertex.
     */
-  std::vector<uint32_t> removeNode(const uint32_t external_label) override {
+  std::vector<uint32_t> removeNode(const uint32_t external_label) final {
     const auto internal_index = getInternalIndex(external_label);
     const auto last_internal_index = static_cast<uint32_t>(this->label_to_index_.size() - 1);
 
@@ -576,7 +577,7 @@ public:
    * @param to_neighbor_weight weight of the neighbor to add
    * @return true if the from_neighbor_index was found and changed
    */
-  bool changeEdge(const uint32_t internal_index, const uint32_t from_neighbor_index, const uint32_t to_neighbor_index, const float to_neighbor_weight) override {
+  bool changeEdge(const uint32_t internal_index, const uint32_t from_neighbor_index, const uint32_t to_neighbor_index, const float to_neighbor_weight) final {
     auto vertex_memory = vertex_by_index(internal_index);
 
     auto neighbor_indices = reinterpret_cast<uint32_t*>(vertex_memory + neighbor_indices_offset_);  // list of neighbor indizizes
@@ -618,7 +619,7 @@ public:
    * The neighbor array need to have enough neighbors to match the edge-per-vertex count of the graph.
    * The indices in the neighbor_indices array must be sorted.
    */
-  void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indices, const float* neighbor_weights) override {
+  void changeEdges(const uint32_t internal_index, const uint32_t* neighbor_indices, const float* neighbor_weights) final {
     auto vertex_memory = vertex_by_index(internal_index);
     std::memcpy(vertex_memory + neighbor_indices_offset_, neighbor_indices, uint32_t(edges_per_vertex_) * sizeof(uint32_t));
     std::memcpy(vertex_memory + neighbor_weights_offset_, neighbor_weights, uint32_t(edges_per_vertex_) * sizeof(float));
@@ -627,7 +628,7 @@ public:
   /**
    * Performan a search but stops when the to_vertex was found.
    */
-  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_vertex_indices, const uint32_t to_vertex, const float eps, const uint32_t k) const override
+  std::vector<deglib::search::ObjectDistance> hasPath(const std::vector<uint32_t>& entry_vertex_indices, const uint32_t to_vertex, const float eps, const uint32_t k) const final
   {
     const auto query = this->feature_by_index(to_vertex);
     const auto dist_func = this->feature_space_.get_dist_func();
@@ -735,7 +736,7 @@ public:
   /**
    * The result set contains internal indices. 
    */
-  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const override
+  deglib::search::ResultSet search(const std::vector<uint32_t>& entry_vertex_indices, const std::byte* query, const float eps, const uint32_t k, const uint32_t max_distance_computation_count = 0) const final
   {
     if(max_distance_computation_count == 0)
       return search_func_(*this, entry_vertex_indices, query, eps, k, 0);
@@ -1198,7 +1199,7 @@ public:
   /**
    * The result set contains internal indices. 
    */
-  deglib::search::ResultSet explore(const uint32_t entry_vertex_index, const uint32_t k, const uint32_t max_distance_computation_count) const override
+  deglib::search::ResultSet explore(const uint32_t entry_vertex_index, const uint32_t k, const uint32_t max_distance_computation_count) const final
   {
     return explore_func_(*this, entry_vertex_index, k, max_distance_computation_count);
   }
