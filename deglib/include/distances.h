@@ -8,7 +8,7 @@ namespace deglib {
 
         class L2Float {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
             {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
@@ -43,7 +43,7 @@ namespace deglib {
         public:
             // AVX instructions don't require their memory operands to be aligned, but SSE does
             // https://stackoverflow.com/questions/52147378/choice-between-aligned-vs-unaligned-x86-simd-instructions
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
             {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
@@ -123,7 +123,7 @@ namespace deglib {
         
         class L2Float8Ext {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
                 size_t size = *((size_t *) qty_ptr);
@@ -162,7 +162,7 @@ namespace deglib {
 
         class L2Float4Ext {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
                 size_t size = *((size_t *) qty_ptr);
@@ -185,7 +185,7 @@ namespace deglib {
 
         class L2Float16ExtResiduals {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 size_t qty = *((size_t *) qty_ptr);
 
                 size_t qty16 = qty >> 4 << 4;
@@ -201,7 +201,7 @@ namespace deglib {
 
         class L2Float4ExtResiduals {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 size_t qty = *((size_t *) qty_ptr);
 
                 size_t qty4 = qty >> 2 << 2;
@@ -219,7 +219,7 @@ namespace deglib {
 
         class InnerProductFloat {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
             {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
@@ -254,7 +254,7 @@ namespace deglib {
         public:
             // AVX instructions don't require their memory operands to be aligned, but SSE does
             // https://stackoverflow.com/questions/52147378/choice-between-aligned-vs-unaligned-x86-simd-instructions
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) 
             {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
@@ -308,7 +308,7 @@ namespace deglib {
         
         class InnerProductFloat8Ext {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
                 size_t size = *((size_t *) qty_ptr);
@@ -342,7 +342,7 @@ namespace deglib {
 
         class InnerProductFloat4Ext {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 float *a = (float *) pVect1v;
                 float *b = (float *) pVect2v;
                 size_t size = *((size_t *) qty_ptr);
@@ -363,7 +363,7 @@ namespace deglib {
 
         class InnerProductFloat16ExtResiduals {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 size_t qty = *((size_t *) qty_ptr);
 
                 size_t qty16 = qty >> 4 << 4;
@@ -379,7 +379,7 @@ namespace deglib {
 
         class InnerProductFloat4ExtResiduals {
         public:
-            inline static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+            static float compare(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
                 size_t qty = *((size_t *) qty_ptr);
 
                 size_t qty4 = qty >> 2 << 2;
@@ -408,81 +408,79 @@ namespace deglib {
     class SpaceInterface
     {
     public:
-        virtual const size_t dim() const = 0;
-        virtual const deglib::Metric metric() const = 0;
-        virtual const size_t get_data_size() const = 0;
-        virtual const DISTFUNC<MTYPE> get_dist_func() const = 0;
+        virtual size_t dim() const = 0;
+        virtual deglib::Metric metric() const = 0;
+        virtual size_t get_data_size() const = 0;
+        virtual DISTFUNC<MTYPE> get_dist_func() const = 0;
         virtual const void* get_dist_func_param() const = 0;
     };
 
 
-    class FloatSpace : public SpaceInterface<float> {
+    class FloatSpace final : public SpaceInterface<float> {
 
-        static DISTFUNC<float> select_dist_func(const size_t dim, const deglib::Metric metric) {
-            DISTFUNC<float> distfunc = deglib::distances::L2Float::compare;
-            if(metric == deglib::Metric::L2) {
-                #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-                    if (dim % 16 == 0)
-                        distfunc = deglib::distances::L2Float16Ext::compare;
-                    else if (dim % 8 == 0)
-                        distfunc = deglib::distances::L2Float8Ext::compare;
-                    else if (dim % 4 == 0)
-                        distfunc = deglib::distances::L2Float4Ext::compare;
-                    else if (dim > 16)
-                        distfunc = deglib::distances::L2Float16ExtResiduals::compare;
-                    else if (dim > 4)
-                        distfunc = deglib::distances::L2Float4ExtResiduals::compare;
-                #endif
-            }
-            else 
-            {
-                #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-                    if (dim % 16 == 0)
-                        distfunc = deglib::distances::InnerProductFloat16Ext::compare;
-                    else if (dim % 8 == 0)
-                        distfunc = deglib::distances::InnerProductFloat8Ext::compare;
-                    else if (dim % 4 == 0)
-                        distfunc = deglib::distances::InnerProductFloat4Ext::compare;
-                    else if (dim > 16)
-                        distfunc = deglib::distances::InnerProductFloat16ExtResiduals::compare;
-                    else if (dim > 4)
-                        distfunc = deglib::distances::InnerProductFloat4ExtResiduals::compare;
-                #elif
-                    distfunc = deglib::distances::InnerProductFloat::compare;
-                #endif
-            }
-
-            // TODO add cosine but convert to a distance = 2 - (cosine + 1)
-            // https://www.kaggle.com/cdabakoglu/word-vectors-cosine-similarity
-            // https://github.com/yahoojapan/NGT/blob/master/lib/NGT/PrimitiveComparator.h#L431
-
-            return distfunc;
-        }
-
-        const DISTFUNC<float> fstdistfunc_;
         const size_t data_size_;
         const size_t dim_;
         const deglib::Metric metric_;
+        const DISTFUNC<float> fstdistfunc_;
 
     public:
         FloatSpace(const size_t dim, const deglib::Metric metric) 
-            : metric_(metric), dim_(dim), data_size_(dim * sizeof(float)), fstdistfunc_(select_dist_func(dim, metric)) {
+            : data_size_(dim * sizeof(float)), dim_(dim), metric_(metric), fstdistfunc_(select_dist_func()) {
         }
 
-        const size_t dim() const {
+        template<class Factory>
+        auto build_with_distance_function() const {
+            const auto dim = dim_;
+            const auto metric = metric_;
+
+            if(metric == deglib::Metric::L2) {
+                #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
+                if (dim % 16 == 0)
+                    return Factory::template build<deglib::distances::L2Float16Ext>();
+                else if (dim % 8 == 0)
+                    return Factory::template build<deglib::distances::L2Float8Ext>();
+                else if (dim % 4 == 0)
+                    return Factory::template build<deglib::distances::L2Float4Ext>();
+                else if (dim > 16)
+                    return Factory::template build<deglib::distances::L2Float16ExtResiduals>();
+                else if (dim > 4)
+                    return Factory::template build<deglib::distances::L2Float4ExtResiduals>();
+                #endif
+            }
+            else if(metric == deglib::Metric::InnerProduct)
+            {
+                #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
+                if (dim % 16 == 0)
+                    return Factory::template build<deglib::distances::InnerProductFloat16Ext>();
+                else if (dim % 8 == 0)
+                    return Factory::template build<deglib::distances::InnerProductFloat8Ext>();
+                else if (dim % 4 == 0)
+                    return Factory::template build<deglib::distances::InnerProductFloat4Ext>();
+                else if (dim > 16)
+                    return Factory::template build<deglib::distances::InnerProductFloat16ExtResiduals>();
+                else if (dim > 4)
+                    return Factory::template build<deglib::distances::InnerProductFloat4ExtResiduals>();
+                #elif
+                    return Factory::template build<deglib::distances::InnerProductFloat>();
+                #endif
+            }
+            return Factory::template build<deglib::distances::L2Float>();
+        }
+
+        size_t dim() const {
             return dim_;
         }
 
-        const deglib::Metric metric() const {
+        deglib::Metric metric() const {
             return metric_;
         }
 
 
-        const size_t get_data_size() const {
+        size_t get_data_size() const {
             return data_size_;
         }
 
-        const DISTFUNC<float> get_dist_func() const {
+        DISTFUNC<float> get_dist_func() const {
             return fstdistfunc_;
         }
 
@@ -490,7 +488,17 @@ namespace deglib {
             return &dim_;
         }
 
-        ~FloatSpace() {}
+    private:
+        struct ComparatorFactory {
+            template<class Comparator>
+            static auto build() {
+                return &Comparator::compare;
+            }
+        };
+
+        DISTFUNC<float> select_dist_func() {
+            return build_with_distance_function<ComparatorFactory>();
+        }
     };
 
 }  // end namespace deglib
